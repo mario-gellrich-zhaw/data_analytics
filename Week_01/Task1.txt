@@ -1,0 +1,24 @@
+Task 1: Problem Statement gmacht 
+Not knowing the prices of rental apartments in Zuerich
+I wanr a price prediction model - so I know the approx. price of rentals
+How do property characteristics (e.g., location, size) influence rental prices in Zurich?
+Larger Apartements in Zuerich are more expensive than smaller apartments
+Helps tenants make smart decisions 
+
+
+Task 2: 
+
+
+
+Task 3:
+# Save data to file
+with open('supermarkets.json', 'w') as json_file:
+    json.dump(data, json_file)
+
+    speicherts dile 
+
+    command shift p --> format documents und denn formattierts wie du es wettsch (formated json) 
+
+
+
+    Step 11 ignoriere! 
