@@ -1,0 +1,67 @@
+{
+    "_id": "winterthur",
+    "selectors": [
+        {
+            "id": "winterthur",
+            "multiple": true,
+            "parentSelectors": [
+                "_root"
+            ],
+            "selector": "div.HgListingCard_info_RKrwz",
+            "type": "SelectorElement"
+        },
+        {
+            "id": "rooms_area_price_raw",
+            "multiple": false,
+            "parentSelectors": [
+                "winterthur"
+            ],
+            "regex": "",
+            "selector": "div.HgListingCard_mainTitle_x0p2D",
+            "type": "SelectorText"
+        },
+        {
+            "id": "address_raw",
+            "multiple": false,
+            "parentSelectors": [
+                "winterthur"
+            ],
+            "regex": "",
+            "selector": "address",
+            "type": "SelectorText"
+        },
+        {
+            "id": "prices_raw",
+            "multiple": false,
+            "parentSelectors": [
+                "winterthur"
+            ],
+            "regex": "",
+            "selector": "span.HgListingRoomsLivingSpacePrice_price_u9Vee",
+            "type": "SelectorText"
+        },
+        {
+            "id": "description_raw",
+            "multiple": false,
+            "parentSelectors": [
+                "winterthur"
+            ],
+            "regex": "",
+            "selector": ".HgListingDescription_title_NAAxy span",
+            "type": "SelectorText"
+        },
+        {
+            "id": "text_raw",
+            "multiple": false,
+            "parentSelectors": [
+                "winterthur"
+            ],
+            "regex": "",
+            "selector": "p.HgListingDescription_large_uKs3J",
+            "type": "SelectorText"
+        }
+    ],
+    "startUrl": [
+        "https://www.immoscout24.ch/de/wohnung/mieten/ort-winterthur?pn=[1-5]"
+    ]
+}
