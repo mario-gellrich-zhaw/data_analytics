@@ -1,0 +1,87 @@
+{
+    "_id": "winterthur",
+    "startUrl": [
+        "https://www.immoscout24.ch/en/flat/rent/city-winterthur?pn[1-8]"
+    ],
+    "selectors": [
+        {
+            "id": "winterthur",
+            "parentSelectors": [
+                "_root"
+            ],
+            "type": "SelectorElement",
+            "selector": "div.HgListingCard_info_RKrwz",
+            "multiple": true
+        },
+        {
+            "id": "rooms_area_price_raw",
+            "parentSelectors": [
+                "winterthur"
+            ],
+            "type": "SelectorText",
+            "selector": "div.HgListingRoomsLivingSpacePrice_roomsLivingSpacePrice_M6Ktp",
+            "multiple": false,
+            "regex": ""
+        },
+        {
+            "id": "adress_raw",
+            "parentSelectors": [
+                "winterthur"
+            ],
+            "type": "SelectorText",
+            "selector": "address",
+            "multiple": false,
+            "regex": ""
+        },
+        {
+            "id": "rooms_raw",
+            "parentSelectors": [
+                "winterthur"
+            ],
+            "type": "SelectorText",
+            "selector": "strong:nth-of-type(1)",
+            "multiple": false,
+            "regex": ""
+        },
+        {
+            "id": "price_raw",
+            "parentSelectors": [
+                "winterthur"
+            ],
+            "type": "SelectorText",
+            "selector": "span.HgListingRoomsLivingSpacePrice_price_u9Vee",
+            "multiple": false,
+            "regex": ""
+        },
+        {
+            "id": "area_raw",
+            "parentSelectors": [
+                "winterthur"
+            ],
+            "type": "SelectorText",
+            "selector": "strong[title]",
+            "multiple": false,
+            "regex": ""
+        },
+        {
+            "id": "description_raw",
+            "parentSelectors": [
+                "winterthur"
+            ],
+            "type": "SelectorText",
+            "selector": ".HgListingDescription_title_NAAxy span",
+            "multiple": false,
+            "regex": ""
+        },
+        {
+            "id": "text_raw",
+            "parentSelectors": [
+                "winterthur"
+            ],
+            "type": "SelectorText",
+            "selector": "p.HgListingDescription_large_uKs3J",
+            "multiple": false,
+            "regex": ""
+        }
+    ]
+}
