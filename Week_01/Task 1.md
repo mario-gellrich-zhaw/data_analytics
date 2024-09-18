@@ -19,6 +19,8 @@
    - Optimierte Preise für Vermieter und Immobilienverwalter.
    - Unterstützung für Investoren bei datengestützten Entscheidungen.
 
+   
+
 ### Anwendungsfall 2: Nachfrage und Angebot für Supermärkte in Schweizer Gemeinden
 
 1. **Problemdefinition**
