@@ -2,15 +2,13 @@
 
 Repository of the Data Analytics module at ZHAW
 
-> ℹ️ **NOTICE:** Please note that the weekly material will always be available shortly before the course starts.
-
 ## Getting Started
 
 ### GitHub Codespaces (our working environment for the course)
 
 Create a new codespace on GitHub. Everything should be set up as needed.
 
-### Locally (use only, if you need a clone of the GitHub repository on your local computer)
+### Local Installations (use only, if you need a clone of the GitHub repository on your local computer)
 
 Assuming you have
 
