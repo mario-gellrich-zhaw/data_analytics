@@ -63,7 +63,7 @@ Data Analytics/
 └── requirements.txt
 ```
 
-## Fork a GitHub repository
+## Fork the GitHub repository
 ```bash
 To fork the GitHub repository with the course material, navigate with your web browser to:
 
