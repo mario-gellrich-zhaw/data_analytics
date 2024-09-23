@@ -103,7 +103,7 @@ git remote -v
 # upstream        https://github.com/mario-gellrich-zhaw/data_analytics.git (push)
 ```
 
-### Sync origin with upstream
+### Sync your fork (origin) with upstream
 
 To sync your fork (origin) with the upstream repository you can use the following Git commands (VS Code Terminal):
 
