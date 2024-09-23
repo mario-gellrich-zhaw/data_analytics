@@ -40,7 +40,10 @@ Once the course is complete, the folder structure will look like this:
 Data Analytics/
 │
 ├── .devcontainer/
-│   └── .devcontainer.json
+│   └── devcontainer.json
+├── .vscode/
+│   └── settings.json
+|
 ├── Week_01/
 ├── Week_02/
 ├── Week_03/
@@ -54,62 +57,63 @@ Data Analytics/
 ├── Week_12/
 ├── Week_13/
 ├── Week_14/
+├── WTYK/
 ├── .gitignore
 ├── README.md
 └── requirements.txt
 ```
 
-## Useful git commands
-
-Before running these commands, make sure you're in your working directory.
-
-If not, use this command:
-
+## Fork a GitHub repository (VS Code Terminal)
 ```bash
-cd /workspaces/data_analytics  # your working directory
+# 1.) To fork the GitHub repository with the course material, navigate to:
+
+https://github.com/mario-gellrich-zhaw/data_analytics.git
+
+# --> Click on the "Fork" button at the top right of the page.
+# --> This will generate a fork (copy) of the repository in your GitHub account.
+
+# 2. Configure your Git username & email
+git config --global user.name "FIRST_NAME LAST_NAME"
+git config --global user.email "your-email-on-github@example.com"
+
+# 3. Add the url of the upstream repository (= official course repository)
+git remote add upstream https://github.com/mario-gellrich-zhaw/data_analytics.git
+
+# 4. Set the url of the origin (= your forked repository with the SSH URL)
+git remote set-url origin git@github.com:YOUR-USERNAME/data_analytics.git
+
+# 5. View the current configured remote repositories
+git remote -v
+
+# The output should look like (replace YOUR-USERNAME with your user name) ...
+# origin  git@github.com:YOUR-USERNAME/data_analytics.git(fetch)
+# origin  git@github.com:YOUR-USERNAME/data_analytics.git (push)
+# upstream        https://github.com/mario-gellrich-zhaw/data_analytics.git (fetch)
+# upstream        https://github.com/mario-gellrich-zhaw/data_analytics.git (push)
 ```
 
-### Clear git cache
+## Sync origin with upstream  (VS Code Terminal)
 
-You can clear your git history (remove files and folders from the Git index) by using the following commands
-
-```bash
-git rm -r --cached .
-git rm -r --cached ./foldername
-git rm --cached <filename>
-```
-
-### Push to remote repository
+To sync your fork (origin) with the upstream repository you can use the following Git commands:
 
 ```bash
-git remote -v                                 # verify remote url
-git remote set-url origin <url_of_your_fork>  # set remote url
-git push origin main                          # push to remote
+# Option (1): Sync your fork/clone to exactly match the upstream (your local changes will be overwritten)
+git fetch upstream
+git checkout master
+git reset --hard upstream/master
+git push origin master --force
+
+# Option (2): Sync your fork/clone with the upstream (your local changes are preserved but merge conflicts may have to be resolved)
+git fetch upstream
+git checkout master
+git merge upstream/master
+git push origin master
 ```
 
-### Force Push and Pull to/from remote repository
+## Solve merge conflicts
 
-```bash
-git push --force
-git pull --force
-```
+In the course you will modify the Python code provided on GitHub. When you modify Python code, merge conflicts may occur which is when two or more changes conflict with each other. This usually happens when multiple people are working on the same project and they try to merge their changes into a common codebase.
 
-### Rebase
+In VS Code, you can use the Merge Editor to solve merge conflics.
 
-Rebase local changes on top of changes from the remote repository.
-
-```bash
-git config pull.rebase true  # run this once for working directory
-git pull --tags origin main  # updates codebase
-```
-
-### Branching
-
-Create and change branches
-
-```bash
-git branch                 # shows current branch
-git checkout main          # returns to main branch
-git checkout -b week_01    # creates and changes to the new branch 'week_01'
-git checkout main          # returns to main branch
-```
+The following video explains how this works: https://www.youtube.com/watch?v=KuB6hYoLozw
