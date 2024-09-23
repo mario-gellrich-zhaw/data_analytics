@@ -4,9 +4,22 @@ Repository of the Data Analytics module at ZHAW
 
 ## Getting Started
 
-### GitHub Codespaces (our working environment for the course)
+### Creating a fork of the course GitHub repository
 
-Create a new codespace on GitHub. Everything should be set up as needed.
+To fork the GitHub repository with the course material, navigate with your web browser to:
+
+```bash
+https://github.com/mario-gellrich-zhaw/data_analytics.git
+
+# --> Click on the "Fork" button at the top right of the page.
+# --> This will generate a fork (copy) of the repository in your GitHub account.
+```
+
+### Creating a GitHub Codespaces Environment (our working environment for the course)
+
+Based on your fork, create a new Codespace: GitHub -> Upper menu -> Create new -> New Codespace.
+
+All installations are carried out automatically. Wait until the postcreate command has completed the installation of the Python libraries.
 
 ### Local Installations (use only, if you need a clone of the GitHub repository on your local computer)
 
@@ -34,7 +47,7 @@ pip install -r requirements.txt  # installs the required Python libraries
 
 ## Folder Structure
 
-Once the course is complete, the folder structure will look like this:
+The folder structure of the course:
 
 ```
 Data Analytics/
@@ -64,17 +77,6 @@ Data Analytics/
 ```
 
 ## Useful Git Commands
-
-### Creating a fork of the course GitHub repository
-
-To fork the GitHub repository with the course material, navigate with your web browser to:
-
-```bash
-https://github.com/mario-gellrich-zhaw/data_analytics.git
-
-# --> Click on the "Fork" button at the top right of the page.
-# --> This will generate a fork (copy) of the repository in your GitHub account.
-```
 
 ### Configuring Git
 
