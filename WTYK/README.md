@@ -1,1 +1,1 @@
-**This is the Folder with the exercises in the large classes (no submission required)!**
+**This is the Folder with the exercises in the large classes (no submissions required)!**
