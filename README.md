@@ -4,9 +4,9 @@ Repository of the Data Analytics module at ZHAW
 
 ## Getting Started
 
-### Creating a fork of the course GitHub repository
+### Creating a fork of the course repository
 
-To fork the GitHub repository with the course material, navigate with your web browser to:
+To fork the GitHub repository into your GitHub account, navigate with your web browser to:
 
 ```bash
 https://github.com/mario-gellrich-zhaw/data_analytics.git
@@ -47,7 +47,7 @@ pip install -r requirements.txt  # installs the required Python libraries
 
 ## Folder Structure
 
-The folder structure of the course:
+The folder structure of the course is:
 
 ```
 Data Analytics/
@@ -80,7 +80,7 @@ Data Analytics/
 
 ### Configuring Git
 
-In order to sync changes, you must make the following configurations:
+To sync your fork (origin) with the upstream repository, you must make the following Git configurations (VS Code Terminal):
 
 ```bash
 # Configure your Git username & email
