@@ -63,26 +63,33 @@ Data Analytics/
 └── requirements.txt
 ```
 
-## Fork a GitHub repository (VS Code Terminal)
+## Fork a GitHub repository
 ```bash
-# 1.) To fork the GitHub repository with the course material, navigate to:
+To fork the GitHub repository with the course material, navigate with your web browser to:
 
+```bash
 https://github.com/mario-gellrich-zhaw/data_analytics.git
 
 # --> Click on the "Fork" button at the top right of the page.
 # --> This will generate a fork (copy) of the repository in your GitHub account.
+```
 
-# 2. Configure your Git username & email
+## Git Configurations
+
+In order to make synchronizations and push changes, you must make the following configurations:
+
+```bash
+# Configure your Git username & email
 git config --global user.name "FIRST_NAME LAST_NAME"
 git config --global user.email "your-email-on-github@example.com"
 
-# 3. Add the url of the upstream repository (= official course repository)
+# Add the url of the upstream repository (= official course repository)
 git remote add upstream https://github.com/mario-gellrich-zhaw/data_analytics.git
 
-# 4. Set the url of the origin (= your forked repository with the SSH URL)
+# Set the url of the origin (= your forked repository with the SSH URL)
 git remote set-url origin git@github.com:YOUR-USERNAME/data_analytics.git
 
-# 5. View the current configured remote repositories
+# View the current configured remote repositories
 git remote -v
 
 # The output should look like (replace YOUR-USERNAME with your user name) ...
@@ -92,9 +99,9 @@ git remote -v
 # upstream        https://github.com/mario-gellrich-zhaw/data_analytics.git (push)
 ```
 
-## Sync origin with upstream  (VS Code Terminal)
+## Sync origin with upstream
 
-To sync your fork (origin) with the upstream repository you can use the following Git commands:
+To sync your fork (origin) with the upstream repository you can use the following Git commands (VS Code Terminal):
 
 ```bash
 # Option (1): Sync your fork/clone to exactly match the upstream (your local changes will be overwritten)
