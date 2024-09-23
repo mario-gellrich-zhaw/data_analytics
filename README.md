@@ -63,7 +63,9 @@ Data Analytics/
 └── requirements.txt
 ```
 
-## Fork the GitHub repository
+## Useful Git Commands
+
+### Creating a fork of the course GitHub repository
 
 To fork the GitHub repository with the course material, navigate with your web browser to:
 
@@ -74,7 +76,7 @@ https://github.com/mario-gellrich-zhaw/data_analytics.git
 # --> This will generate a fork (copy) of the repository in your GitHub account.
 ```
 
-## Git Configurations
+### Configuring Git
 
 In order to make synchronizations and push changes, you must make the following configurations:
 
@@ -99,7 +101,7 @@ git remote -v
 # upstream        https://github.com/mario-gellrich-zhaw/data_analytics.git (push)
 ```
 
-## Sync origin with upstream
+### Sync origin with upstream
 
 To sync your fork (origin) with the upstream repository you can use the following Git commands (VS Code Terminal):
 
@@ -117,7 +119,7 @@ git merge upstream/master
 git push origin master
 ```
 
-## Solve merge conflicts
+### Solving merge conflicts
 
 In the course you will modify the Python code provided on GitHub. When you modify Python code, merge conflicts may occur which is when two or more changes conflict with each other. This usually happens when multiple people are working on the same project and they try to merge their changes into a common codebase.
 
