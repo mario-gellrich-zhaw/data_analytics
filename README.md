@@ -78,7 +78,7 @@ https://github.com/mario-gellrich-zhaw/data_analytics.git
 
 ### Configuring Git
 
-In order to make synchronizations and push changes, you must make the following configurations:
+In order to push/pull changes from/to the upstream repo, you must make the following configurations:
 
 ```bash
 # Configure your Git username & email
