@@ -4,7 +4,7 @@ Repository of the Data Analytics module at ZHAW
 
 ## Getting Started
 
-### Creating a fork of the course repository
+### Creating a Fork of the Course Repository
 
 To fork the GitHub repository into your GitHub account, navigate with your web browser to:
 
@@ -15,7 +15,7 @@ https://github.com/mario-gellrich-zhaw/data_analytics.git
 # --> This will generate a fork (copy) of the repository in your GitHub account.
 ```
 
-### Creating a GitHub Codespaces Environment (our working environment for the course)
+### Creating a GitHub Codespaces (our working environment for the course)
 
 Based on your fork, create a new Codespace: GitHub -> Upper menu -> Create new -> New Codespace.
 
