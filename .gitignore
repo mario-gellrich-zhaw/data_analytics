@@ -13,6 +13,9 @@
 # Ignore all .zip - files
 *.zip
 
+# Ignore all .DS_Store files
+*.DS_Store
+
 # Ignore output-files of weekly exercises
 
 # Week_01
