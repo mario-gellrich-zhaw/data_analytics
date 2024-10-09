@@ -39,15 +39,15 @@ Week_01/zuerich_sitemap.json
 
 # Week_04
 Week_04/python_code_outliers.txt
-Week_04/myplot.png
+#Week_04/myplot.png
 Week_04/apartments_data_enriched_cleaned.csv
-Week_04/rural_apartments.ipynb
+#Week_04/rural_apartments.ipynb
 Week_04/rural_apartments.html
-Week_04/city_apartments.ipynb
+#Week_04/city_apartments.ipynb
 Week_04/city_apartments.html
 Week_04/differences_rural_cities.pdf
-Week_04/exploratory_data_analysis_supermarket_data.ipynb
-Week_04/exploratory_data_analysis_supermarket_data.html
+#Week_04/exploratory_data_analysis_supermarket_data.ipynb
+#Week_04/exploratory_data_analysis_supermarket_data.html
 
 # Week_05
 Week_05/address_geocoded.png
