@@ -1,0 +1,25 @@
+import pandas as pd
+
+# Load data
+data = pd.read_csv('data.csv')
+
+# Display first few rows of the dataset
+print("First few rows of the dataset:")
+print(data.head())
+
+# Summary statistics
+print("\nSummary statistics:")
+print(data.describe())
+
+# Check for missing values
+print("\nMissing values in each column:")
+print(data.isnull().sum())
+
+# Correlation matrix
+print("\nCorrelation matrix:")
+print(data.corr())
+
+# Group by a specific column and calculate mean
+grouped_data = data.groupby('column_name').mean()
+print("\nGrouped data by 'column_name' and calculated mean:")
+print(grouped_data)
