@@ -79,6 +79,7 @@ Week_09/classification_analysis_supermarkets.html
 Week_09/classification_analysis_supermarkets.ipynb
 
 # Week_10
+Week_10/__pycache__/
 Week_10/k-means_clustering_task01.html
 Week_10/k-means_clustering_task02.html
 Week_10/3D_models
@@ -92,6 +93,7 @@ Week_11/neural_network_with_continuous_bag_of_words_CBOW.ipynb
 Week_11/text.txt
 
 # Week_12
+Week_12/__pycache__/
 Week_12/flask_simple_application.png
 Week_12/flask_matplotlib_example.png
 Week_12/flask_iris_model_example.png
