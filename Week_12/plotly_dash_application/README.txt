@@ -3,39 +3,22 @@
 #------------------------------------------------------------------------------------
 
 #--------------------------------------------------
-# Install dash
+# cd into the working folder
 #--------------------------------------------------
 
---> install dash in your activated environment
-    For this, open the Anaconda console and type
-    pip install dash==2.7.0
-
---> be sure that the version '2.7.0' is installed
-    to check this, run the following in Python ...
-    >>> import dash
-    >>> dash.__version__
-    '2.7.0'
-
---> exit Python by typing
-    >>> exit()
-
-#--------------------------------------------------
-# Go to the folder
-#--------------------------------------------------
-
-cd flask_dash_example
+cd plotly_dash_application
 
 #--------------------------------------------------
 # Run the Python script
 #--------------------------------------------------
 
-python app.py
+python app_01.py
 
 #--------------------------------------------------
-# Open a web browser and type
+# Click on the link provided in the Terminal, e.g.
 #--------------------------------------------------
 
-http://localhost:8050
+http://127.0.0.1:8050
 
 #--------------------------------------------------
 # For more information go to
