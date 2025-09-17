@@ -8,8 +8,8 @@ Based on your fork, create a new Codespace: GitHub -> Upper menu -> Create new -
 
 All installations are carried out automatically. Wait until the postcreate command has completed the installation of the Python libraries.
 
-[!CAUTION]
-Deleting your codespace will delete your working copy with all the changes you made to the repository (i.e. all your work on the exercises)
+> [!CAUTION]
+> Deleting your codespace will delete your working copy with all the changes you made to the repository (i.e. all your work on the exercises)
 
 ## Local Installations (if you want a clone of the GitHub repository on your local computer)
 
@@ -35,8 +35,8 @@ cd /workspaces/data_analytics    # go to your working directory
 pip install -r requirements.txt  # installs the required Python libraries
 ```
 
-[!CAUTION]
-Local installations are not supported by us because we do not know your local environment. Use this on your own responsibility.
+> [!CAUTION]
+> Local installations are not supported by us because we do not know your local environment. Use this on your own responsibility.
 
 ## Folder Structure
 
