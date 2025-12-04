@@ -2,18 +2,23 @@
 import io
 import numpy as np
 
-from flask import Blueprint
+from flask import Blueprint, redirect, url_for
 from flask import render_template
-from flask import abort
 from flask import current_app
-from flask import make_response
     
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from matplotlib.figure import Figure
 
 client = Blueprint('client', __name__, template_folder='templates', static_url_path='/static')
 
-# Flask route
+# Flask routes
+
+# If there is no parameter, redirect to default value
+@client.route('/', methods=['GET'])
+def home_default():
+    return redirect(url_for('client.home', observations=42))
+
+# Show a histogram with the given number of observations
 @client.route('/<int:observations>', methods=['GET'])
 def home(observations):
     title = current_app.config['TITLE']
