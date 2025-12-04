@@ -2,7 +2,7 @@
 
 Run the Python script app.py
 
-```python
+```console
 python app.py
 ```
 
