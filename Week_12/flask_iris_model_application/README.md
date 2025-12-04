@@ -2,13 +2,13 @@
 
 Run the knn model to create and save a machine learning model
 
-```python
+```console
 python model.py
 ```
 
 Run the flask application
 
-```python
+```console
 python app.py
 ```
 
