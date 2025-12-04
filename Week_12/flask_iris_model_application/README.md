@@ -1,10 +1,11 @@
-# Iris flower classification model deployment project as flask app
+# Iris flower classification model as flask app
 
 Run the knn model to create and save a machine learning model
 
 ```python
 python model.py
 ```
+
 Run the flask application
 
 ```python
@@ -24,6 +25,3 @@ Enter values to predict the corresponding Iris species. Remember that the values
 in cm of the iris flowers. 
 
 For example, you can use: 5, 4, 2, 1. Then click "Predict" to predict the flower type
-
-
-
