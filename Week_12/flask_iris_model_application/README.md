@@ -13,7 +13,7 @@ python app.py
 ```
 
 Open the web site in the browser by clicking on "Open in Browser" in the
-notification that pops up when running the flask application
+notification that pops up when running the flask application.
 
 Enter values to predict the corresponding Iris species. Remember that the values refer to the:
 
