@@ -1,46 +1,29 @@
-#------------------------------------------------------------------------------------
-# This is a simple iris flower classification model deployment project as flask app
-#------------------------------------------------------------------------------------
+# Iris flower classification model deployment project as flask app
 
-#------------------------------------------------------------------------------------
-# Activate your conda environment
-#------------------------------------------------------------------------------------
+Run the knn model to create and save a machine learning model
 
-conda activate daenv
-
-#------------------------------------------------------------------------------------
-# Navigate to your folder 'flask_iris_model_example'
-#------------------------------------------------------------------------------------
-
-# e.g.:
-cd U:/Lektionen/DA_HS2022/KK/Week_12/flask_iris_model_example
-
-#------------------------------------------------------------------------------------
-# Run the knn model to create and save a machine learning model
-#------------------------------------------------------------------------------------
-
+```python
 python model.py
+```
+Run the flask application
 
-#------------------------------------------------------------------------------------
-# Run the flask application
-#------------------------------------------------------------------------------------
-
+```python
 python app.py
+```
 
-#------------------------------------------------------------------------------------
-# Access the web aplication in a web browser by using the following url
-#------------------------------------------------------------------------------------
+Open the web site in the browser by clicking on "Open in Browser" in the
+notification that pops up when running the flask application
 
-http://localhost:8080
+Enter values to predict the corresponding Iris species. Remember that the values refer to the:
 
-# Now, inlude some values to predict the corresponding Iris species
-# Remember that the values refer to the:
-# sepal.length 
-# sepal.width
-# petal.length
-# petal.width
-# in cm of the iris flowers. 
-# For example, you can use: 5, 4, 2, 1
+- sepal.length 
+- sepal.width
+- petal.length
+- petal.width
+
+in cm of the iris flowers. 
+
+For example, you can use: 5, 4, 2, 1. Then click "Predict" to predict the flower type
 
 
 
