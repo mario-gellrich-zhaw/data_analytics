@@ -7,7 +7,7 @@ python app.py
 ```
 
 Open the web site in the browser by clicking on "Open in Browser" in the
-notification that pops up when running the flask application
+notification that pops up when running the flask application.
 
 Change the number of observations by changing the parameter at the end of the URL in the browser. For example:
 
