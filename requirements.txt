@@ -13,7 +13,7 @@ folium==0.17.0
 scikit-learn==1.5.1
 numpy==1.26.4
 opencv-python==4.10.0.84
-nltk==3.8.1
+nltk==3.9.3
 wordcloud==1.9.3
 tensorflow==2.17.0
 open3d==0.18.0
