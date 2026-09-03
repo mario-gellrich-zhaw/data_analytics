@@ -17,6 +17,27 @@ course.
 1. **Cells and cell types**
     - Add a markdown cell with a level-2 heading and a short bullet list
       describing what you already know about Jupyter notebooks or pandas
+    - Markdown cells also render plain HTML, which is handy when you need
+      something Markdown syntax alone can't do well, such as a table with
+      merged formatting. Add a markdown cell containing an HTML table like
+      the one below, listing 2-3 cell types and their purpose:
+
+      ```html
+      <table>
+        <tr><th>Cell Type</th><th>Purpose</th></tr>
+        <tr><td>Code</td><td>Runs Python code</td></tr>
+        <tr><td>Markdown</td><td>Formatted text, headings, tables, images</td></tr>
+      </table>
+      ```
+
+      which renders as:
+
+      <table>
+        <tr><th>Cell Type</th><th>Purpose</th></tr>
+        <tr><td>Code</td><td>Runs Python code</td></tr>
+        <tr><td>Markdown</td><td>Formatted text, headings, tables, images</td></tr>
+      </table>
+
     - Add a code cell below it that prints a welcome message including your
       name
     - Use **Kernel → Restart Kernel and Run All Cells** and confirm the
@@ -29,6 +50,17 @@ course.
       the notebook
     - Use `%time` on a single line of code that builds a list of the squares
       of the first 100,000 integers, and report how long it took (in ms)
+
+> **CPU time vs. Wall time**: `%time` and `%%time` report two different
+> numbers. **Wall time** ("Wall time: ...") is the real-world elapsed time
+> from start to finish, as if you were watching a clock on the wall.
+> **CPU time** ("CPU times: user ... sys ... total ...") is how much time
+> the processor itself spent actively working — `user` time on your code,
+> `sys` time on operating system calls (e.g. file I/O). On a single-core,
+> non-parallel, non-blocking task these are usually close. Wall time can be
+> *longer* than CPU time if the process was waiting (e.g. for disk or
+> network), and CPU time can be *longer* than wall time if the work was
+> spread across multiple cores at once.
 
 3. **Cell magics: `%%time` and `%%writefile`**
     - Use `%%time` at the top of a cell to measure how long a loop that sums
