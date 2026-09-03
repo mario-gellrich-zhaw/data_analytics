@@ -1,6 +1,11 @@
 This exercise is designed to help you practice data simulation, visualization using 
 boxplots, and statistical analysis using ANOVA. 
 
+> Use a random seed derived from your own birthday (e.g. `np.random.seed(day + month)`
+> where day/month come from your birth date) so your simulated data — and therefore
+> your results — are unique to you. Report the actual F-statistic, p-value, and your
+> conclusion based on *your own* simulated numbers, not example values.
+
 Task:
 
 1.) Simulate data (dataframe with three columns) with smartphone brands, type and prices.
@@ -10,3 +15,4 @@ Task:
 
 3.) Use Anlysis of Variance (ANOVA) to investigate whether prices differ between groups
     For this, define a statistical Hypothesis and a suitable significance level alpha (α).
+	Report the actual F-statistic and p-value you obtained, and state your conclusion.

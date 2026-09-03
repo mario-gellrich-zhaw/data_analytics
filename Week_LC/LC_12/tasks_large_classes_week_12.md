@@ -3,6 +3,10 @@ using Python and Flask, while also introducing you to the concept of retrieving 
 financial sentiment data. The focus is on building a functional web app that dynamically displays 
 the Fear & Greed Index, a popular financial market indicator.
 
+> Take a screenshot of your running app showing today's actual Fear & Greed value and
+> gauge chart — the value changes daily and the app must actually run locally to
+> produce it, so a generic AI answer cannot substitute for this.
+
 Tasks: 
 
 1.) Create a web application with Python and flask showing the Fear & Greed Index
@@ -18,3 +22,4 @@ Tasks:
     data.value
 	
 3.) The web application must contain a gauge chart with the Fear & Greed Index.
+    Report today's actual index value shown in your app.

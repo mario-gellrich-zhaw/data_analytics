@@ -1,6 +1,12 @@
 This exercise is designed to build and enhance your skills in data manipulation, string processing, 
 regular expressions (regex), and pivot tables using the pandas and numpy libraries in Python. 
 
+> Several sub-tasks below ask you to report the *actual* values you computed
+> (not example numbers). These can only be answered correctly by running the
+> code yourself on the real CSV — pasting a generic AI-generated answer will
+> not give you the right numbers, since the regex has to match this file's
+> actual text.
+
 Tasks:
 
 1.) Working with strings
@@ -20,3 +26,5 @@ Tasks:
 	   - 'Occasion' as index variable,
 	   - 'Price_numeric' and 'Price_original' as values
 	   - np.mean (i.e. mean from the numpy library) as the aggregation function.
+    c) Report the actual mean 'Price_numeric' and 'Price_original' values your
+       pivot table shows for Occasion = 0 and Occasion = 1.

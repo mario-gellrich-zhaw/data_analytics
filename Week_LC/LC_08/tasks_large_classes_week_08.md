@@ -2,6 +2,11 @@ This exercise is designed to teach you key concepts and techniques in predictive
 specifically focusing on multiple linear regression and random forest regression. You'll 
 learn how to preprocess data, build and evaluate regression models, and interpret the results. 
 
+> Report the actual goodness-of-fit values (e.g. R², RMSE) you obtain for each model,
+> and describe what your actual residual plots look like in your own words — these
+> depend on your specific train/test split and cannot be guessed by an AI without
+> running the code against this dataset.
+
 Tasks:
 
 1.) Import the car data set 'autoscout24_data_prepared.csv'.
@@ -15,8 +20,8 @@ Tasks:
 	'HP_num' = explanatory variable
     'Fuel_Type' =  explanatory variable
     
-	Evaluate the model using suitable goodness-of-fit measures.
-	Check model residuals graphically.
+	Evaluate the model using suitable goodness-of-fit measures. Report the actual values.
+	Check model residuals graphically and describe what you observe.
 
 3.) Fit a random forest regression model with:
     'Price_num' = target variable
@@ -24,6 +29,6 @@ Tasks:
 	'HP_num' = explanatory variable
     'Fuel_Type' =  explanatory variable
 
-	Evaluate the model using suitable goodness-of-fit measures.
-	Check model residuals graphically.
-	Evaluate feature importance.
+	Evaluate the model using suitable goodness-of-fit measures. Report the actual values.
+	Check model residuals graphically and describe what you observe.
+	Evaluate feature importance and report which feature came out on top for your run.
