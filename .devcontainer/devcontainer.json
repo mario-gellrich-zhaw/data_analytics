@@ -14,8 +14,7 @@
 				"grapecity.gc-excelviewer",
 				"github.copilot",
 				"github.copilot-chat",
-				"mechatroner.rainbow-csv",
-				"randomfractalsinc.vscode-leaflet"
+				"mechatroner.rainbow-csv"
 			],
 			"settings": {
 				"workbench.colorTheme": "Default Dark+",
