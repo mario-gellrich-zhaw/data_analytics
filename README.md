@@ -64,7 +64,7 @@ Data Analytics/
 ├── Week_12/
 ├── Week_13/
 ├── Week_14/
-├── WTYK/
+├── Week_LC/
 ├── .gitignore
 ├── README.md
 └── requirements.txt

@@ -107,16 +107,16 @@ Week_13/object_detection_tensorflow.ipynb
 
 # Week_14
 
-# Ignore WTYK solution notebooks
-WTYK/LC_02/solution_exercise_reading_datasets.ipynb
-WTYK/LC_03/solution_exercise_preparing_car_data.ipynb
-WTYK/LC_04/solution_yahoo_finance_example.ipynb
-WTYK/LC_06/solution_smartphone_prices.ipynb
-WTYK/LC_07/solution_chi-squared_test_correlation_analysis.ipynb
-WTYK/LC_08/solution_regression_analysis.ipynb
-WTYK/LC_09/solution_classification_models.ipynb
-WTYK/LC_10/solution_image_segementation_k_means_clustering.ipynb
-WTYK/LC_11/solution_neural_network_with_CBOW.ipynb
+# Ignore Week_LC solution notebooks
+Week_LC/LC_02/solution_exercise_reading_datasets.ipynb
+Week_LC/LC_03/solution_exercise_preparing_car_data.ipynb
+Week_LC/LC_04/solution_yahoo_finance_example.ipynb
+Week_LC/LC_06/solution_smartphone_prices.ipynb
+Week_LC/LC_07/solution_chi-squared_test_correlation_analysis.ipynb
+Week_LC/LC_08/solution_regression_analysis.ipynb
+Week_LC/LC_09/solution_classification_models.ipynb
+Week_LC/LC_10/solution_image_segementation_k_means_clustering.ipynb
+Week_LC/LC_11/solution_neural_network_with_CBOW.ipynb
 
 # Ignore single folders
 # Week_01

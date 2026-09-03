@@ -1,6 +1,9 @@
 # Data Manipulation and Analysis Exercise
 
-This exercise is designed to help you practice essential data manipulation and analysis skills using pandas, a powerful data analysis library in Python. Each step of the exercise targets specific tasks commonly encountered when working with real-world data.
+This exercise is designed to help you practice essential data manipulation and   
+analysis skills using pandas, a powerful data analysis library in Python. Each   
+step of the exercise targets specific tasks commonly encountered when working   
+with real-world data.
 
 ## Tasks
 
