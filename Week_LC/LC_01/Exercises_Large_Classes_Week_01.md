@@ -19,6 +19,7 @@ course.
 
 ### Task 1 — Cells and cell types
 
+- Create a new Jupyter notebook in this folder (in VS Code: **File → New File... → Jupyter Notebook**, or use the Explorer's "New File" button and name it e.g. `exercise_jupyter_basics.ipynb`)
 - Add a markdown cell with a level-2 heading and a short bullet list
   describing what you already know about Jupyter notebooks or pandas
 - Markdown cells also render plain HTML, which is handy when you need
