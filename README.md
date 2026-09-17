@@ -4,9 +4,10 @@ Repository of the Data Analytics module at ZHAW. The recommended way to work wit
 
 ## Creating a GitHub Codespace (our working environment for the course)
 
-Based on your fork, create a new Codespace: GitHub -> Upper menu -> Create new -> New Codespace.
+Based on this repository, create a new Codespace: GitHub -> Upper menu -> Create new -> New Codespace. All installations are carried out automatically. Wait until the postcreate command has completed the installation of the Python libraries.
 
-All installations are carried out automatically. Wait until the postcreate command has completed the installation of the Python libraries.
+> [!CAUTION]
+> Do not commit anything in your workspace. This is not necessary and will complicate getting updates from the repository later.
 
 > [!CAUTION]
 > Deleting your codespace will delete your working copy with all the changes you made to the repository (i.e. all your work on the exercises)
@@ -18,15 +19,13 @@ Assuming you have
 - [Visual Studio Code](https://code.visualstudio.com/Download)
 - [git](https://github.com/git-guides/install-git)
 - [Python3](https://www.python.org/downloads/)
-- [Created a fork](https://github.com/mario-gellrich-zhaw/data_analytics/fork) of this repository and [set up an SSH key](https://docs.github.com/en/github-ae@latest/authentication/connecting-to-github-with-ssh/adding-a-new-ssh-key-to-your-github-account)
+- [set up an SSH key](https://docs.github.com/en/github-ae@latest/authentication/connecting-to-github-with-ssh/adding-a-new-ssh-key-to-your-github-account)
 
 You can clone this repository to your local computer using:
 
 ```
-git clone <repository-url>
+git clone https://github.com/mario-gellrich-zhaw/data_analytics
 ```
-
-where `<repository-url>` is the url of your fork (click green button above, Local, SSH).
 
 After that, run:
 
