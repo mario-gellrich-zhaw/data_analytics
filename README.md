@@ -23,13 +23,13 @@ Assuming you have
 
 You can clone this repository to your local computer using:
 
-```
+```console
 git clone https://github.com/mario-gellrich-zhaw/data_analytics
 ```
 
 After that, run:
 
-```bash
+```console
 cd /workspaces/data_analytics    # go to your working directory
 pip install -r requirements.txt  # installs the required Python libraries
 ```
