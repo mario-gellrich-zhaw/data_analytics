@@ -26,10 +26,18 @@ run looks like this, but nothing about the order is hard-coded:
    looks like.
 
 Both agents share one growing conversation transcript, so neither "forgets"
-what's already been tried (e.g. a platform that was already blocked) — this
-also means the conversation ends dynamically, once both agents say, in their
-own words, that they're satisfied (bounded by a safety cap so a live demo
-can't run forever).
+what's already been tried (e.g. a platform that was already blocked).
+
+**It's open-ended, not one-shot.** Once a "chapter" (a sub-goal like the one
+above) is done, the agents ask each other what to explore next — a different
+city/canton, a time comparison, individual listings vs. aggregates, a related
+indicator — and keep going with the same real tools, for as long as you let
+them. Click **Stop** at any time to end the run cleanly (it finishes the
+current exchange rather than cutting it off mid-sentence); if nobody stops
+it, a generous safety net (120 turns or 20 minutes, whichever comes first)
+ends it automatically. A chapter that stalls going in circles (e.g. endless
+"let's rename this column" back-and-forth) is force-ended after 18 turns
+rather than looping forever.
 
 Nothing is swapped in quietly: every number the agents discuss comes from a
 real HTTP request or a real pandas computation on the file that was just
@@ -61,18 +69,21 @@ downloaded.
     the real column names.
   - `preview_data(n)` &mdash; really reads the first N rows of the downloaded
     file (the agent decides N).
-- `server.py` &mdash; a tiny backend (**FastAPI**, not Flask) with one page
-  and one Server-Sent-Events endpoint (`/api/stream`) that streams each
-  conversation turn and progress update to the browser as it happens, and
-  runs the whole conversation as a single loop that ends once both agents
-  independently signal (via a short status tag in their own reply, stripped
-  before display) that they're satisfied — or a safety cap is hit.
+- `server.py` &mdash; a tiny backend (**FastAPI**, not Flask) with one page,
+  a Server-Sent-Events endpoint (`/api/stream`) that streams each turn and
+  progress update as it happens, and a `POST /api/stop` endpoint for the
+  Stop button. Runs the conversation as chapters: each turn ends with a
+  short status tag (`[STATUS: CONTINUE]` / `[STATUS: NEXT]`, stripped before
+  display) that the agent sets itself; once both agents say `NEXT` for the
+  current chapter, a `chapter_done` event fires with that chapter's real
+  findings and a new chapter begins.
 - `static/` &mdash; a plain HTML/CSS/vanilla-JS frontend (no build step, no
   npm): chat bubbles (left = Data Researcher, right = Data Source Expert, two
   colors only &mdash; a small "real action" label marks a real tool call
-  without changing the bubble color), a live progress bar, and a results
-  panel with the real dataset source, download size, structure/quality
-  stats, and a table of the first rows.
+  without changing the bubble color), a per-chapter progress bar, a
+  Start/Stop/Run-again button, and an accumulating list of result cards, one
+  per chapter, each with its real dataset source, download size,
+  structure/quality stats, and a table of the first rows.
 
 ## Setup
 
@@ -86,13 +97,16 @@ downloaded.
    ```
    python server.py
    ```
-4. Open <http://localhost:8000> and click **Start conversation**.
+4. Open <http://localhost:8000> and click **Start conversation**. Click
+   **Stop** at any point to end the run.
 
 > [!NOTE]
-> Each run calls the OpenAI API repeatedly and makes several real outbound
-> HTTP requests (platform scrape attempts, opendata.swiss searches, a real
-> file download, row-preview reads) &mdash; exactly which and how many
-> depends on what the agents decide to do. It consumes your OpenAI API
-> credits and typically takes 1&ndash;3 minutes end to end. The demo uses
-> `gpt-4o-mini` by default and paces messages ~4s apart so a class can read
-> along. `downloaded_dataset.csv` is generated at runtime and is git-ignored.
+> This keeps calling the OpenAI API and making real outbound HTTP requests
+> (platform scrape attempts, opendata.swiss searches, real file downloads,
+> row-preview reads) for as long as it runs &mdash; exactly which and how
+> many depends on what the agents decide to explore. It consumes your OpenAI
+> API credits for the whole duration, so use **Stop** rather than leaving it
+> running unattended; there's also an automatic cap (120 turns / 20 minutes)
+> as a backstop. The demo uses `gpt-4o-mini` by default and paces messages
+> ~4s apart so a class can read along. `downloaded_dataset.csv` is generated
+> at runtime and is git-ignored.

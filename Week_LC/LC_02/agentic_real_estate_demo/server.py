@@ -210,8 +210,10 @@ def _run_demo(q: "queue.Queue"):
                 "what the Data Source Expert actually finds, downloads, and "
                 "analyzes, and push back if something seems off (e.g. a "
                 "platform that was already tried and blocked, or a dataset "
-                "with no price column). Keep messages short and natural, more "
-                "detailed only when discussing real data quality."
+                "with no price column). BE TERSE: one short sentence, max ~12 "
+                "words, every single message — no pleasantries, no 'let me "
+                "know what you find', no restating what was just said. Just "
+                "the essential reaction or the next question."
                 + STATUS_RULE
             ),
             model=MODEL,
