@@ -3,7 +3,6 @@ const statusBar = document.getElementById("status-bar");
 const statusText = document.getElementById("status-text");
 const progressFill = document.getElementById("progress-fill");
 const chat = document.getElementById("chat");
-const resultSection = document.getElementById("result");
 
 // Chapter length is dynamic (the agents decide when a chapter is done), so
 // this is just an estimate for a smoothly-filling per-chapter progress bar.
@@ -167,8 +166,10 @@ function buildChapterCard(chapterNum, data) {
 function addChapterCard(chapterNum, data) {
   const card = buildChapterCard(chapterNum, data);
   if (!card) return;
-  resultSection.classList.remove("hidden");
-  resultSection.appendChild(card);
+  // Appended into the same stream as the chat bubbles, in arrival order, so
+  // a chapter's data card lands right where it happened in the
+  // conversation — not collected separately at the top or bottom.
+  chat.appendChild(card);
   card.scrollIntoView({ behavior: "smooth", block: "end" });
 }
 
@@ -190,8 +191,6 @@ function startDemo() {
   setRunning(true);
   statusBar.classList.remove("hidden");
   chat.innerHTML = "";
-  resultSection.classList.add("hidden");
-  resultSection.innerHTML = "";
   currentChapter = 1;
   turnsInChapter = 0;
   setProgress("Connecting…");

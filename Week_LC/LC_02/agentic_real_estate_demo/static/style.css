@@ -238,15 +238,14 @@ h1 {
   opacity: 0.8;
 }
 
-#result {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  margin-top: 24px;
-}
-
+/* A chapter's data card sits inline in the conversation (not collected in a
+   separate section) — full width, unlike the left/right speech bubbles, so
+   it visually reads as "the group looked at a table together" rather than
+   something either agent said. */
 .chapter-card {
   position: relative;
+  align-self: stretch;
+  width: 100%;
   padding: 18px 20px;
   border-radius: 14px;
   border: 1px solid var(--border);
@@ -254,18 +253,18 @@ h1 {
   animation: fade-in 0.4s ease;
 }
 
-#result h2 {
+.chapter-card h2 {
   margin: 0 0 4px;
   font-size: 1.1rem;
 }
 
-#result .result-meta {
+.chapter-card .result-meta {
   margin: 0 0 14px;
   color: var(--text-muted);
   font-size: 0.88rem;
 }
 
-#result .dataset-list {
+.chapter-card .dataset-list {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -274,32 +273,32 @@ h1 {
   gap: 8px;
 }
 
-#result .dataset-item {
+.chapter-card .dataset-item {
   padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--bg);
 }
 
-#result .dataset-item a {
+.chapter-card .dataset-item a {
   font-weight: 600;
   color: var(--accent);
   text-decoration: none;
   font-size: 0.95rem;
 }
 
-#result .dataset-item a:hover {
+.chapter-card .dataset-item a:hover {
   text-decoration: underline;
 }
 
-#result .stat-grid {
+.chapter-card .stat-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
   gap: 10px;
   margin: 4px 0 14px;
 }
 
-#result .stat-tile {
+.chapter-card .stat-tile {
   padding: 12px 10px;
   border-radius: 10px;
   background: var(--bg);
@@ -307,50 +306,50 @@ h1 {
   text-align: center;
 }
 
-#result .stat-value {
+.chapter-card .stat-value {
   font-size: 1.4rem;
   font-weight: 700;
   color: var(--accent);
 }
 
-#result .stat-label {
+.chapter-card .stat-label {
   font-size: 0.75rem;
   color: var(--text-muted);
   margin-top: 2px;
 }
 
-#result .preview-heading {
+.chapter-card .preview-heading {
   margin: 18px 0 8px;
   font-size: 0.95rem;
 }
 
-#result .table-scroll {
+.chapter-card .table-scroll {
   overflow-x: auto;
   border: 1px solid var(--border);
   border-radius: 10px;
 }
 
-#result .preview-table {
+.chapter-card .preview-table {
   border-collapse: collapse;
   width: 100%;
   font-size: 0.8rem;
   white-space: nowrap;
 }
 
-#result .preview-table th,
-#result .preview-table td {
+.chapter-card .preview-table th,
+.chapter-card .preview-table td {
   text-align: left;
   padding: 6px 10px;
   border-bottom: 1px solid var(--border);
 }
 
-#result .preview-table th {
+.chapter-card .preview-table th {
   background: var(--bg);
   position: sticky;
   top: 0;
 }
 
-#result .preview-table tr:last-child td {
+.chapter-card .preview-table tr:last-child td {
   border-bottom: none;
 }
 

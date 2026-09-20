@@ -344,8 +344,20 @@ def stream():
     threading.Thread(target=_run_demo, args=(q,), daemon=True).start()
 
     def event_generator():
+        # A single turn can legitimately take a while (a slow model reply, a
+        # multi-MB download). Without something sent regularly, some proxies
+        # / port-forwarding layers treat the connection as idle and kill it,
+        # which the browser reports as "connection lost" even though the
+        # backend is still working. An SSE comment line (browsers ignore
+        # lines starting with ':') sent whenever nothing real has happened
+        # in HEARTBEAT_SECONDS keeps the connection visibly alive.
+        HEARTBEAT_SECONDS = 15
         while True:
-            item = q.get()
+            try:
+                item = q.get(timeout=HEARTBEAT_SECONDS)
+            except queue.Empty:
+                yield ": ping\n\n"
+                continue
             if item is None:
                 break
             yield item
