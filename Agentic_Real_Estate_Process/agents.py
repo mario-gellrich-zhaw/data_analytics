@@ -96,10 +96,9 @@ class Agent:
                     "role": "user",
                     "content": (
                         "React to that real result in ONE short sentence (max "
-                        "~15 words), unless you're in the middle of a detailed "
-                        "data-quality discussion, in which case 2-3 sentences "
-                        "are fine. Do not list individual items — they're "
-                        "shown separately in the UI."
+                        "~15 words). Do not list individual items or repeat "
+                        "numbers already in the result — they're shown "
+                        "separately in the UI."
                     ),
                 }
             ],

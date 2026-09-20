@@ -128,9 +128,11 @@ Week_LC/LC_12/deploy.prototxt
 Week_LC/LC_12/mobilenet_iter_73000.caffemodel
 Week_LC/LC_12/my_image.jpg
 
-# Ignore runtime artifacts (LC_02 agentic demo)
-Week_LC/LC_02/agentic_real_estate_demo/__pycache__/
-Week_LC/LC_02/agentic_real_estate_demo/downloaded_dataset.csv
+# Ignore runtime artifacts (Agentic Real Estate Process demo)
+Agentic_Real_Estate_Process/__pycache__/
+Agentic_Real_Estate_Process/downloaded_dataset.csv
+Agentic_Real_Estate_Process/cleaned_dataset.csv
+Agentic_Real_Estate_Process/rental_data.db
 
 # Ignore single folders
 # Week_01

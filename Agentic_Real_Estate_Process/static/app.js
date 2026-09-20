@@ -4,17 +4,20 @@ const statusText = document.getElementById("status-text");
 const progressFill = document.getElementById("progress-fill");
 const chat = document.getElementById("chat");
 
-// Chapter length is dynamic (the agents decide when a chapter is done), so
-// this is just an estimate for a smoothly-filling per-chapter progress bar.
-const EXPECTED_TURNS_PER_CHAPTER = 8;
+// A phase's length is dynamic (the agents decide when it's done), so this is
+// just an estimate for a smoothly-filling per-phase progress bar.
+const EXPECTED_TURNS_PER_PHASE = 7;
 
-let turnsInChapter = 0;
-let currentChapter = 1;
+let turnsInPhase = 0;
+let currentStepLabel = "";
 let eventSource = null;
 let isRunning = false;
+let vizPromise = null; // lazily-loaded Graphviz renderer, only if a "dot" sketch appears
 
 function speakerClass(speaker) {
-  return speaker === "Data Researcher" ? "researcher" : "expert";
+  if (speaker === "Product Manager") return "pm";
+  if (speaker === "Data Engineer") return "engineer";
+  return "analyst";
 }
 
 function addBubble(speaker, text, isAction) {
@@ -33,9 +36,17 @@ function addBubble(speaker, text, isAction) {
   bubble.scrollIntoView({ behavior: "smooth", block: "end" });
 }
 
+function addPhaseDivider(stepLabel, subLabel, step) {
+  const divider = document.createElement("div");
+  divider.className = "phase-divider";
+  divider.textContent = subLabel ? `Step ${step}/4 · ${stepLabel} — ${subLabel}` : `Step ${step}/4 · ${stepLabel}`;
+  chat.appendChild(divider);
+  divider.scrollIntoView({ behavior: "smooth", block: "end" });
+}
+
 function setProgress(stage) {
-  statusText.textContent = `Chapter ${currentChapter} · ${stage}`;
-  const pct = Math.min(100, Math.round((turnsInChapter / EXPECTED_TURNS_PER_CHAPTER) * 100));
+  statusText.textContent = currentStepLabel ? `${currentStepLabel} · ${stage}` : stage;
+  const pct = Math.min(100, Math.round((turnsInPhase / EXPECTED_TURNS_PER_PHASE) * 100));
   progressFill.style.width = `${pct}%`;
 }
 
@@ -55,10 +66,8 @@ function statTile(label, value) {
   return tile;
 }
 
-function previewTable(preview) {
-  if (!preview || !Array.isArray(preview.columns) || !Array.isArray(preview.rows) || preview.rows.length === 0) {
-    return null;
-  }
+function dataTable(columns, rows) {
+  if (!Array.isArray(columns) || !Array.isArray(rows) || rows.length === 0) return null;
 
   const wrap = document.createElement("div");
   wrap.className = "table-scroll";
@@ -67,14 +76,14 @@ function previewTable(preview) {
   table.className = "preview-table";
 
   const thead = document.createElement("tr");
-  preview.columns.forEach((col) => {
+  columns.forEach((col) => {
     const th = document.createElement("th");
     th.textContent = col;
     thead.appendChild(th);
   });
   table.appendChild(thead);
 
-  preview.rows.forEach((row) => {
+  rows.forEach((row) => {
     const tr = document.createElement("tr");
     row.forEach((value) => {
       const td = document.createElement("td");
@@ -89,21 +98,65 @@ function previewTable(preview) {
   return wrap;
 }
 
-function buildChapterCard(chapterNum, data) {
-  const { download, analysis, preview } = data || {};
-  const hasAnything = (download && Object.keys(download).length > 0) || (analysis && "n_rows" in analysis);
-  if (!hasAnything) return null;
+function loadViz() {
+  if (!vizPromise) {
+    vizPromise = import("https://cdn.jsdelivr.net/npm/@viz-js/viz@3/lib/viz-standalone.mjs")
+      .then((mod) => mod.instance());
+  }
+  return vizPromise;
+}
+
+function renderSketch(sketch) {
+  if (!sketch || !sketch.content) return null;
+
+  const wrap = document.createElement("div");
+  wrap.className = "sketch";
+
+  if (sketch.title) {
+    const title = document.createElement("div");
+    title.className = "sketch-title";
+    title.textContent = sketch.title;
+    wrap.appendChild(title);
+  }
+
+  if (sketch.kind === "dot") {
+    const box = document.createElement("div");
+    box.className = "sketch-dot";
+    box.textContent = "Rendering diagram…";
+    wrap.appendChild(box);
+    loadViz()
+      .then((viz) => {
+        box.replaceChildren(viz.renderSVGElement(sketch.content));
+      })
+      .catch(() => {
+        // Graceful fallback if the CDN render fails for any reason.
+        const pre = document.createElement("pre");
+        pre.className = "sketch-ascii";
+        pre.textContent = sketch.content;
+        box.replaceChildren(pre);
+      });
+  } else {
+    const pre = document.createElement("pre");
+    pre.className = "sketch-ascii";
+    pre.textContent = sketch.content;
+    wrap.appendChild(pre);
+  }
+
+  return wrap;
+}
+
+function buildCollectingCard(data) {
+  const { download } = data || {};
+  if (!download || Object.keys(download).length === 0) return null;
 
   const card = document.createElement("article");
-  card.className = "chapter-card";
+  card.className = "phase-card";
 
   const heading = document.createElement("h2");
-  heading.textContent = analysis && analysis.n_rows
-    ? `✅ Chapter ${chapterNum} — real data downloaded and analyzed`
-    : `⚠️ Chapter ${chapterNum} — didn't finish downloading/analyzing real data`;
+  heading.textContent = download.success ? "✅ Real data downloaded" : "⚠️ Download didn't complete";
   card.appendChild(heading);
 
-  if (download && download.dataset_title) {
+  if (download.dataset_title) {
     const meta = document.createElement("p");
     meta.className = "result-meta";
     const link = document.createElement("a");
@@ -115,60 +168,117 @@ function buildChapterCard(chapterNum, data) {
     card.appendChild(meta);
   }
 
-  if (download && download.success) {
-    const dl = document.createElement("p");
-    dl.className = "result-meta";
-    dl.textContent = `Download: ${download.bytes.toLocaleString()} bytes saved (${download.format || "file"}).`;
-    card.appendChild(dl);
-  } else if (download && download.error) {
-    const dl = document.createElement("p");
-    dl.className = "result-meta";
-    dl.textContent = `Download failed: ${download.error}`;
-    card.appendChild(dl);
-  }
+  const dl = document.createElement("p");
+  dl.className = "result-meta";
+  dl.textContent = download.success
+    ? `Download: ${download.bytes.toLocaleString()} bytes saved (${download.format || "file"}).`
+    : `Download failed: ${download.error}`;
+  card.appendChild(dl);
 
-  if (analysis && "n_rows" in analysis) {
-    const grid = document.createElement("div");
-    grid.className = "stat-grid";
-    grid.append(
-      statTile("rows", analysis.n_rows.toLocaleString()),
-      statTile("columns", analysis.n_columns),
-      statTile("duplicate rows", analysis.duplicate_rows.toLocaleString()),
-      statTile("cols with missing values", Object.keys(analysis.missing_values || {}).length),
-    );
-    card.appendChild(grid);
-
-    const missingEntries = Object.entries(analysis.missing_values || {});
-    if (missingEntries.length > 0) {
-      const missingList = document.createElement("ul");
-      missingList.className = "dataset-list";
-      missingEntries.slice(0, 6).forEach(([col, count]) => {
-        const li = document.createElement("li");
-        li.className = "dataset-item";
-        li.textContent = `${col}: ${count.toLocaleString()} missing`;
-        missingList.appendChild(li);
-      });
-      card.appendChild(missingList);
-    }
-  }
-
-  const table = previewTable(preview);
-  if (table) {
+  const preview = data && data.preview;
+  if (preview && Array.isArray(preview.rows) && preview.rows.length > 0) {
     const previewHeading = document.createElement("h3");
     previewHeading.className = "preview-heading";
-    previewHeading.textContent = `First ${preview.rows.length} rows`;
-    card.append(previewHeading, table);
+    previewHeading.textContent = `First ${preview.rows.length} rows (raw)`;
+    card.appendChild(previewHeading);
+    const table = dataTable(preview.columns, preview.rows);
+    if (table) card.appendChild(table);
   }
 
   return card;
 }
 
-function addChapterCard(chapterNum, data) {
-  const card = buildChapterCard(chapterNum, data);
+function buildPreparingCard(data) {
+  const { profile, clean, store, sql, sketch, preview } = data || {};
+  const hasAnything = (profile && "n_rows" in profile) || (clean && "rows_after" in clean) || (store && store.table_name);
+  if (!hasAnything) return null;
+
+  const card = document.createElement("article");
+  card.className = "phase-card";
+
+  const heading = document.createElement("h2");
+  heading.textContent = store && store.table_name
+    ? "✅ Data cleaned and stored in a real SQLite database"
+    : "⚠️ Preparing & storing didn't finish";
+  card.appendChild(heading);
+
+  if (profile && "n_rows" in profile) {
+    const grid = document.createElement("div");
+    grid.className = "stat-grid";
+    grid.append(
+      statTile("rows (raw)", profile.n_rows.toLocaleString()),
+      statTile("columns", profile.n_columns),
+      statTile("duplicate rows", profile.duplicate_rows.toLocaleString()),
+      statTile("cols with missing values", Object.keys(profile.missing_values || {}).length),
+    );
+    card.appendChild(grid);
+
+    if (profile.dtypes && Object.keys(profile.dtypes).length > 0) {
+      const dtypesHeading = document.createElement("h3");
+      dtypesHeading.className = "preview-heading";
+      dtypesHeading.textContent = "Column data types";
+      card.appendChild(dtypesHeading);
+
+      const dtypeList = document.createElement("ul");
+      dtypeList.className = "dataset-list";
+      Object.entries(profile.dtypes).slice(0, 10).forEach(([col, dtype]) => {
+        const li = document.createElement("li");
+        li.className = "dataset-item";
+        li.textContent = `${col}: ${dtype}`;
+        dtypeList.appendChild(li);
+      });
+      card.appendChild(dtypeList);
+    }
+  }
+
+  if (clean && "rows_after" in clean) {
+    const cl = document.createElement("p");
+    cl.className = "result-meta";
+    cl.textContent = `Cleaned: ${clean.rows_before.toLocaleString()} → ${clean.rows_after.toLocaleString()} rows (${clean.dropped_duplicates.toLocaleString()} duplicates, ${clean.dropped_missing.toLocaleString()} missing-value rows dropped).`;
+    card.appendChild(cl);
+  }
+
+  if (store && store.table_name) {
+    const st = document.createElement("p");
+    st.className = "result-meta";
+    st.textContent = `Stored ${store.rows_stored.toLocaleString()} rows in table "${store.table_name}" (${store.db_bytes.toLocaleString()} bytes, ${store.db_path || "rental_data.db"}).`;
+    card.appendChild(st);
+  }
+
+  if (preview && Array.isArray(preview.rows) && preview.rows.length > 0) {
+    const previewHeading = document.createElement("h3");
+    previewHeading.className = "preview-heading";
+    previewHeading.textContent = `First ${preview.rows.length} rows (cleaned)`;
+    card.appendChild(previewHeading);
+    const previewTable = dataTable(preview.columns, preview.rows);
+    if (previewTable) card.appendChild(previewTable);
+  }
+
+  if (sql && sql.query) {
+    const sqlHeading = document.createElement("h3");
+    sqlHeading.className = "preview-heading";
+    sqlHeading.textContent = "Verification query";
+    const sqlCode = document.createElement("p");
+    sqlCode.className = "result-meta";
+    sqlCode.textContent = sql.query;
+    card.append(sqlHeading, sqlCode);
+
+    const table = dataTable(sql.columns, sql.rows);
+    if (table) card.appendChild(table);
+  }
+
+  const sketchEl = renderSketch(sketch);
+  if (sketchEl) card.appendChild(sketchEl);
+
+  return card;
+}
+
+function addPhaseCard(builder, data) {
+  const card = builder(data);
   if (!card) return;
   // Appended into the same stream as the chat bubbles, in arrival order, so
-  // a chapter's data card lands right where it happened in the
-  // conversation — not collected separately at the top or bottom.
+  // a step's data card lands right where it happened in the conversation —
+  // not collected separately at the top or bottom.
   chat.appendChild(card);
   card.scrollIntoView({ behavior: "smooth", block: "end" });
 }
@@ -191,8 +301,8 @@ function startDemo() {
   setRunning(true);
   statusBar.classList.remove("hidden");
   chat.innerHTML = "";
-  currentChapter = 1;
-  turnsInChapter = 0;
+  currentStepLabel = "";
+  turnsInPhase = 0;
   setProgress("Connecting…");
 
   eventSource = new EventSource("/api/stream");
@@ -202,17 +312,24 @@ function startDemo() {
     setProgress(stage);
   });
 
+  eventSource.addEventListener("phase_start", (event) => {
+    const { step, step_label, sub_label } = JSON.parse(event.data);
+    currentStepLabel = sub_label ? `Step ${step}/4 · ${step_label} (${sub_label})` : `Step ${step}/4 · ${step_label}`;
+    turnsInPhase = 0;
+    addPhaseDivider(step_label, sub_label, step);
+    setProgress("starting…");
+  });
+
   eventSource.addEventListener("turn", (event) => {
     const { speaker, text, action } = JSON.parse(event.data);
-    turnsInChapter += 1;
+    turnsInPhase += 1;
     addBubble(speaker, text, action);
   });
 
-  eventSource.addEventListener("chapter_done", (event) => {
+  eventSource.addEventListener("phase_done", (event) => {
     const data = JSON.parse(event.data);
-    addChapterCard(data.chapter, data);
-    currentChapter = data.chapter + 1;
-    turnsInChapter = 0;
+    if (data.step === 3) addPhaseCard(buildCollectingCard, data);
+    if (data.step === 4) addPhaseCard(buildPreparingCard, data);
   });
 
   eventSource.addEventListener("error", (event) => {
@@ -223,7 +340,7 @@ function startDemo() {
   });
 
   eventSource.addEventListener("done", () => {
-    setProgress("Finished.");
+    setProgress("All 4 steps done. (Analysis/modeling is the next step — not part of this demo.)");
     setRunning(false);
     eventSource.close();
   });

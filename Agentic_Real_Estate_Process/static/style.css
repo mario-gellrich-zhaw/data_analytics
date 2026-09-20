@@ -6,10 +6,12 @@
   --text-muted: #6b6b74;
   --accent: #2f6feb;
 
-  --researcher: #ffd872;
-  --researcher-border: #e6b93f;
-  --expert: #4dd091;
-  --expert-border: #2fa873;
+  --pm: #ffd872;
+  --pm-border: #e6b93f;
+  --analyst: #4dd091;
+  --analyst-border: #2fa873;
+  --engineer: #b9c8ff;
+  --engineer-border: #7f94e8;
 
   --chat-bg: #eef0f3;
 }
@@ -79,8 +81,9 @@ h1 {
   display: inline-block;
 }
 
-.dot.researcher { background: var(--researcher-border); }
-.dot.expert { background: var(--expert-border); }
+.dot.pm { background: var(--pm-border); }
+.dot.analyst { background: var(--analyst-border); }
+.dot.engineer { background: var(--engineer-border); }
 
 #start-btn {
   background: var(--accent);
@@ -176,61 +179,85 @@ h1 {
   color: var(--text);
 }
 
-/* The researcher/expert brand colors stay bright gold/green in both themes,
-   so their bubble text stays dark regardless of light/dark mode. */
-.bubble.researcher,
-.bubble.expert {
+/* The PM/analyst/engineer brand colors stay bright in both themes, so their
+   bubble text stays dark regardless of light/dark mode. */
+.bubble.pm,
+.bubble.analyst,
+.bubble.engineer {
   color: #17170f;
 }
 
-.bubble.researcher p,
-.bubble.researcher .speaker,
-.bubble.expert p,
-.bubble.expert .speaker {
+.bubble.pm p,
+.bubble.pm .speaker,
+.bubble.analyst p,
+.bubble.analyst .speaker,
+.bubble.engineer p,
+.bubble.engineer .speaker {
   color: #17170f;
 }
 
-.bubble.researcher {
+.bubble.pm {
   align-self: flex-start;
-  background: var(--researcher);
-  border-color: var(--researcher-border);
+  background: var(--pm);
+  border-color: var(--pm-border);
   border-bottom-left-radius: 4px;
 }
 
-.bubble.expert {
+/* Data Analyst and Data Engineer never speak in the same step, so they
+   safely share the right-hand slot — Product Manager stays left throughout. */
+.bubble.analyst,
+.bubble.engineer {
   align-self: flex-end;
-  background: var(--expert);
-  border-color: var(--expert-border);
   border-bottom-right-radius: 4px;
 }
 
-.bubble.researcher::after {
+.bubble.analyst {
+  background: var(--analyst);
+  border-color: var(--analyst-border);
+}
+
+.bubble.engineer {
+  background: var(--engineer);
+  border-color: var(--engineer-border);
+}
+
+.bubble.pm::after {
   content: "";
   position: absolute;
   left: -7px;
   bottom: 0;
   width: 14px;
   height: 14px;
-  background: var(--researcher);
-  border-left: 1px solid var(--researcher-border);
-  border-bottom: 1px solid var(--researcher-border);
+  background: var(--pm);
+  border-left: 1px solid var(--pm-border);
+  border-bottom: 1px solid var(--pm-border);
   clip-path: polygon(100% 0, 100% 100%, 0 100%);
 }
 
-.bubble.expert::after {
+.bubble.analyst::after,
+.bubble.engineer::after {
   content: "";
   position: absolute;
   right: -7px;
   bottom: 0;
   width: 14px;
   height: 14px;
-  background: var(--expert);
-  border-right: 1px solid var(--expert-border);
-  border-bottom: 1px solid var(--expert-border);
   clip-path: polygon(0 0, 100% 100%, 0 100%);
 }
 
-/* A tool-call action keeps its agent's own bubble color (only 2 colors
+.bubble.analyst::after {
+  background: var(--analyst);
+  border-right: 1px solid var(--analyst-border);
+  border-bottom: 1px solid var(--analyst-border);
+}
+
+.bubble.engineer::after {
+  background: var(--engineer);
+  border-right: 1px solid var(--engineer-border);
+  border-bottom: 1px solid var(--engineer-border);
+}
+
+/* A tool-call action keeps its agent's own bubble color (only 3 colors
    total on the page) — just a small label marks it as a real action. */
 .bubble.action .speaker::after {
   content: " \1F527 real action";
@@ -238,11 +265,33 @@ h1 {
   opacity: 0.8;
 }
 
+/* A step divider sits inline in the conversation, marking a transition to a
+   new part of the process model. */
+.phase-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0 2px;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.phase-divider::before,
+.phase-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
 /* A chapter's data card sits inline in the conversation (not collected in a
    separate section) — full width, unlike the left/right speech bubbles, so
    it visually reads as "the group looked at a table together" rather than
    something either agent said. */
-.chapter-card {
+.phase-card {
   position: relative;
   align-self: stretch;
   width: 100%;
@@ -253,18 +302,18 @@ h1 {
   animation: fade-in 0.4s ease;
 }
 
-.chapter-card h2 {
+.phase-card h2 {
   margin: 0 0 4px;
   font-size: 1.1rem;
 }
 
-.chapter-card .result-meta {
+.phase-card .result-meta {
   margin: 0 0 14px;
   color: var(--text-muted);
   font-size: 0.88rem;
 }
 
-.chapter-card .dataset-list {
+.phase-card .dataset-list {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -273,32 +322,32 @@ h1 {
   gap: 8px;
 }
 
-.chapter-card .dataset-item {
+.phase-card .dataset-item {
   padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--bg);
 }
 
-.chapter-card .dataset-item a {
+.phase-card .dataset-item a {
   font-weight: 600;
   color: var(--accent);
   text-decoration: none;
   font-size: 0.95rem;
 }
 
-.chapter-card .dataset-item a:hover {
+.phase-card .dataset-item a:hover {
   text-decoration: underline;
 }
 
-.chapter-card .stat-grid {
+.phase-card .stat-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
   gap: 10px;
   margin: 4px 0 14px;
 }
 
-.chapter-card .stat-tile {
+.phase-card .stat-tile {
   padding: 12px 10px;
   border-radius: 10px;
   background: var(--bg);
@@ -306,51 +355,87 @@ h1 {
   text-align: center;
 }
 
-.chapter-card .stat-value {
+.phase-card .stat-value {
   font-size: 1.4rem;
   font-weight: 700;
   color: var(--accent);
 }
 
-.chapter-card .stat-label {
+.phase-card .stat-label {
   font-size: 0.75rem;
   color: var(--text-muted);
   margin-top: 2px;
 }
 
-.chapter-card .preview-heading {
+.phase-card .preview-heading {
   margin: 18px 0 8px;
   font-size: 0.95rem;
 }
 
-.chapter-card .table-scroll {
+.phase-card .table-scroll {
   overflow-x: auto;
   border: 1px solid var(--border);
   border-radius: 10px;
 }
 
-.chapter-card .preview-table {
+.phase-card .preview-table {
   border-collapse: collapse;
   width: 100%;
   font-size: 0.8rem;
   white-space: nowrap;
 }
 
-.chapter-card .preview-table th,
-.chapter-card .preview-table td {
+.phase-card .preview-table th,
+.phase-card .preview-table td {
   text-align: left;
   padding: 6px 10px;
   border-bottom: 1px solid var(--border);
 }
 
-.chapter-card .preview-table th {
+.phase-card .preview-table th {
   background: var(--bg);
   position: sticky;
   top: 0;
 }
 
-.chapter-card .preview-table tr:last-child td {
+.phase-card .preview-table tr:last-child td {
   border-bottom: none;
+}
+
+.phase-card .sketch {
+  margin: 14px 0 0;
+}
+
+.phase-card .sketch-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin: 0 0 6px;
+}
+
+.phase-card .sketch-ascii {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.phase-card .sketch-dot {
+  padding: 10px;
+  border-radius: 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  overflow-x: auto;
+}
+
+.phase-card .sketch-dot svg {
+  max-width: 100%;
+  height: auto;
 }
 
 @keyframes fade-in {
