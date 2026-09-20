@@ -339,8 +339,13 @@ function startDemo() {
     }
   });
 
-  eventSource.addEventListener("done", () => {
-    setProgress("All 4 steps done. (Analysis/modeling is the next step — not part of this demo.)");
+  eventSource.addEventListener("done", (event) => {
+    const data = event.data ? JSON.parse(event.data) : {};
+    if (data.incomplete) {
+      setProgress(`⚠️ ${data.message}`);
+    } else {
+      setProgress("All 4 steps done. (Analysis/modeling is the next step — not part of this demo.)");
+    }
     setRunning(false);
     eventSource.close();
   });

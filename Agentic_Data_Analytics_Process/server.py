@@ -39,6 +39,7 @@ from agents import Agent
 from data_tool import (
     ATTEMPT_SCRAPE_SCHEMA,
     CLEAN_DATA_SCHEMA,
+    DISCARD_DATASET_SCHEMA,
     DOWNLOAD_DATASET_SCHEMA,
     MAKE_SKETCH_SCHEMA,
     PREVIEW_DATA_SCHEMA,
@@ -48,6 +49,7 @@ from data_tool import (
     STORE_TO_DATABASE_SCHEMA,
     attempt_scrape,
     clean_data,
+    discard_dataset,
     download_dataset,
     make_sketch,
     preview_data,
@@ -71,6 +73,10 @@ MIN_TURNS_DISCUSSION = 2
 MAX_TURNS_DISCUSSION = 6
 MIN_TURNS_ACTION = 4
 MAX_TURNS_ACTION = 14
+# Collecting data (step 3) must now keep trying different searches until it
+# finds genuine listing-level data rather than settling for an aggregate, so
+# it gets extra room beyond the normal action budget above.
+MAX_TURNS_COLLECT = 26
 MAX_TURNS = 80               # safety net: a live demo shouldn't run forever if nobody stops it
 MAX_RUNTIME_SECONDS = 20 * 60  # ...or 20 minutes, whichever comes first
 STATUS_TAG_RE = re.compile(r"\s*\[STATUS:\s*(CONTINUE|NEXT)\]\s*$", re.IGNORECASE)
@@ -147,6 +153,11 @@ def _run_demo(q: "queue.Queue"):
         def on_progress(stage: str):
             q.put(_sse("progress", {"stage": stage}))
 
+        # Each run starts genuinely fresh — no file from a previous run can
+        # leak in and be mistaken for real data in this one.
+        for stale_path in (DOWNLOAD_PATH, CLEANED_PATH, DB_PATH):
+            stale_path.unlink(missing_ok=True)
+
         # --- shared state written by tool calls, read for phase-end cards ---
         opendata_result = {}
         download_result = {}
@@ -159,6 +170,7 @@ def _run_demo(q: "queue.Queue"):
         sketch_result = {}
         resource_lookup = {}  # short id -> real resource info, from search_open_data
         current_file = {"path": str(DOWNLOAD_PATH), "format": "CSV"}  # what preview/profile/clean act on right now
+        dataset_ready = {"value": False}  # True only while current_file points at a real, undiscarded download
 
         def capture_preview(target: dict, path: str, data_format: str):
             # A real preview of the first 10 rows, captured automatically the
@@ -171,6 +183,40 @@ def _run_demo(q: "queue.Queue"):
                 target.update(result)
             except Exception:
                 pass  # best-effort only; never break the run over a preview
+
+        MIN_LISTING_ROWS = 15  # a whole-canton listings dataset should clear this easily
+
+        def check_looks_like_listing_data(path: str, data_format: str) -> tuple[bool, str]:
+            # A real, code-level structural sanity check that runs on every
+            # download regardless of whether the agent itself remembers to
+            # call preview_data — prompting alone proved unreliable here
+            # (the model sometimes skipped its own verification step and
+            # declared success on an obviously aggregated file). This can't
+            # judge topic/semantics, but it reliably catches the two most
+            # common real failure shapes seen live: multi-header statistics
+            # exports (mostly "Unnamed: N" columns after pandas parses them)
+            # and pivot/summary tables (a handful of rows).
+            try:
+                result = preview_data(path=path, data_format=data_format, n=50)
+            except Exception as exc:
+                return False, f"the file couldn't even be read as a table ({exc})"
+            columns = result["columns"]
+            n_rows = len(result["rows"])
+            if not columns:
+                return False, "the file has no readable columns"
+            unnamed = sum(1 for c in columns if str(c).lower().startswith("unnamed"))
+            if unnamed / len(columns) >= 0.5:
+                return False, (
+                    f"{unnamed}/{len(columns)} columns came back unnamed — this looks like a "
+                    "multi-header statistics export (e.g. a pivoted year-by-year table), not "
+                    "one row per apartment listing"
+                )
+            if n_rows < MIN_LISTING_ROWS:
+                return False, (
+                    f"only {n_rows} rows — far too few to be individual apartment listings for "
+                    "the canton of Zurich, this looks like a small summary/pivot table"
+                )
+            return True, ""
 
         # --- Data Analyst tools: Collecting data --------------------------
 
@@ -221,32 +267,79 @@ def _run_demo(q: "queue.Queue"):
                 out_path=str(DOWNLOAD_PATH),
                 on_progress=on_progress,
             )
+
+            if result.get("success"):
+                looks_ok, reason = check_looks_like_listing_data(str(DOWNLOAD_PATH), picked["format"])
+                if not looks_ok:
+                    # Automatically recognized as unsuitable (aggregated /
+                    # not listing-level) — really delete it and report the
+                    # rejection as the actual tool result, regardless of
+                    # what the agent itself would have concluded.
+                    Path(DOWNLOAD_PATH).unlink(missing_ok=True)
+                    result["success"] = False
+                    result["error"] = f"Downloaded, but automatically rejected: {reason}. Try a different dataset."
+                    current_file["path"] = ""
+                    current_file["format"] = ""
+                    dataset_ready["value"] = False
+                    download_preview_result.clear()
+                else:
+                    current_file["path"] = str(DOWNLOAD_PATH)
+                    current_file["format"] = picked["format"]
+                    dataset_ready["value"] = True
+                    capture_preview(download_preview_result, current_file["path"], current_file["format"])
+            else:
+                # A failed attempt must never leave an earlier, unrelated
+                # download's preview looking like it belongs to this result.
+                download_preview_result.clear()
+
             download_result.clear()
             download_result.update(result)
             download_result["resource_url"] = picked["url"]
             download_result["dataset_title"] = picked["dataset_title"]
             download_result["dataset_organization"] = picked["dataset_organization"]
             download_result["dataset_url"] = picked["dataset_url"]
+            return result
 
-            if result.get("success"):
-                current_file["path"] = str(DOWNLOAD_PATH)
-                current_file["format"] = picked["format"]
-                capture_preview(download_preview_result, current_file["path"], current_file["format"])
+        def call_discard_dataset(reason: str = ""):
+            result = discard_dataset(path=current_file["path"], reason=reason, on_progress=on_progress)
+            download_result.clear()
+            download_preview_result.clear()
+            current_file["path"] = ""
+            current_file["format"] = ""
+            dataset_ready["value"] = False
             return result
 
         # --- Data Engineer tools: Preparing & storing data -----------------
 
+        def _no_file_error() -> dict | None:
+            # A tool the model calls before any successful download (or
+            # after a discard_dataset) has nothing real to read — report
+            # that plainly instead of letting a raw FileNotFoundError crash
+            # the whole run.
+            if not current_file["path"] or not Path(current_file["path"]).exists():
+                return {"success": False, "error": "No dataset file is available yet — download (and confirm) one first."}
+            return None
+
         def call_preview_data(n: int = 10):
+            err = _no_file_error()
+            if err:
+                return err
             result = preview_data(path=current_file["path"], data_format=current_file["format"], n=n, on_progress=on_progress)
             return {"columns": result["columns"], "n_rows_shown": len(result["rows"])}
 
         def call_profile_data():
+            err = _no_file_error()
+            if err:
+                return err
             result = profile_data(path=current_file["path"], data_format=current_file["format"], on_progress=on_progress)
             profile_result.clear()
             profile_result.update(result)
             return result
 
         def call_clean_data(drop_duplicates: bool = True, drop_missing_in: list | None = None):
+            err = _no_file_error()
+            if err:
+                return err
             result = clean_data(
                 source_path=current_file["path"],
                 data_format=current_file["format"],
@@ -263,6 +356,9 @@ def _run_demo(q: "queue.Queue"):
             return result
 
         def call_store_to_database(table_name: str):
+            err = _no_file_error()
+            if err:
+                return err
             result = store_to_database(
                 source_path=current_file["path"], db_path=str(DB_PATH), table_name=table_name, on_progress=on_progress
             )
@@ -331,30 +427,47 @@ def _run_demo(q: "queue.Queue"):
             persona=(
                 "You are the Data Analyst. You now have real tools — "
                 "attempt_scrape, search_open_data, download_dataset, "
-                "make_sketch — and decide yourself, turn by turn, whether and "
-                "which to use. Try real platforms one at a time and look at "
-                "each real result before trying another; if scraping is "
-                "blocked, pivot to search_open_data; pick a real "
-                "dataset/resource from what it returns and download it. We'd "
-                "prefer individual, single-apartment-level records (one row "
-                "per listing) over pre-aggregated statistics — check for "
-                "this honestly once downloaded, same as checking for a real "
-                "price column, and search again with different terms if the "
-                "first result is aggregated. But don't stall indefinitely: "
-                "Swiss open data is often aggregated for privacy reasons, so "
-                "after a couple of genuine attempts, if that's really the "
-                "best real data available, download it anyway and say so "
-                "honestly — real aggregated data beats no data. Report only "
-                "what these tools actually return, never invent numbers."
+                "preview_data, discard_dataset, make_sketch — and decide "
+                "yourself, turn by turn, whether and which to use. Try real "
+                "platforms one at a time and look at each real result before "
+                "trying another; if scraping is blocked, pivot to "
+                "search_open_data. As soon as search_open_data returns a "
+                "candidate resource that looks plausible, actually call "
+                "download_dataset on its resource_id right away — don't just "
+                "say you'll download it, and don't call search_open_data "
+                "again on the same candidate instead of downloading it. We "
+                "need real Swiss individual, single-"
+                "apartment-level rental records (one row per listing) — "
+                "aggregated statistics are NOT acceptable, they don't let us "
+                "predict a price for one specific apartment, and neither is "
+                "data about the wrong topic (e.g. taxes, exhibitions, plant "
+                "species) just because it's Swiss and downloadable. After "
+                "every download, you MUST call preview_data and look at the "
+                "real column names it returns before saying anything about "
+                "whether the data is individual-level rental data — never "
+                "declare a dataset 'confirmed' or 'verified' without having "
+                "actually called preview_data on it. If the real columns show "
+                "it's aggregated (e.g. one row per municipality or per year, "
+                "columns like averages/medians/totals), not about rental "
+                "apartments at all, or otherwise unusable (e.g. unnamed/"
+                "garbled columns), say so plainly, call discard_dataset to "
+                "really delete that file, and keep searching with different "
+                "terms, datasets, or platforms — do not settle for it and do "
+                "not leave an unsuitable file lying around just to have "
+                "something to work with. Report only what these tools "
+                "actually return, never invent numbers or claim a check you "
+                "didn't actually do."
                 + BE_CONCISE
                 + STATUS_TAG_INSTRUCTION
             ),
             model=MODEL,
-            tools=[ATTEMPT_SCRAPE_SCHEMA, SEARCH_OPEN_DATA_SCHEMA, DOWNLOAD_DATASET_SCHEMA, MAKE_SKETCH_SCHEMA],
+            tools=[ATTEMPT_SCRAPE_SCHEMA, SEARCH_OPEN_DATA_SCHEMA, DOWNLOAD_DATASET_SCHEMA, PREVIEW_DATA_SCHEMA, DISCARD_DATASET_SCHEMA, MAKE_SKETCH_SCHEMA],
             tool_impls={
                 "attempt_scrape": call_attempt_scrape,
                 "search_open_data": call_search_open_data,
                 "download_dataset": call_download_dataset,
+                "preview_data": call_preview_data,
+                "discard_dataset": call_discard_dataset,
                 "make_sketch": call_make_sketch,
             },
         )
@@ -434,7 +547,7 @@ def _run_demo(q: "queue.Queue"):
             q.put(_sse("turn", {"speaker": speaker, "text": text, "action": used_tool}))
             time.sleep(TURN_DELAY_SECONDS)
 
-        def run_phase(agent_a: Agent, agent_b: Agent, step: int, step_label: str, sub_label: str, goal: str, has_tools: bool):
+        def run_phase(agent_a: Agent, agent_b: Agent, step: int, step_label: str, sub_label: str, goal: str, has_tools: bool, max_turns_override: int | None = None):
             q.put(_sse("phase_start", {"step": step, "step_label": step_label, "sub_label": sub_label, "goal": goal}))
             transcript.append({
                 "speaker": "system",
@@ -459,7 +572,7 @@ def _run_demo(q: "queue.Queue"):
             })
 
             min_turns = MIN_TURNS_ACTION if has_tools else MIN_TURNS_DISCUSSION
-            max_turns = MAX_TURNS_ACTION if has_tools else MAX_TURNS_DISCUSSION
+            max_turns = max_turns_override or (MAX_TURNS_ACTION if has_tools else MAX_TURNS_DISCUSSION)
 
             next_ready = {agent_a.name: False, agent_b.name: False}
             turns_in_phase = 0
@@ -519,14 +632,19 @@ def _run_demo(q: "queue.Queue"):
         if not should_stop():
             run_phase(
                 product_manager, data_analyst_with_tools, 3, "Collecting data", "action",
-                "Actually try to obtain real Swiss rental data now, using your real tools. Check whether "
-                "a dataset is at the individual-apartment level (one row per listing) or just aggregated "
-                "statistics — mention this explicitly. Real Swiss open data is often aggregated for "
-                "privacy reasons: after a couple of genuine attempts (scrape + search), if aggregated is "
-                "really the best real option, DOWNLOAD IT ANYWAY and say so honestly — don't keep "
-                "searching indefinitely for something that may not exist. Real aggregated data beats no "
-                "data, and step 4 needs an actual downloaded file to work with.",
+                "Actually try to obtain real Swiss rental data now, using your real tools. After every "
+                "download, call preview_data and check the real column names before claiming anything "
+                "about whether the dataset is at the individual-apartment level (one row per listing) or "
+                "just aggregated statistics — mention this explicitly, grounded in what preview_data "
+                "actually showed. Keep searching — with different search terms, different datasets, "
+                "different platforms — until you genuinely find and confirm data at the individual-"
+                "apartment level. Aggregated or wrong-topic statistics are NOT an acceptable substitute, no "
+                "matter how many attempts it takes: if preview_data shows a result is aggregated, not "
+                "actually about rental apartments, or otherwise unusable (e.g. unnamed/garbled columns), "
+                "call discard_dataset to really delete that file, say so, and try a different angle rather "
+                "than keeping it around. Step 4 needs an actual, verified, listing-level file to work with.",
                 has_tools=True,
+                max_turns_override=MAX_TURNS_COLLECT,
             )
             q.put(_sse("phase_done", {
                 "step": 3, "step_label": "Collecting data",
@@ -535,7 +653,10 @@ def _run_demo(q: "queue.Queue"):
             }))
 
         # Step 4: Preparing & storing data — discuss, then real tools.
-        if not should_stop():
+        # Only proceed if step 3 actually ended with a real, undiscarded,
+        # verified-individual-level file — never clean/store a file that was
+        # never confirmed, or run step 4 against nothing at all.
+        if not should_stop() and dataset_ready["value"]:
             run_phase(
                 product_manager, data_engineer_notools, 4, "Preparing & storing data", "planning",
                 "Briefly discuss how you'll clean and store the downloaded data before doing it. Ground "
@@ -562,8 +683,23 @@ def _run_demo(q: "queue.Queue"):
                 "store": dict(store_result), "sql": dict(sql_result), "sketch": dict(sketch_result),
                 "preview": dict(clean_preview_result),
             }))
-
-        q.put(_sse("done", {}))
+            q.put(_sse("done", {}))
+        elif not should_stop():
+            # Step 3 ended without ever landing on genuine individual-level
+            # data (everything found was aggregated/wrong-topic and got
+            # discarded, or the search budget ran out first) — say so
+            # honestly instead of faking step 4 against no real file.
+            q.put(_sse("done", {
+                "incomplete": True,
+                "message": (
+                    "No individual-apartment-level dataset could be confirmed within the search "
+                    "budget — every candidate turned out to be aggregated or off-topic and was "
+                    "discarded. Preparing & storing data was skipped since there's no real file to "
+                    "work with."
+                ),
+            }))
+        else:
+            q.put(_sse("done", {}))
     except Exception as exc:  # surface backend errors to the browser instead of hanging
         q.put(_sse("error", {"message": str(exc)}))
     finally:

@@ -183,6 +183,25 @@ def download_dataset(resource_url: str, resource_format: str = "CSV", out_path: 
         return {"success": False, "error": str(exc), "path": out_path}
 
 
+def discard_dataset(path: str = "downloaded_dataset.csv", reason: str = "", on_progress=None) -> dict:
+    """Really delete a downloaded file that turned out to be unsuitable
+    (aggregated, wrong topic, or otherwise unusable) so it can't be mistaken
+    for real data later — use before searching for a replacement."""
+    def report(stage: str):
+        if on_progress:
+            on_progress(stage)
+
+    if not path:
+        return {"success": True, "deleted": False, "path": path, "reason": reason}
+    p = Path(path)
+    if p.is_file():
+        p.unlink()
+        report(f"Deleted {p.name}" + (f" — {reason}" if reason else ""))
+        return {"success": True, "deleted": True, "path": path, "reason": reason}
+    report(f"Nothing to delete at {p.name}.")
+    return {"success": True, "deleted": False, "path": path, "reason": reason}
+
+
 # --- Data Engineer: Preparing & storing data --------------------------------
 
 
@@ -405,6 +424,25 @@ DOWNLOAD_DATASET_SCHEMA = {
                 "resource_id": {"type": "string", "description": "The resource's id, exactly as returned by search_open_data (e.g. 'r0')."},
             },
             "required": ["resource_id"],
+        },
+    },
+}
+
+DISCARD_DATASET_SCHEMA = {
+    "type": "function",
+    "function": {
+        "name": "discard_dataset",
+        "description": (
+            "Really delete the currently downloaded file because preview_data showed it's "
+            "aggregated, not rental-apartment data, or otherwise unusable. Use this before "
+            "searching for a replacement — never keep or reuse a file you've identified as unsuitable."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "reason": {"type": "string", "description": "Short real reason it's being discarded, e.g. 'aggregated by municipality' or 'not rental data, it's museum exhibitions'."}
+            },
+            "required": ["reason"],
         },
     },
 }
