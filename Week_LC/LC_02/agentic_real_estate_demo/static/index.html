@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agentic Framework Demo &mdash; Swiss Real Estate Data</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <main>
+    <header class="hero">
+      <span class="eyebrow">ZHAW &middot; non-commercial demo</span>
+      <h1>Two agents. One goal.</h1>
+      <p class="tagline">Watch them find a way to Swiss rental data &mdash; live.</p>
+
+      <div class="legend">
+        <span class="legend-item"><i class="dot researcher"></i>Data Researcher</span>
+        <span class="legend-item"><i class="dot expert"></i>Data Source Expert</span>
+      </div>
+
+      <button id="start-btn">Start conversation</button>
+    </header>
+
+    <section id="status-bar" class="hidden">
+      <div class="status-text" id="status-text">Waiting to start&hellip;</div>
+      <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+    </section>
+
+    <section id="chat" aria-live="polite"></section>
+
+    <section id="result" class="hidden"></section>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
