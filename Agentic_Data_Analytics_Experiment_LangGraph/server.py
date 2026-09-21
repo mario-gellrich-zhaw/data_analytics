@@ -212,10 +212,15 @@ def _sse(event: str, data: dict) -> str:
 
 def _save_conversation_history(history: list[dict], started_at: datetime, outcome: dict) -> None:
     """Save one run as both Markdown and HTML (see transcript.py) — the
-    HTML version reuses the live page's own stylesheet, read fresh each
-    time so an edit to static/style.css is picked up without a restart."""
-    css = (STATIC_DIR / "style.css").read_text(encoding="utf-8")
-    transcript.save(history, started_at, outcome, CONVERSATION_HISTORY_DIR, css)
+    HTML version reuses the live page's own stylesheet, header, and process
+    diagram, read fresh each time so an edit to any of them is picked up
+    without a restart."""
+    assets = transcript.PageAssets(
+        css=(STATIC_DIR / "style.css").read_text(encoding="utf-8"),
+        index_html=(STATIC_DIR / "index.html").read_text(encoding="utf-8"),
+        svg_markup=(STATIC_DIR / "data_analytics_process_model.svg").read_text(encoding="utf-8"),
+    )
+    transcript.save(history, started_at, outcome, CONVERSATION_HISTORY_DIR, assets)
 
 
 class PhaseSpec(NamedTuple):

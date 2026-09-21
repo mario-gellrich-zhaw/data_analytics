@@ -7,8 +7,20 @@ live, offline, with no server running.
 """
 
 import html
+import re
 from datetime import datetime
 from pathlib import Path
+from typing import NamedTuple
+
+
+class PageAssets(NamedTuple):
+    """The live page's own assets, reused so a saved run looks like it —
+    read fresh by the caller each time, so an edit to static/style.css or
+    static/index.html is picked up without a restart."""
+
+    css: str
+    index_html: str
+    svg_markup: str
 
 OUTCOME_HEADLINES = {
     "completed": "✅ Completed all 4 steps",
@@ -407,13 +419,45 @@ def _render_body_html(history: list[dict]) -> str:
     return "".join(parts)
 
 
+def _landing_header_html(index_html: str, svg_markup: str) -> str:
+    """Pull the `<header class="hero">` block out of static/index.html
+    (the eyebrow, title, tagline, speaker legend, process diagram) so a
+    saved run opens with the same framing the live page has. The
+    interactive Start button is dropped (meaningless on a static page),
+    and the diagram's `<img src="...">` is replaced with the SVG's own
+    markup inlined, so the page stays viewable with no server running —
+    the whole point of saving it as a self-contained file."""
+    start_tag = '<header class="hero">'
+    start = index_html.find(start_tag)
+    if start == -1:
+        return ""
+    start += len(start_tag)
+    end = index_html.find("</header>", start)
+    if end == -1:
+        return ""
+    inner = index_html[start:end]
+    inner = re.sub(r'\s*<button id="start-btn">.*?</button>\s*', "\n", inner, flags=re.DOTALL)
+    inner = re.sub(
+        r'<img\s+src="/static/data_analytics_process_model\.svg"[^>]*>',
+        svg_markup,
+        inner,
+        flags=re.DOTALL,
+    )
+    return inner.strip()
+
+
 def render_html(
-    history: list[dict], started_at: datetime, ended_at: datetime, outcome: dict, css: str
+    history: list[dict],
+    started_at: datetime,
+    ended_at: datetime,
+    outcome: dict,
+    assets: PageAssets,
 ) -> str:
-    """Render one run as a self-contained HTML page: the same CSS classes
-    static/app.js builds live, with the stylesheet inlined so the file
-    opens correctly on its own, no server or network needed (except to
-    render a Graphviz "dot" sketch, if the run included one)."""
+    """Render one run as a self-contained HTML page: the landing page's own
+    header, then the same CSS classes static/app.js builds live for the
+    chat itself. The stylesheet and process-diagram SVG are both inlined,
+    so the file opens correctly on its own, no server or network needed
+    (except to render a Graphviz "dot" sketch, if the run included one)."""
     turn_count = sum(1 for entry in history if entry["kind"] == "turn")
     objective = next((e["goal"] for e in history if e["kind"] == "phase"), "")
     status = outcome.get("status", "unknown")
@@ -424,6 +468,7 @@ def render_html(
     )
     objective_line = _objective_headline(objective) if objective else ""
     objective_html = f'<p class="tagline">{_esc(objective_line)}</p>' if objective_line else ""
+    landing_header = _landing_header_html(assets.index_html, assets.svg_markup)
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -432,12 +477,13 @@ def render_html(
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Agentic conversation — {_esc(f"{started_at:%Y-%m-%d %H:%M}")}</title>
 <style>
-{css}
+{assets.css}
 </style>
 </head>
 <body>
 <main>
   <header class="hero">
+    {landing_header}
     <span class="eyebrow">Saved conversation</span>
     <h1>{_esc(headline)}</h1>
     <p class="tagline">{_esc(meta_line)}</p>
@@ -457,7 +503,7 @@ def render_html(
 
 
 def save(
-    history: list[dict], started_at: datetime, outcome: dict, directory: Path, css: str
+    history: list[dict], started_at: datetime, outcome: dict, directory: Path, assets: PageAssets
 ) -> None:
     """Write both the Markdown and HTML transcripts for one run. Best-effort
     only: a failure here should never break the live demo or leave the SSE
@@ -472,7 +518,7 @@ def save(
             render_markdown(history, started_at, ended_at, outcome), encoding="utf-8"
         )
         (directory / f"{stem}.html").write_text(
-            render_html(history, started_at, ended_at, outcome, css), encoding="utf-8"
+            render_html(history, started_at, ended_at, outcome, assets), encoding="utf-8"
         )
     except OSError:
         pass
