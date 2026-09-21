@@ -25,7 +25,7 @@ Check which case applies to you: run `git remote -v` in the terminal.
 git pull origin master
 ```
 
-That's it. Since you never commit anything in your Codespace (see CAUTION above), this always works.
+That's it. Since you never commit anything in your Codespace (see CAUTION above), this command will always update your Codespace with the latest course materials.
 
 ### b) Working from your own fork
 
@@ -74,14 +74,15 @@ pip install -r requirements.txt  # installs the required Python libraries
 
 ## Agentic Data Analytics Experiment
 
-[`Agentic_Data_Analytics_Experiment/`](Agentic_Data_Analytics_Experiment/README.md) is a
-small, hand-built (no LangChain/CrewAI/AutoGen) multi-agent demo wrapped in a
-live web app. Three OpenAI-backed agents — a Product Manager, a Data Analyst,
-and a Data Engineer — collaborate through the first steps of the course's
-Data Analytics Process Model (objective, data needs, real collection, real
-cleaning/storage), streamed live to a browser via FastAPI + Server-Sent
-Events. See its own [README](Agentic_Data_Analytics_Experiment/README.md)
-for setup and details. Non-commercial / educational use only.
+[`Agentic_Data_Analytics_Experiment_LangGraph/`](Agentic_Data_Analytics_Experiment_LangGraph/README.md)
+is a [LangGraph](https://langchain-ai.github.io/langgraph/)-based multi-agent
+demo wrapped in a live web app. Three OpenAI-backed agents — a Product
+Manager, a Data Analyst, and a Data Engineer — collaborate through the first
+steps of the course's Data Analytics Process Model (objective, data needs,
+real collection, real cleaning/storage), streamed live to a browser via
+FastAPI + Server-Sent Events. See its own
+[README](Agentic_Data_Analytics_Experiment_LangGraph/README.md) for setup
+and details. Non-commercial / educational use only.
 
 ## Folder Structure
 
@@ -95,7 +96,7 @@ Data Analytics/
 ├── .vscode/
 │   └── settings.json
 |
-├── Agentic_Data_Analytics_Experiment/
+├── Agentic_Data_Analytics_Experiment_LangGraph/
 ├── Week_01/
 ├── Week_02/
 ├── Week_03/
