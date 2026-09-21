@@ -12,6 +12,41 @@ Based on this repository, create a new Codespace: GitHub -> Upper menu -> Create
 > [!CAUTION]
 > Deleting your codespace will delete your working copy with all the changes you made to the repository (i.e. all your work on the exercises)
 
+## Updating your Codespace with the latest course materials
+
+Check which case applies to you: run `git remote -v` in the terminal.
+
+- URL is `https://github.com/mario-gellrich-zhaw/data_analytics.git` → you're on the course repository directly → **case a)**
+- URL is `https://github.com/YOUR-USERNAME/data_analytics.git` (your own fork) → **case b)**
+
+### a) Working directly on the course repository
+
+```console
+git pull origin master
+```
+
+That's it. Since you never commit anything in your Codespace (see CAUTION above), this always works.
+
+### b) Working from your own fork
+
+One-time setup, only needed once per Codespace:
+
+```console
+git remote add upstream https://github.com/mario-gellrich-zhaw/data_analytics.git
+```
+
+Then, whenever you want the latest materials:
+
+```console
+git fetch upstream
+git checkout master
+git merge upstream/master
+git push origin master
+```
+
+If VS Code shows a merge conflict, use the Merge Editor to resolve it:
+https://www.youtube.com/watch?v=KuB6hYoLozw
+
 ## Local Installations (if you want a clone of the GitHub repository on your local computer)
 
 Assuming you have
