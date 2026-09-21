@@ -153,7 +153,11 @@ function buildCollectingCard(data) {
   card.className = "phase-card";
 
   const heading = document.createElement("h2");
-  heading.textContent = download.success ? "✅ Real data downloaded" : "⚠️ Download didn't complete";
+  heading.textContent = download.fallback
+    ? "⚠️ Falling back to best available data (not individual-level)"
+    : download.success
+      ? "✅ Real data downloaded"
+      : "⚠️ Download didn't complete";
   card.appendChild(heading);
 
   if (download.dataset_title) {
@@ -166,6 +170,13 @@ function buildCollectingCard(data) {
     link.textContent = download.dataset_title;
     meta.append("Source: ", link, ` (${download.dataset_organization || "opendata.swiss"})`);
     card.appendChild(meta);
+  }
+
+  if (download.fallback) {
+    const why = document.createElement("p");
+    why.className = "result-meta";
+    why.textContent = `Set aside earlier because ${download.reason_rejected || "it did not look individual-level"}, but no individual-apartment-level dataset was ever confirmed — used as the best real option found.`;
+    card.appendChild(why);
   }
 
   const dl = document.createElement("p");
@@ -332,19 +343,26 @@ function startDemo() {
     if (data.step === 4) addPhaseCard(buildPreparingCard, data);
   });
 
-  eventSource.addEventListener("error", (event) => {
-    if (event.data) {
-      const { message } = JSON.parse(event.data);
-      setProgress(`⚠️ Error: ${message}`);
-    }
+  // Named "app_error" (not "error") on purpose: EventSource treats a
+  // literal "error"-named SSE event the same as its own native
+  // connection-failure event, so both this listener and the onerror
+  // handler below used to fire for the same message, with onerror's
+  // generic "Connection lost" silently overwriting the real one.
+  eventSource.addEventListener("app_error", (event) => {
+    const { message } = event.data ? JSON.parse(event.data) : {};
+    setProgress(`⚠️ Error: ${message || "Something went wrong."}`);
+    setRunning(false);
+    eventSource.close();
   });
 
   eventSource.addEventListener("done", (event) => {
     const data = event.data ? JSON.parse(event.data) : {};
-    if (data.incomplete) {
-      setProgress(`⚠️ ${data.message}`);
-    } else {
+    if (data.status === "completed" || (!data.status && !data.incomplete)) {
       setProgress("All 4 steps done. (Analysis/modeling is the next step — not part of this demo.)");
+    } else {
+      // incomplete / stopped / timed_out / anything else with a message —
+      // never claim "all done" for a run that didn't actually finish.
+      setProgress(`⚠️ ${data.message || "The run ended early."}`);
     }
     setRunning(false);
     eventSource.close();

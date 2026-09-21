@@ -31,6 +31,7 @@ import json
 import queue
 import random
 import re
+import shutil
 import threading
 import time
 from datetime import datetime
@@ -91,6 +92,28 @@ MAX_TURNS_COLLECT = 36
 MAX_TURNS = 80  # safety net: a live demo shouldn't run forever if nobody stops it
 MAX_RUNTIME_SECONDS = 20 * 60  # ...or 20 minutes, whichever comes first
 STATUS_TAG_RE = re.compile(r"\s*\[STATUS:\s*(CONTINUE|NEXT)\]\s*$", re.IGNORECASE)
+# Column-name fragments that reliably indicate a pre-aggregated statistics
+# table (one row per stratum — e.g. per district/year/room-count — not per
+# apartment) even when every column is fully named, so the "≥50% unnamed
+# columns" check below can't catch it. Real Swiss rent-price tables (e.g.
+# opendata.swiss's Mietpreise dataset) look exactly like this: named
+# mean/quantile columns, plenty of rows, zero unnamed columns — and slip
+# straight through without this. Deliberately narrow (no "count"/"min"/
+# "max"/"sum"/"total" — those show up in legitimate per-listing fields too,
+# e.g. "room_count") so it only fires on genuine statistical-summary terms.
+AGGREGATE_COLUMN_HINTS = (
+    "mean",
+    "median",
+    "average",
+    "quantile",
+    "percentile",
+    "qu25",
+    "qu50",
+    "qu75",
+    "stdev",
+    "stddev",
+    "variance",
+)
 # The model occasionally mimics the "Speaker: text" formatting it sees for
 # the *other* agent's turns (see agents.py's _messages_for) and mistakenly
 # prefixes its OWN reply with a name — including sometimes the wrong one.
@@ -111,17 +134,24 @@ STATUS_TAG_INSTRUCTION = (
 )
 
 BE_CONCISE = (
-    " Talk like a real colleague in a quick chat, not a report — short, "
-    "natural sentences (1-2 sentences), no restating the question, no "
-    "filler. Don't default to bullet lists: most messages should just be "
-    "plain conversational text. Only switch to a short bullet list or tiny "
-    "table when you're genuinely comparing several distinct items AND prose "
-    "would be more awkward than a list — and even then keep it to a "
-    "handful of items with short clarifying notes, not bare labels and not "
-    "full sentences. If there are many possible items, don't enumerate them "
-    "all: mention a few naturally instead, e.g. 'we could use data such as "
-    "the FSO price index or ImmoScout24 listings' rather than listing "
-    "every option."
+    " Talk like a real colleague in a quick chat, not a report. AT MOST 2 "
+    "short sentences, one paragraph — if a third sentence would help, cut "
+    "something instead of adding it. Get straight to the point: no opening "
+    "filler ('Absolutely, great question!', 'Sure! Here's a breakdown...', "
+    "'That looks solid!') and no closing filler either — don't wrap up with "
+    "a sentence that just restates what you said, or a vague forward-look "
+    "like 'let's keep this in mind' or 'this aligns well with our goals'; "
+    "stop right after the actual content. Don't default to bullet lists: "
+    "most messages should just be plain conversational text. Only switch to "
+    "a short bullet list or tiny table when you're genuinely comparing "
+    "several distinct items AND prose would be more awkward than a list — "
+    "and even then just name the items, one line each; don't add a "
+    "type/format/definition explanation per item unless the goal you were "
+    "just given specifically asks for a schema or data-type breakdown. If "
+    "there are many possible items, don't enumerate them all: mention a few "
+    "naturally instead, e.g. 'we could use data such as the FSO price index "
+    "or ImmoScout24 listings' rather than listing every option. Still sound "
+    "like a real person talking, not a checklist."
 )
 
 # Varied so a class watching several runs back-to-back doesn't hear the
@@ -155,6 +185,11 @@ STATIC_DIR = BASE_DIR / "static"
 DOWNLOAD_PATH = BASE_DIR / "downloaded_dataset.csv"
 CLEANED_PATH = BASE_DIR / "cleaned_dataset.csv"
 DB_PATH = BASE_DIR / "rental_data.db"
+# A snapshot of the best real, readable dataset seen during Step 3, kept in
+# case nothing individual-level is ever confirmed (see the fallback logic
+# in _run_demo) — never a specific hardcoded dataset, just whatever the
+# agents' own search happens to turn up.
+FALLBACK_PATH = BASE_DIR / "fallback_dataset.csv"
 # Every run's full agent-to-agent conversation is saved here as a
 # human-readable Markdown file once the run ends, for later review.
 CONVERSATION_HISTORY_DIR = BASE_DIR / "conversation_history"
@@ -185,13 +220,122 @@ def _sse(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data)}\n\n"
 
 
-def _render_conversation_history(history: list[dict], started_at: datetime) -> str:
+_OUTCOME_HEADLINES = {
+    "completed": "✅ Completed all 4 steps",
+    "completed_with_fallback": "⚠️ Completed with a fallback dataset (not individual-level)",
+    "incomplete": "⚠️ Incomplete — no individual-apartment-level dataset confirmed",
+    "stopped": "⏹️ Stopped by the user",
+    "timed_out": "⏱️ Hit the safety net before finishing",
+    "error": "❌ Errored",
+    "unknown": "❔ Unknown",
+}
+
+
+def _objective_headline(business_objective: str) -> str:
+    # The opener varies run to run (see BUSINESS_OBJECTIVE_OPENERS); the
+    # actual goal sentence that follows it doesn't, so anchor on that
+    # instead of assuming a fixed prefix length.
+    marker = "Our goal"
+    idx = business_objective.find(marker)
+    if idx == -1:
+        return business_objective.split(". ")[0].strip()
+    remainder = business_objective[idx:]
+    end = remainder.find(". ")
+    return (remainder[: end + 1] if end != -1 else remainder).strip()
+
+
+def _format_duration(seconds: float) -> str:
+    total = int(seconds)
+    hours, remainder = divmod(total, 3600)
+    minutes, secs = divmod(remainder, 60)
+    if hours:
+        return f"{hours}h {minutes}m {secs}s"
+    if minutes:
+        return f"{minutes}m {secs}s"
+    return f"{secs}s"
+
+
+def _render_phase_result_lines(step: int, data: dict) -> list[str]:
+    """Compact, human-facing facts behind a step's tools — the same fields
+    static/app.js's buildCollectingCard/buildPreparingCard already surface,
+    so the saved file and the live UI agree on what matters."""
+    lines: list[str] = []
+    if step == 3:
+        opendata = data.get("opendata") or {}
+        if opendata.get("query"):
+            lines.append(
+                f"- Search: \"{opendata['query']}\" → {opendata.get('total_found', 0)} "
+                "candidate(s) found on opendata.swiss."
+            )
+        download = data.get("download") or {}
+        if download.get("success"):
+            title = download.get("dataset_title")
+            if title:
+                org = download.get("dataset_organization") or "opendata.swiss"
+                url = download.get("dataset_url")
+                source = f"[{title}]({url})" if url else title
+                lines.append(f"- Downloaded: {source} ({org}).")
+            bytes_ = download.get("bytes")
+            if bytes_ is not None:
+                lines.append(f"- {bytes_:,} bytes saved ({download.get('format', 'file')}).")
+        elif download:
+            lines.append(f"- Download failed: {download.get('error', 'unknown error')}")
+        preview = data.get("preview") or {}
+        if preview.get("columns"):
+            n_rows = len(preview.get("rows") or [])
+            lines.append(
+                f"- Preview: {n_rows} rows, columns: {', '.join(map(str, preview['columns']))}."
+            )
+    elif step == 4:
+        profile = data.get("profile") or {}
+        if "n_rows" in profile:
+            n_missing_cols = len(profile.get("missing_values") or {})
+            lines.append(
+                f"- Profiled: {profile['n_rows']:,} rows, {profile.get('n_columns')} columns, "
+                f"{profile.get('duplicate_rows', 0):,} duplicate rows, {n_missing_cols} "
+                "columns with missing values."
+            )
+        clean = data.get("clean") or {}
+        if "rows_after" in clean:
+            lines.append(
+                f"- Cleaned: {clean.get('rows_before', 0):,} → {clean.get('rows_after', 0):,} rows "
+                f"({clean.get('dropped_duplicates', 0):,} duplicates, "
+                f"{clean.get('dropped_missing', 0):,} missing-value rows dropped)."
+            )
+        store = data.get("store") or {}
+        if store.get("table_name"):
+            lines.append(
+                f"- Stored {store.get('rows_stored', 0):,} rows in table "
+                f"\"{store['table_name']}\" ({store.get('db_bytes', 0):,} bytes)."
+            )
+        sql = data.get("sql") or {}
+        if sql.get("query"):
+            n_rows = len(sql.get("rows") or [])
+            lines.append(f"- Verification query: `{sql['query']}` → {n_rows} row(s) returned.")
+        sketch = data.get("sketch") or {}
+        if sketch.get("title"):
+            lines.append(f"- Sketch: \"{sketch['title']}\" ({sketch.get('kind', 'ascii')}).")
+    return lines
+
+
+def _render_conversation_history(
+    history: list[dict], started_at: datetime, ended_at: datetime, outcome: dict
+) -> str:
     """Render one run's recorded phases/turns as a human-readable Markdown transcript."""
+    turn_count = sum(1 for entry in history if entry["kind"] == "turn")
+    objective = next((e["goal"] for e in history if e["kind"] == "phase"), "")
+    status = outcome.get("status", "unknown")
+
     lines = [
         "# Agentic Conversation — Data Analytics Process Model",
         f"**Run started:** {started_at:%Y-%m-%d %H:%M:%S}",
-        "",
+        f"**Outcome:** {_OUTCOME_HEADLINES.get(status, status)}",
+        f"**Turns:** {turn_count} over {_format_duration((ended_at - started_at).total_seconds())}",
     ]
+    if objective:
+        lines.append(f"**Objective:** {_objective_headline(objective)}")
+    lines.append("")
+
     for entry in history:
         if entry["kind"] == "phase":
             header = f"## Step {entry['step']}/4 · {entry['step_label']}"
@@ -200,23 +344,36 @@ def _render_conversation_history(history: list[dict], started_at: datetime) -> s
             lines.append(header)
             lines.append(f"*Goal: {entry['goal']}*")
             lines.append("")
-        else:
+        elif entry["kind"] == "turn":
             suffix = " _(used a real tool)_" if entry["action"] else ""
             lines.append(f"**{entry['speaker']}:** {entry['text']}{suffix}")
             lines.append("")
+        elif entry["kind"] == "phase_result":
+            result_lines = _render_phase_result_lines(entry["step"], entry["data"])
+            if result_lines:
+                lines.append("**Real results:**")
+                lines.extend(result_lines)
+                lines.append("")
+
+    lines.append("## Run ended")
+    lines.append(f"**Status:** {_OUTCOME_HEADLINES.get(status, status)}")
+    if outcome.get("message"):
+        lines.append(outcome["message"])
+
     return "\n".join(lines).rstrip() + "\n"
 
 
-def _save_conversation_history(history: list[dict], started_at: datetime) -> None:
+def _save_conversation_history(history: list[dict], started_at: datetime, outcome: dict) -> None:
     # Best-effort only: a failure to save the transcript should never break
     # the live demo or leave the SSE stream hanging.
     if not history:
         return
     try:
+        ended_at = datetime.now()
         CONVERSATION_HISTORY_DIR.mkdir(exist_ok=True)
         filename = f"conversation_{started_at:%Y%m%d_%H%M%S}.md"
         (CONVERSATION_HISTORY_DIR / filename).write_text(
-            _render_conversation_history(history, started_at), encoding="utf-8"
+            _render_conversation_history(history, started_at, ended_at, outcome), encoding="utf-8"
         )
     except OSError:
         pass
@@ -225,6 +382,9 @@ def _save_conversation_history(history: list[dict], started_at: datetime) -> Non
 def _run_demo(q: "queue.Queue"):
     run_started_at = datetime.now()
     history: list[dict] = []  # every phase header and turn, saved to disk once the run ends
+    # Overwritten below on every real exit path; this default only matters
+    # if an exception somehow slips past the except block untouched.
+    outcome: dict = {"status": "unknown"}
     try:
 
         def on_progress(stage: str):
@@ -232,7 +392,7 @@ def _run_demo(q: "queue.Queue"):
 
         # Each run starts genuinely fresh — no file from a previous run can
         # leak in and be mistaken for real data in this one.
-        for stale_path in (DOWNLOAD_PATH, CLEANED_PATH, DB_PATH):
+        for stale_path in (DOWNLOAD_PATH, CLEANED_PATH, DB_PATH, FALLBACK_PATH):
             stale_path.unlink(missing_ok=True)
 
         # --- shared state written by tool calls, read for phase-end cards ---
@@ -257,6 +417,13 @@ def _run_demo(q: "queue.Queue"):
         dataset_ready = {
             "value": False
         }  # True only while current_file points at a real, undiscarded download
+        # The best real, readable dataset seen so far this run, even one
+        # that got auto-rejected or manually discarded — used only as a
+        # last resort if Step 3 never confirms genuine individual-level
+        # data (see the fallback check right after Step 3 below). Never a
+        # specific hardcoded dataset, just whatever the agents' own search
+        # actually turns up.
+        fallback_candidate = {}
 
         def capture_preview(target: dict, path: str, data_format: str):
             # A real preview of the first 10 rows, captured automatically the
@@ -270,6 +437,25 @@ def _run_demo(q: "queue.Queue"):
             except Exception:
                 pass  # best-effort only; never break the run over a preview
 
+        def snapshot_fallback_candidate(path: str, data_format: str, reason: str, meta: dict):
+            # Keep a copy of a real, readable dataset that's about to be
+            # deleted (auto-rejected or manually discarded) in case nothing
+            # better ever turns up — always overwritten by the most recent
+            # one seen, no deeper quality ranking.
+            try:
+                shutil.copyfile(path, FALLBACK_PATH)
+            except OSError:
+                return
+            fallback_candidate.clear()
+            fallback_candidate.update(
+                {
+                    "path": str(FALLBACK_PATH),
+                    "format": data_format,
+                    "reason_rejected": reason,
+                    **meta,
+                }
+            )
+
         min_listing_rows = 15  # a whole-canton listings dataset should clear this easily
 
         def check_looks_like_listing_data(path: str, data_format: str) -> tuple[bool, str]:
@@ -280,12 +466,13 @@ def _run_demo(q: "queue.Queue"):
             # declared success on an obviously aggregated file). This can't
             # judge topic/semantics, but it reliably catches the two most
             # common real failure shapes seen live: multi-header statistics
-            # exports (mostly "Unnamed: N" columns after pandas parses them)
-            # and pivot/summary tables (a handful of rows).
-            try:
-                result = preview_data(path=path, data_format=data_format, n=50)
-            except Exception as exc:
-                return False, f"the file couldn't even be read as a table ({exc})"
+            # exports (mostly "Unnamed: N" columns after pandas parses them),
+            # named-but-aggregated statistics tables (mean/quantile columns,
+            # e.g. opendata.swiss's Mietpreise dataset), and pivot/summary
+            # tables (a handful of rows).
+            result = preview_data(path=path, data_format=data_format, n=50)
+            if result.get("error"):
+                return False, f"the file couldn't even be read as a table ({result['error']})"
             columns = result["columns"]
             n_rows = len(result["rows"])
             if not columns:
@@ -296,6 +483,16 @@ def _run_demo(q: "queue.Queue"):
                     f"{unnamed}/{len(columns)} columns came back unnamed — this looks like a "
                     "multi-header statistics export (e.g. a pivoted year-by-year table), not "
                     "one row per apartment listing"
+                )
+            aggregate_hits = [
+                c for c in columns if any(hint in str(c).lower() for hint in AGGREGATE_COLUMN_HINTS)
+            ]
+            if len(aggregate_hits) >= 2:
+                return False, (
+                    f"columns like {', '.join(map(str, aggregate_hits[:4]))} look like "
+                    "statistical aggregates (mean/median/quantile), not per-apartment fields — "
+                    "this is a pre-aggregated summary table (one row per stratum, e.g. per "
+                    "district/year/room-count), not one row per apartment listing"
                 )
             if n_rows < min_listing_rows:
                 return False, (
@@ -337,11 +534,14 @@ def _run_demo(q: "queue.Queue"):
                         "resources": resource_views,
                     }
                 )
-            return {
+            response = {
                 "query": result["query"],
                 "total_found": result["total_found"],
                 "datasets": agent_view_datasets,
             }
+            if result.get("error"):
+                response["error"] = result["error"]
+            return response
 
         def call_download_dataset(resource_id: str):
             picked = resource_lookup.get(resource_id)
@@ -369,7 +569,28 @@ def _run_demo(q: "queue.Queue"):
                     # Automatically recognized as unsuitable (aggregated /
                     # not listing-level) — really delete it and report the
                     # rejection as the actual tool result, regardless of
-                    # what the agent itself would have concluded.
+                    # what the agent itself would have concluded. Still a
+                    # real, readable dataset though (unless preview_data
+                    # itself couldn't even parse it) — worth keeping as a
+                    # last-resort fallback in case nothing better ever
+                    # turns up.
+                    unreadable = (
+                        "couldn't even be read as a table" in reason
+                        or "no readable columns" in reason
+                    )
+                    if not unreadable:
+                        snapshot_fallback_candidate(
+                            str(DOWNLOAD_PATH),
+                            picked["format"],
+                            reason,
+                            {
+                                "dataset_title": picked["dataset_title"],
+                                "dataset_organization": picked["dataset_organization"],
+                                "dataset_url": picked["dataset_url"],
+                                "resource_url": picked["url"],
+                                "bytes": result.get("bytes"),
+                            },
+                        )
                     Path(DOWNLOAD_PATH).unlink(missing_ok=True)
                     result["success"] = False
                     result["error"] = (
@@ -401,6 +622,23 @@ def _run_demo(q: "queue.Queue"):
             return result
 
         def call_discard_dataset(reason: str = ""):
+            # Same last-resort snapshot as the automatic rejection path
+            # above, for datasets the agent itself judged unsuitable (e.g.
+            # ones the structural check missed) before they're really
+            # deleted for good.
+            if current_file["path"] and Path(current_file["path"]).exists():
+                snapshot_fallback_candidate(
+                    current_file["path"],
+                    current_file["format"],
+                    reason or "the Data Analyst judged it unsuitable",
+                    {
+                        "dataset_title": download_result.get("dataset_title"),
+                        "dataset_organization": download_result.get("dataset_organization"),
+                        "dataset_url": download_result.get("dataset_url"),
+                        "resource_url": download_result.get("resource_url"),
+                        "bytes": download_result.get("bytes"),
+                    },
+                )
             result = discard_dataset(
                 path=current_file["path"], reason=reason, on_progress=on_progress
             )
@@ -435,6 +673,8 @@ def _run_demo(q: "queue.Queue"):
                 n=n,
                 on_progress=on_progress,
             )
+            if result.get("error"):
+                return result
             return {"columns": result["columns"], "n_rows_shown": len(result["rows"])}
 
         def call_profile_data():
@@ -446,6 +686,8 @@ def _run_demo(q: "queue.Queue"):
                 data_format=current_file["format"],
                 on_progress=on_progress,
             )
+            if result.get("error"):
+                return result
             profile_result.clear()
             profile_result.update(result)
             return result
@@ -462,6 +704,8 @@ def _run_demo(q: "queue.Queue"):
                 drop_missing_in=drop_missing_in,
                 on_progress=on_progress,
             )
+            if result.get("error"):
+                return result
             clean_result.clear()
             clean_result.update(result)
             current_file["path"] = str(CLEANED_PATH)
@@ -479,6 +723,8 @@ def _run_demo(q: "queue.Queue"):
                 table_name=table_name,
                 on_progress=on_progress,
             )
+            if result.get("error"):
+                return result
             store_result.clear()
             store_result.update(result)
             return result
@@ -678,6 +924,9 @@ def _run_demo(q: "queue.Queue"):
         turn_count = 0
         started_at = time.monotonic()
         transcript: list[dict] = []
+        # Which step is currently active, so a stopped/timed-out outcome can
+        # say where it happened rather than just that it happened.
+        current_step = {"step": 1, "step_label": "Business objective"}
 
         def time_left() -> bool:
             return (time.monotonic() - started_at) < MAX_RUNTIME_SECONDS
@@ -705,6 +954,8 @@ def _run_demo(q: "queue.Queue"):
             max_turns_override: int | None = None,
             min_turns_override: int | None = None,
         ):
+            current_step["step"] = step
+            current_step["step_label"] = step_label
             q.put(
                 _sse(
                     "phase_start",
@@ -885,18 +1136,80 @@ def _run_demo(q: "queue.Queue"):
                 has_tools=True,
                 max_turns_override=MAX_TURNS_COLLECT,
             )
-            q.put(
-                _sse(
-                    "phase_done",
+
+            # No individual-level dataset ever got confirmed, but a real,
+            # readable one WAS found along the way (auto-rejected or
+            # manually discarded) — fall back to it rather than ending with
+            # nothing. Never a specific hardcoded dataset: whatever the
+            # agents' own search actually turned up.
+            if not dataset_ready["value"] and fallback_candidate.get("path"):
+                current_file["path"] = fallback_candidate["path"]
+                current_file["format"] = fallback_candidate["format"]
+                dataset_ready["value"] = True
+                download_result.clear()
+                download_result.update(
                     {
-                        "step": 3,
-                        "step_label": "Collecting data",
-                        "opendata": dict(opendata_result),
-                        "download": dict(download_result),
-                        "preview": dict(download_preview_result),
-                    },
+                        "success": True,
+                        "fallback": True,
+                        "format": fallback_candidate.get("format"),
+                        "bytes": fallback_candidate.get("bytes"),
+                        "resource_url": fallback_candidate.get("resource_url"),
+                        "dataset_title": fallback_candidate.get("dataset_title"),
+                        "dataset_organization": fallback_candidate.get("dataset_organization"),
+                        "dataset_url": fallback_candidate.get("dataset_url"),
+                        "reason_rejected": fallback_candidate.get("reason_rejected"),
+                    }
                 )
-            )
+                capture_preview(
+                    download_preview_result, current_file["path"], current_file["format"]
+                )
+
+                # The decision has to be voiced by an agent, not a silent
+                # system switch — prime the Product Manager with the real
+                # facts and have it actually say so, the same
+                # speak-then-stream pattern used for Step 1's
+                # acknowledgment turn. The Product Manager (not the Data
+                # Analyst) says this specifically so we don't hand a
+                # tool-bearing agent a reason to call discard_dataset again
+                # on the file we just salvaged.
+                fallback_title = fallback_candidate.get("dataset_title") or "an unnamed dataset"
+                fallback_org = fallback_candidate.get("dataset_organization") or "unknown source"
+                fallback_reason = (
+                    fallback_candidate.get("reason_rejected") or "it did not look individual-level"
+                )
+                transcript.append(
+                    {
+                        "speaker": "system",
+                        "text": (
+                            "No individual-apartment-level dataset could be confirmed within "
+                            "the search budget. The best real dataset actually found during "
+                            f'the search was "{fallback_title}" ({fallback_org}), set aside '
+                            f"earlier because {fallback_reason}. Product Manager: state, in "
+                            "ONE or TWO short natural sentences and without calling any tools, "
+                            "that the team is going with this real dataset as the best "
+                            "available option rather than having nothing to work with — name "
+                            "it, and be upfront that it's an aggregated/best-available "
+                            "substitute, not genuine individual-level data."
+                        ),
+                    }
+                )
+                fallback_reply, fallback_used_tool = product_manager.speak(transcript)
+                fallback_clean = STATUS_TAG_RE.sub("", fallback_reply or "").strip()
+                fallback_clean = SPEAKER_PREFIX_RE.sub("", fallback_clean)
+                transcript.append({"speaker": product_manager.name, "text": fallback_clean})
+                stream_turn(
+                    product_manager.name, fallback_clean, fallback_used_tool, 3, "Collecting data"
+                )
+
+            step3_result = {
+                "step": 3,
+                "step_label": "Collecting data",
+                "opendata": dict(opendata_result),
+                "download": dict(download_result),
+                "preview": dict(download_preview_result),
+            }
+            q.put(_sse("phase_done", step3_result))
+            history.append({"kind": "phase_result", "step": 3, "data": step3_result})
 
         # Step 4: Preparing & storing data — discuss, then real tools.
         # Only proceed if step 3 actually ended with a real, undiscarded,
@@ -930,49 +1243,70 @@ def _run_demo(q: "queue.Queue"):
                     "— that's a separate, not-yet-built part of the process.",
                     has_tools=True,
                 )
-            q.put(
-                _sse(
-                    "phase_done",
-                    {
-                        "step": 4,
-                        "step_label": "Preparing & storing data",
-                        "profile": dict(profile_result),
-                        "clean": dict(clean_result),
-                        "store": dict(store_result),
-                        "sql": dict(sql_result),
-                        "sketch": dict(sketch_result),
-                        "preview": dict(clean_preview_result),
-                    },
-                )
-            )
-            q.put(_sse("done", {}))
+            step4_result = {
+                "step": 4,
+                "step_label": "Preparing & storing data",
+                "profile": dict(profile_result),
+                "clean": dict(clean_result),
+                "store": dict(store_result),
+                "sql": dict(sql_result),
+                "sketch": dict(sketch_result),
+                "preview": dict(clean_preview_result),
+            }
+            q.put(_sse("phase_done", step4_result))
+            history.append({"kind": "phase_result", "step": 4, "data": step4_result})
+            if download_result.get("fallback"):
+                outcome = {
+                    "status": "completed_with_fallback",
+                    "message": (
+                        "Completed all 4 steps using a fallback (aggregated/best-available) "
+                        "dataset — no individual-apartment-level data was ever confirmed."
+                    ),
+                }
+            else:
+                outcome = {"status": "completed", "message": "Completed all 4 steps."}
+            q.put(_sse("done", outcome))
         elif not should_stop():
             # Step 3 ended without ever landing on genuine individual-level
             # data (everything found was aggregated/wrong-topic and got
             # discarded, or the search budget ran out first) — say so
             # honestly instead of faking step 4 against no real file.
-            q.put(
-                _sse(
-                    "done",
-                    {
-                        "incomplete": True,
-                        "message": (
-                            "No individual-apartment-level dataset could be confirmed within "
-                            "the search budget — every candidate turned out to be aggregated "
-                            "or off-topic and was discarded. Preparing & storing data was "
-                            "skipped since there's no real file to work with."
-                        ),
-                    },
-                )
-            )
+            outcome = {
+                "status": "incomplete",
+                "message": (
+                    "No individual-apartment-level dataset could be confirmed within "
+                    "the search budget — every candidate turned out to be aggregated "
+                    "or off-topic and was discarded. Preparing & storing data was "
+                    "skipped since there's no real file to work with."
+                ),
+            }
+            q.put(_sse("done", {"incomplete": True, **outcome}))
         else:
-            q.put(_sse("done", {}))
+            # should_stop() was already true before step 3/4 even ran — either
+            # the user clicked Stop, or the turn/time safety net kicked in.
+            where = f"during Step {current_step['step']}/4 · {current_step['step_label']}"
+            if stop_event.is_set():
+                outcome = {"status": "stopped", "message": f"Stopped by the user {where}."}
+            else:
+                minutes = MAX_RUNTIME_SECONDS // 60
+                outcome = {
+                    "status": "timed_out",
+                    "message": (
+                        f"Hit the safety net ({MAX_TURNS} turns or {minutes} minutes) {where}."
+                    ),
+                }
+            q.put(_sse("done", outcome))
     except Exception as exc:  # surface backend errors to the browser instead of hanging
-        q.put(_sse("error", {"message": str(exc)}))
+        outcome = {"status": "error", "message": str(exc)}
+        # Named "app_error", not "error" — EventSource treats a literal
+        # "error" SSE event as indistinguishable from its own native
+        # connection-failure event, so the frontend's genuine
+        # connection-lost handler was silently stomping this message.
+        q.put(_sse("app_error", {"message": str(exc)}))
     finally:
         # Saved regardless of how the run ended (finished, stopped, or
         # errored) so a partial conversation is never silently lost.
-        _save_conversation_history(history, run_started_at)
+        _save_conversation_history(history, run_started_at, outcome)
         q.put(None)  # sentinel: stop the stream
 
 

@@ -125,14 +125,22 @@ def search_open_data(query: str = "wohnung miete", on_progress=None) -> dict:
             on_progress(stage)
 
     report(f"Querying opendata.swiss for '{query}' ...")
-    response = requests.get(
-        OPENDATA_SEARCH_URL,
-        params={"q": query, "rows": 8},
-        headers=BROWSER_HEADERS,
-        timeout=REQUEST_TIMEOUT_SECONDS,
-    )
-    response.raise_for_status()
-    payload = response.json()["result"]
+    try:
+        response = requests.get(
+            OPENDATA_SEARCH_URL,
+            params={"q": query, "rows": 8},
+            headers=BROWSER_HEADERS,
+            timeout=REQUEST_TIMEOUT_SECONDS,
+        )
+        response.raise_for_status()
+        payload = response.json()["result"]
+    except requests.RequestException as exc:
+        # A real network hiccup (timeout, connection error, HTTP error from
+        # opendata.swiss) should read as "this attempt failed, try
+        # something else" — same as attempt_scrape/download_dataset — not
+        # crash the entire run.
+        report(f"opendata.swiss query failed ({exc}).")
+        return {"query": query, "total_found": 0, "datasets": [], "error": str(exc)}
 
     datasets = []
     for pkg in payload["results"]:
@@ -240,7 +248,14 @@ def preview_data(
             on_progress(stage)
 
     report(f"Reading the first {n} rows of {Path(path).name} ...")
-    df = _read_table(path, data_format, nrows=n)
+    try:
+        df = _read_table(path, data_format, nrows=n)
+    except Exception as exc:
+        # A genuinely unreadable file (wrong format guess, corrupt/garbled
+        # content) should read as "that failed, try something else" — not
+        # crash the entire run.
+        report(f"Couldn't read {Path(path).name} ({exc}).")
+        return {"error": str(exc), "columns": [], "rows": []}
 
     columns = [str(c) for c in df.columns]
     rows = df.astype(object).where(df.notna(), None).values.tolist()
@@ -260,7 +275,11 @@ def profile_data(
             on_progress(stage)
 
     report(f"Profiling {Path(path).name} ...")
-    df = _read_table(path, data_format)
+    try:
+        df = _read_table(path, data_format)
+    except Exception as exc:
+        report(f"Couldn't read {Path(path).name} ({exc}).")
+        return {"error": str(exc)}
 
     n_rows, n_cols = df.shape
     missing = df.isna().sum()
@@ -298,7 +317,11 @@ def clean_data(
             on_progress(stage)
 
     report(f"Cleaning {Path(source_path).name} ...")
-    df = _read_table(source_path, data_format)
+    try:
+        df = _read_table(source_path, data_format)
+    except Exception as exc:
+        report(f"Couldn't read {Path(source_path).name} ({exc}).")
+        return {"error": str(exc)}
     n_before = len(df)
 
     if drop_duplicates:
@@ -340,13 +363,21 @@ def store_to_database(
             on_progress(stage)
 
     report(f"Storing {Path(source_path).name} into {Path(db_path).name} (table '{table_name}') ...")
-    df = pd.read_csv(source_path)
+    try:
+        df = pd.read_csv(source_path)
+    except Exception as exc:
+        report(f"Couldn't read {Path(source_path).name} ({exc}).")
+        return {"error": str(exc)}
 
     safe_table = re.sub(r"[^A-Za-z0-9_]", "_", table_name) or "apartments"
     con = sqlite3.connect(db_path)
     try:
-        df.to_sql(safe_table, con, if_exists="replace", index=False)
-        con.commit()
+        try:
+            df.to_sql(safe_table, con, if_exists="replace", index=False)
+            con.commit()
+        except sqlite3.Error as exc:
+            report(f"Storing failed ({exc}).")
+            return {"error": str(exc)}
     finally:
         con.close()
 
@@ -383,9 +414,16 @@ def run_sql_query(
     report(f"Running SQL query against {Path(db_path).name} ...")
     con = sqlite3.connect(db_path)
     try:
-        cur = con.execute(query)
-        columns = [d[0] for d in cur.description] if cur.description else []
-        rows = cur.fetchmany(20)
+        try:
+            cur = con.execute(query)
+            columns = [d[0] for d in cur.description] if cur.description else []
+            rows = cur.fetchmany(20)
+        except sqlite3.Error as exc:
+            # A real query mistake (wrong table/column name, syntax error)
+            # should read as "that query failed, try another one" — same as
+            # the other real tools — not crash the entire run.
+            report(f"Query failed ({exc}).")
+            return {"success": False, "query": query, "error": str(exc)}
     finally:
         con.close()
 
