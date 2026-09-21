@@ -133,7 +133,7 @@ Agentic_Data_Analytics_Experiment/__pycache__/
 Agentic_Data_Analytics_Experiment/downloaded_dataset.csv
 Agentic_Data_Analytics_Experiment/cleaned_dataset.csv
 Agentic_Data_Analytics_Experiment/rental_data.db
-Agentic_Data_Analytics_Experiment/conversation_history/
+# Agentic_Data_Analytics_Experiment/conversation_history/
 
 # Ignore single folders
 # Week_01
