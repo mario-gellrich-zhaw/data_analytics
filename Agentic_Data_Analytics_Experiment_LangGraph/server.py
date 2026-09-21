@@ -36,6 +36,7 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
+import transcript
 from agents import build_agents
 from data_tool import download_dataset
 from graph import SPEAKER_PREFIX_RE, STATUS_TAG_RE, AgentConfig, build_phase_graph, speak_once
@@ -209,174 +210,12 @@ def _sse(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data)}\n\n"
 
 
-_OUTCOME_HEADLINES = {
-    "completed": "✅ Completed all 4 steps",
-    "completed_with_fallback": "⚠️ Completed with a fallback dataset (not individual-level)",
-    "incomplete": "⚠️ Incomplete — no individual-apartment-level dataset confirmed",
-    "stopped": "⏹️ Stopped by the user",
-    "timed_out": "⏱️ Hit the safety net before finishing",
-    "error": "❌ Errored",
-    "unknown": "❔ Unknown",
-}
-
-
-def _objective_headline(business_objective: str) -> str:
-    # The opener varies run to run (see BUSINESS_OBJECTIVE_OPENERS); the
-    # actual goal sentence that follows it doesn't, so anchor on that
-    # instead of assuming a fixed prefix length.
-    marker = "Our goal"
-    idx = business_objective.find(marker)
-    if idx == -1:
-        return business_objective.split(". ")[0].strip()
-    remainder = business_objective[idx:]
-    end = remainder.find(". ")
-    return (remainder[: end + 1] if end != -1 else remainder).strip()
-
-
-def _format_duration(seconds: float) -> str:
-    total = int(seconds)
-    hours, remainder = divmod(total, 3600)
-    minutes, secs = divmod(remainder, 60)
-    if hours:
-        return f"{hours}h {minutes}m {secs}s"
-    if minutes:
-        return f"{minutes}m {secs}s"
-    return f"{secs}s"
-
-
-def _render_step3_result_lines(data: dict) -> list[str]:
-    lines: list[str] = []
-    opendata = data.get("opendata") or {}
-    if opendata.get("query"):
-        lines.append(
-            f"- Search: \"{opendata['query']}\" → {opendata.get('total_found', 0)} "
-            "candidate(s) found on opendata.swiss."
-        )
-    download = data.get("download") or {}
-    if download.get("success"):
-        title = download.get("dataset_title")
-        if title:
-            org = download.get("dataset_organization") or "opendata.swiss"
-            url = download.get("dataset_url")
-            source = f"[{title}]({url})" if url else title
-            lines.append(f"- Downloaded: {source} ({org}).")
-        bytes_ = download.get("bytes")
-        if bytes_ is not None:
-            lines.append(f"- {bytes_:,} bytes saved ({download.get('format', 'file')}).")
-    elif download:
-        lines.append(f"- Download failed: {download.get('error', 'unknown error')}")
-    preview = data.get("preview") or {}
-    if preview.get("columns"):
-        n_rows = len(preview.get("rows") or [])
-        lines.append(
-            f"- Preview: {n_rows} rows, columns: {', '.join(map(str, preview['columns']))}."
-        )
-    return lines
-
-
-def _render_step4_result_lines(data: dict) -> list[str]:
-    lines: list[str] = []
-    profile = data.get("profile") or {}
-    if "n_rows" in profile:
-        n_missing_cols = len(profile.get("missing_values") or {})
-        lines.append(
-            f"- Profiled: {profile['n_rows']:,} rows, {profile.get('n_columns')} columns, "
-            f"{profile.get('duplicate_rows', 0):,} duplicate rows, {n_missing_cols} "
-            "columns with missing values."
-        )
-    clean = data.get("clean") or {}
-    if "rows_after" in clean:
-        lines.append(
-            f"- Cleaned: {clean.get('rows_before', 0):,} → {clean.get('rows_after', 0):,} rows "
-            f"({clean.get('dropped_duplicates', 0):,} duplicates, "
-            f"{clean.get('dropped_missing', 0):,} missing-value rows dropped)."
-        )
-    store = data.get("store") or {}
-    if store.get("table_name"):
-        lines.append(
-            f"- Stored {store.get('rows_stored', 0):,} rows in table "
-            f"\"{store['table_name']}\" ({store.get('db_bytes', 0):,} bytes)."
-        )
-    sql = data.get("sql") or {}
-    if sql.get("query"):
-        n_rows = len(sql.get("rows") or [])
-        lines.append(f"- Verification query: `{sql['query']}` → {n_rows} row(s) returned.")
-    sketch = data.get("sketch") or {}
-    if sketch.get("title"):
-        lines.append(f"- Sketch: \"{sketch['title']}\" ({sketch.get('kind', 'ascii')}).")
-    return lines
-
-
-def _render_phase_result_lines(step: int, data: dict) -> list[str]:
-    """Compact, human-facing facts behind a step's tools — the same fields
-    static/app.js's buildCollectingCard/buildPreparingCard already surface,
-    so the saved file and the live UI agree on what matters."""
-    if step == 3:
-        return _render_step3_result_lines(data)
-    if step == 4:
-        return _render_step4_result_lines(data)
-    return []
-
-
-def _render_conversation_history(
-    history: list[dict], started_at: datetime, ended_at: datetime, outcome: dict
-) -> str:
-    """Render one run's recorded phases/turns as a human-readable Markdown transcript."""
-    turn_count = sum(1 for entry in history if entry["kind"] == "turn")
-    objective = next((e["goal"] for e in history if e["kind"] == "phase"), "")
-    status = outcome.get("status", "unknown")
-
-    lines = [
-        "# Agentic Conversation — Data Analytics Process Model",
-        f"**Run started:** {started_at:%Y-%m-%d %H:%M:%S}",
-        f"**Outcome:** {_OUTCOME_HEADLINES.get(status, status)}",
-        f"**Turns:** {turn_count} over {_format_duration((ended_at - started_at).total_seconds())}",
-    ]
-    if objective:
-        lines.append(f"**Objective:** {_objective_headline(objective)}")
-    lines.append("")
-
-    for entry in history:
-        if entry["kind"] == "phase":
-            header = f"## Step {entry['step']}/4 · {entry['step_label']}"
-            if entry["sub_label"]:
-                header += f" — {entry['sub_label']}"
-            lines.append(header)
-            lines.append(f"*Goal: {entry['goal']}*")
-            lines.append("")
-        elif entry["kind"] == "turn":
-            suffix = " _(used a real tool)_" if entry["action"] else ""
-            lines.append(f"**{entry['speaker']}:** {entry['text']}{suffix}")
-            lines.append("")
-        elif entry["kind"] == "phase_result":
-            result_lines = _render_phase_result_lines(entry["step"], entry["data"])
-            if result_lines:
-                lines.append("**Real results:**")
-                lines.extend(result_lines)
-                lines.append("")
-
-    lines.append("## Run ended")
-    lines.append(f"**Status:** {_OUTCOME_HEADLINES.get(status, status)}")
-    if outcome.get("message"):
-        lines.append(outcome["message"])
-
-    return "\n".join(lines).rstrip() + "\n"
-
-
 def _save_conversation_history(history: list[dict], started_at: datetime, outcome: dict) -> None:
-    # Best-effort only: a failure to save the transcript should never break
-    # the live demo or leave the SSE stream hanging.
-    if not history:
-        return
-    try:
-        ended_at = datetime.now()
-        CONVERSATION_HISTORY_DIR.mkdir(exist_ok=True)
-        filename = f"conversation_{started_at:%Y%m%d_%H%M%S}.md"
-        (CONVERSATION_HISTORY_DIR / filename).write_text(
-            _render_conversation_history(history, started_at, ended_at, outcome), encoding="utf-8"
-        )
-    except OSError:
-        pass
+    """Save one run as both Markdown and HTML (see transcript.py) — the
+    HTML version reuses the live page's own stylesheet, read fresh each
+    time so an edit to static/style.css is picked up without a restart."""
+    css = (STATIC_DIR / "style.css").read_text(encoding="utf-8")
+    transcript.save(history, started_at, outcome, CONVERSATION_HISTORY_DIR, css)
 
 
 class PhaseSpec(NamedTuple):

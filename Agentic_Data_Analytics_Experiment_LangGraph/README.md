@@ -28,18 +28,76 @@ via the **Stop** button.
   real tool &rarr; react to the real result &rarr; record the turn), looped
   via a conditional edge until the phase's agents reach consensus (their
   status tag) or a turn cap is hit.
+- **`agents.py`** &mdash; builds the six agent personas (a no-tools and a
+  tools-bound variant of the Data Analyst and Data Engineer, plus the
+  Product Manager), each a LangChain `ChatOpenAI`, `.bind_tools(...)`-ed
+  where relevant.
 - **`data_tool.py`** &mdash; the real tools the agents can call: scraping,
   open-data search/download, data profiling/cleaning, database storage, and
   a small sketching tool.
-- **`server.py`** &mdash; a FastAPI backend that builds the agents (each a
-  LangChain `ChatOpenAI`, `.bind_tools(...)`-ed where relevant), drives the
-  compiled graph phase by phase, and streams the conversation to the
-  browser via Server-Sent Events.
+- **`run_tools.py`** &mdash; per-run state on top of `data_tool.py`'s pure
+  functions: which file is "current" right now, and the real results each
+  phase's result card needs to show.
+- **`server.py`** &mdash; the FastAPI backend: a `DemoRun` runs the four
+  steps in order, streaming each phase's compiled graph to the browser via
+  Server-Sent Events.
+- **`transcript.py`** &mdash; once a run ends, renders it to
+  `conversation_history/` as both a Markdown transcript and a
+  self-contained HTML page styled like the live chat (see Architecture
+  below).
 - **`static/`** &mdash; a plain HTML/CSS/JS frontend (no build step) that
   renders the conversation as a chat, with live progress and result cards.
 - **`data/`** &mdash; where a run's real dataset files land: the downloaded
   dataset, the cleaned version, the SQLite database, and the fallback
   dataset if one was needed. Git-ignored (regenerated fresh every run).
+- **`conversation_history/`** &mdash; every run's saved Markdown + HTML
+  transcript. Git-ignored.
+
+## Architecture
+
+How the pieces fit together for one run:
+
+```mermaid
+flowchart LR
+    Browser["Browser<br/>static/ (index.html, app.js)"]
+    Server["server.py<br/>FastAPI + Server-Sent Events"]
+    DemoRun["DemoRun<br/>steps 1-4, once, in order"]
+    Graph["graph.py<br/>LangGraph StateGraph<br/>(one phase's turn-taking)"]
+    Agents["agents.py<br/>personas &rarr; ChatOpenAI"]
+    Tools["run_tools.py<br/>RunTools: per-run tool state"]
+    DataTool["data_tool.py<br/>real tool functions"]
+    Transcript["transcript.py<br/>Markdown + HTML export"]
+    OpenAI(["OpenAI API"])
+    RealWorld(["Real web<br/>rental sites, opendata.swiss"])
+    SQLite[("data/rental_data.db")]
+    History[("conversation_history/*.md, *.html")]
+
+    Browser <-->|SSE events| Server
+    Server --> DemoRun
+    DemoRun -->|stream one phase| Graph
+    Graph -->|invoke, .bind_tools| Agents
+    Agents -->|chat completions| OpenAI
+    Graph -->|tool call requested| Tools
+    Tools --> DataTool
+    DataTool -->|scrape / search / download| RealWorld
+    DataTool -->|clean / store / query| SQLite
+    DemoRun -->|once the run ends| Transcript
+    Transcript --> History
+```
+
+And what `graph.py`'s compiled `StateGraph` actually does for a single
+agent's turn, looped until the phase ends:
+
+```mermaid
+stateDiagram-v2
+    [*] --> agent_turn
+    agent_turn --> tools: tool call requested
+    agent_turn --> finish_turn: no tool call
+    tools --> record_turn: react to the real result
+    finish_turn --> record_turn
+    record_turn --> agent_turn: still going
+    record_turn --> [*]: turn cap hit, or consensus
+```
 
 ## Setup
 
