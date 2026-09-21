@@ -37,6 +37,17 @@ pip install -r requirements.txt  # installs the required Python libraries
 > [!CAUTION]
 > Local installations are not supported by us because we do not know your local environment. Use this on your own responsibility.
 
+## Agentic Data Analytics Experiment
+
+[`Agentic_Data_Analytics_Experiment/`](Agentic_Data_Analytics_Experiment/README.md) is a
+small, hand-built (no LangChain/CrewAI/AutoGen) multi-agent demo wrapped in a
+live web app. Three OpenAI-backed agents — a Product Manager, a Data Analyst,
+and a Data Engineer — collaborate through the first steps of the course's
+Data Analytics Process Model (objective, data needs, real collection, real
+cleaning/storage), streamed live to a browser via FastAPI + Server-Sent
+Events. See its own [README](Agentic_Data_Analytics_Experiment/README.md)
+for setup and details. Non-commercial / educational use only.
+
 ## Folder Structure
 
 The folder structure of the course is:
@@ -49,6 +60,7 @@ Data Analytics/
 ├── .vscode/
 │   └── settings.json
 |
+├── Agentic_Data_Analytics_Experiment/
 ├── Week_01/
 ├── Week_02/
 ├── Week_03/

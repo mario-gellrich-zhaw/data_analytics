@@ -128,12 +128,12 @@ Week_LC/LC_12/deploy.prototxt
 Week_LC/LC_12/mobilenet_iter_73000.caffemodel
 Week_LC/LC_12/my_image.jpg
 
-# Ignore runtime artifacts (Agentic Data Analytics Process demo)
-Agentic_Data_Analytics_Process/__pycache__/
-Agentic_Data_Analytics_Process/downloaded_dataset.csv
-Agentic_Data_Analytics_Process/cleaned_dataset.csv
-Agentic_Data_Analytics_Process/rental_data.db
-Agentic_Data_Analytics_Process/conversation_history/
+# Ignore runtime artifacts (Agentic Data Analytics Experiment demo)
+Agentic_Data_Analytics_Experiment/__pycache__/
+Agentic_Data_Analytics_Experiment/downloaded_dataset.csv
+Agentic_Data_Analytics_Experiment/cleaned_dataset.csv
+Agentic_Data_Analytics_Experiment/rental_data.db
+Agentic_Data_Analytics_Experiment/conversation_history/
 
 # Ignore single folders
 # Week_01
