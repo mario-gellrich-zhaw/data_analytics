@@ -38,7 +38,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from openai import OpenAI
 
@@ -217,6 +217,12 @@ stop_event = threading.Event()
 def index():
     """Serve the single static demo page."""
     return FileResponse(STATIC_DIR / "index.html")
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon():
+    """Avoid noisy 404s from browsers auto-requesting /favicon.ico."""
+    return Response(status_code=204)
 
 
 @app.post("/api/stop")
