@@ -250,10 +250,12 @@ def preview_data(
     report(f"Reading the first {n} rows of {Path(path).name} ...")
     try:
         df = _read_table(path, data_format, nrows=n)
-    except Exception as exc:
+    except Exception as exc:  # pylint: disable=broad-exception-caught
         # A genuinely unreadable file (wrong format guess, corrupt/garbled
         # content) should read as "that failed, try something else" — not
-        # crash the entire run.
+        # crash the entire run. pandas/openpyxl can raise many different
+        # exception types depending on what's actually wrong with a file
+        # picked at runtime, so this boundary catches broadly on purpose.
         report(f"Couldn't read {Path(path).name} ({exc}).")
         return {"error": str(exc), "columns": [], "rows": []}
 
@@ -277,7 +279,8 @@ def profile_data(
     report(f"Profiling {Path(path).name} ...")
     try:
         df = _read_table(path, data_format)
-    except Exception as exc:
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        # See preview_data's matching except: same boundary, same reason.
         report(f"Couldn't read {Path(path).name} ({exc}).")
         return {"error": str(exc)}
 
@@ -319,7 +322,8 @@ def clean_data(
     report(f"Cleaning {Path(source_path).name} ...")
     try:
         df = _read_table(source_path, data_format)
-    except Exception as exc:
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        # See preview_data's matching except: same boundary, same reason.
         report(f"Couldn't read {Path(source_path).name} ({exc}).")
         return {"error": str(exc)}
     n_before = len(df)
@@ -365,7 +369,8 @@ def store_to_database(
     report(f"Storing {Path(source_path).name} into {Path(db_path).name} (table '{table_name}') ...")
     try:
         df = pd.read_csv(source_path)
-    except Exception as exc:
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        # See preview_data's matching except: same boundary, same reason.
         report(f"Couldn't read {Path(source_path).name} ({exc}).")
         return {"error": str(exc)}
 
