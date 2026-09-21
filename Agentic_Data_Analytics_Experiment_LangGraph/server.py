@@ -691,7 +691,7 @@ def _run_demo(q: "queue.Queue"):
         # from one shared dict — safe because a model can only ever request
         # a tool that was actually bound to it for this call.
 
-        GLOBAL_TOOL_IMPLS = {
+        tool_impls = {
             "attempt_scrape": call_attempt_scrape,
             "search_open_data": call_search_open_data,
             "download_dataset": call_download_dataset,
@@ -950,7 +950,7 @@ def _run_demo(q: "queue.Queue"):
             initial_state = {
                 "transcript": transcript,
                 "phase_agents": agents,
-                "tool_impls": GLOBAL_TOOL_IMPLS,
+                "tool_impls": tool_impls,
                 "turn_idx": 0,
                 "turns_in_phase": 0,
                 "min_turns": min_turns,
@@ -1002,7 +1002,7 @@ def _run_demo(q: "queue.Queue"):
         transcript.append({"speaker": product_manager.name, "text": business_objective})
         stream_turn(product_manager.name, business_objective, False, 1, "Business objective")
 
-        ack_reply, ack_used_tool = speak_once(data_analyst_notools, transcript, GLOBAL_TOOL_IMPLS)
+        ack_reply, ack_used_tool = speak_once(data_analyst_notools, transcript, tool_impls)
         ack_clean = STATUS_TAG_RE.sub("", ack_reply or "").strip()
         ack_clean = SPEAKER_PREFIX_RE.sub("", ack_clean)
         transcript.append({"speaker": data_analyst_notools.name, "text": ack_clean})
@@ -1148,7 +1148,7 @@ def _run_demo(q: "queue.Queue"):
                         }
                     )
                     fallback_reply, fallback_used_tool = speak_once(
-                        product_manager, transcript, GLOBAL_TOOL_IMPLS
+                        product_manager, transcript, tool_impls
                     )
                     fallback_clean = STATUS_TAG_RE.sub("", fallback_reply or "").strip()
                     fallback_clean = SPEAKER_PREFIX_RE.sub("", fallback_clean)

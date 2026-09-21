@@ -29,10 +29,12 @@ from langgraph.graph import END, StateGraph
 from typing_extensions import TypedDict
 
 STATUS_TAG_RE = re.compile(r"\s*\[STATUS:\s*(CONTINUE|NEXT)\]\s*$", re.IGNORECASE)
-# Same guardrail as agents.py/server.py: strip a name the model sometimes
-# mimics onto the front of its own reply before it lands in the shared
-# transcript and the pattern self-reinforces.
-SPEAKER_PREFIX_RE = re.compile(r"^(Product Manager|Data Analyst|Data Engineer)\s*:\s*", re.IGNORECASE)
+# Guardrail: strip a name the model sometimes mimics onto the front of its
+# own reply before it lands in the shared transcript and the pattern
+# self-reinforces.
+SPEAKER_PREFIX_RE = re.compile(
+    r"^(Product Manager|Data Analyst|Data Engineer)\s*:\s*", re.IGNORECASE
+)
 
 REACT_PROMPT = (
     "React to that real result in ONE short sentence (max ~15 words). Do not "
@@ -104,14 +106,14 @@ def agent_turn(state: PhaseState) -> dict:
 
 
 def route_after_agent_turn(state: PhaseState) -> str:
+    """Whether the agent's reply asked for a real tool call."""
     return "tools" if state["pending_ai_message"].tool_calls else "finish_turn"
 
 
 def run_tools(state: PhaseState) -> dict:
     """Really call whichever tool(s) the agent asked for, then ask it to
-    react to the real result — same follow-up call agents.py's Agent.speak
-    makes, kept ephemeral (not part of `pending_messages`, so it never
-    lands in the shared transcript)."""
+    react to the real result — kept ephemeral (not part of
+    `pending_messages`, so it never lands in the shared transcript)."""
     cfg = _current_agent(state)
     ai_message = state["pending_ai_message"]
     messages = list(state["pending_messages"]) + [ai_message]
@@ -125,6 +127,7 @@ def run_tools(state: PhaseState) -> dict:
 
 
 def finish_turn(state: PhaseState) -> dict:
+    """No tool was requested — the agent's own reply is the final text."""
     return {"final_text": state["pending_ai_message"].content, "used_tool": False}
 
 
