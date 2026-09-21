@@ -85,6 +85,26 @@ h1 {
 .dot.analyst { background: var(--analyst-border); }
 .dot.engineer { background: var(--engineer-border); }
 
+.process-diagram {
+  margin: 0 0 24px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--panel);
+}
+
+.process-diagram img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.process-diagram figcaption {
+  margin-top: 10px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
 #start-btn {
   background: var(--accent);
   color: white;

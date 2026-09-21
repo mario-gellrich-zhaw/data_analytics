@@ -33,6 +33,7 @@ import random
 import re
 import threading
 import time
+from datetime import datetime
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -139,14 +140,13 @@ def _build_business_objective() -> str:
     opener = random.choice(BUSINESS_OBJECTIVE_OPENERS)
     return (
         f"{opener} Our goal for this project is to build a price-prediction "
-        "model for rental apartments in the canton of Zurich. It's a "
-        "non-commercial ZHAW student project, and the deliverable is a "
-        "model that estimates a fair market rent for a given apartment "
-        "from real features like size, room count, and location — useful "
-        "for tenants sanity-checking an asking price and for landlords "
-        "pricing a listing. To get there, we'll follow our data analytics "
-        "process model, starting with figuring out what data we actually "
-        "need."
+        "model for rental apartments in the canton of Zurich. The "
+        "deliverable is a model that estimates a fair market rent for a "
+        "given apartment from real features like size, room count, and "
+        "location — useful for tenants sanity-checking an asking price and "
+        "for landlords pricing a listing. To get there, we'll follow our "
+        "data analytics process model, starting with figuring out what "
+        "data we actually need."
     )
 
 
@@ -155,6 +155,9 @@ STATIC_DIR = BASE_DIR / "static"
 DOWNLOAD_PATH = BASE_DIR / "downloaded_dataset.csv"
 CLEANED_PATH = BASE_DIR / "cleaned_dataset.csv"
 DB_PATH = BASE_DIR / "rental_data.db"
+# Every run's full agent-to-agent conversation is saved here as a
+# human-readable Markdown file once the run ends, for later review.
+CONVERSATION_HISTORY_DIR = BASE_DIR / "conversation_history"
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
@@ -182,7 +185,46 @@ def _sse(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data)}\n\n"
 
 
+def _render_conversation_history(history: list[dict], started_at: datetime) -> str:
+    """Render one run's recorded phases/turns as a human-readable Markdown transcript."""
+    lines = [
+        "# Agentic Conversation — Data Analytics Process Model",
+        f"**Run started:** {started_at:%Y-%m-%d %H:%M:%S}",
+        "",
+    ]
+    for entry in history:
+        if entry["kind"] == "phase":
+            header = f"## Step {entry['step']}/4 · {entry['step_label']}"
+            if entry["sub_label"]:
+                header += f" — {entry['sub_label']}"
+            lines.append(header)
+            lines.append(f"*Goal: {entry['goal']}*")
+            lines.append("")
+        else:
+            suffix = " _(used a real tool)_" if entry["action"] else ""
+            lines.append(f"**{entry['speaker']}:** {entry['text']}{suffix}")
+            lines.append("")
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def _save_conversation_history(history: list[dict], started_at: datetime) -> None:
+    # Best-effort only: a failure to save the transcript should never break
+    # the live demo or leave the SSE stream hanging.
+    if not history:
+        return
+    try:
+        CONVERSATION_HISTORY_DIR.mkdir(exist_ok=True)
+        filename = f"conversation_{started_at:%Y%m%d_%H%M%S}.md"
+        (CONVERSATION_HISTORY_DIR / filename).write_text(
+            _render_conversation_history(history, started_at), encoding="utf-8"
+        )
+    except OSError:
+        pass
+
+
 def _run_demo(q: "queue.Queue"):
+    run_started_at = datetime.now()
+    history: list[dict] = []  # every phase header and turn, saved to disk once the run ends
     try:
 
         def on_progress(stage: str):
@@ -464,8 +506,8 @@ def _run_demo(q: "queue.Queue"):
             client=client,
             name="Product Manager",
             persona=(
-                "You are the Product Manager on a non-commercial ZHAW student "
-                "project. You have no data tools yourself (you may optionally "
+                "You are the Product Manager on this project. You have no "
+                "data tools yourself (you may optionally "
                 "use make_sketch to draw a quick ASCII or Graphviz diagram if "
                 "it genuinely helps). You and your technical peers (Data "
                 "Analyst, Data Engineer) are equals with NO hierarchy — you "
@@ -650,6 +692,7 @@ def _run_demo(q: "queue.Queue"):
                 )
             )
             q.put(_sse("turn", {"speaker": speaker, "text": text, "action": used_tool}))
+            history.append({"kind": "turn", "speaker": speaker, "text": text, "action": used_tool})
             time.sleep(TURN_DELAY_SECONDS)
 
         def run_phase(
@@ -667,6 +710,15 @@ def _run_demo(q: "queue.Queue"):
                     "phase_start",
                     {"step": step, "step_label": step_label, "sub_label": sub_label, "goal": goal},
                 )
+            )
+            history.append(
+                {
+                    "kind": "phase",
+                    "step": step,
+                    "step_label": step_label,
+                    "sub_label": sub_label,
+                    "goal": goal,
+                }
             )
             transcript.append(
                 {
@@ -740,6 +792,15 @@ def _run_demo(q: "queue.Queue"):
                     "goal": business_objective,
                 },
             )
+        )
+        history.append(
+            {
+                "kind": "phase",
+                "step": 1,
+                "step_label": "Business objective",
+                "sub_label": "",
+                "goal": business_objective,
+            }
         )
         transcript.append({"speaker": product_manager.name, "text": business_objective})
         stream_turn(product_manager.name, business_objective, False, 1, "Business objective")
@@ -909,6 +970,9 @@ def _run_demo(q: "queue.Queue"):
     except Exception as exc:  # surface backend errors to the browser instead of hanging
         q.put(_sse("error", {"message": str(exc)}))
     finally:
+        # Saved regardless of how the run ended (finished, stopped, or
+        # errored) so a partial conversation is never silently lost.
+        _save_conversation_history(history, run_started_at)
         q.put(None)  # sentinel: stop the stream
 
 
