@@ -498,6 +498,7 @@ class DemoRun:
         step3_result = {
             "step": 3,
             "step_label": "Collecting data",
+            "scrape_attempts": [dict(attempt) for attempt in self.tools.scrape_attempts],
             "opendata": dict(self.tools.results["opendata"]),
             "download": dict(self.tools.results["download"]),
             "preview": dict(self.tools.results["download_preview"]),

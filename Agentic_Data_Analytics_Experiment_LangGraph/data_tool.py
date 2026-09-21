@@ -38,7 +38,10 @@ All three agents:
 
 import re
 import sqlite3
+import time
 from pathlib import Path
+from urllib.parse import urlparse
+from urllib.robotparser import RobotFileParser
 
 import pandas as pd
 import requests
@@ -86,14 +89,94 @@ def _read_table(path: str, data_format: str, **kwargs) -> pd.DataFrame:
 
 # --- Data Analyst: Collecting data -----------------------------------------
 
+# Response headers worth surfacing when they're present — a mix of ordinary
+# diagnostic headers and the ones bot-detection/CDN layers (Cloudflare,
+# Akamai, etc.) tend to add, since those are often the real explanation for
+# a block.
+INTERESTING_RESPONSE_HEADERS = (
+    "Content-Type",
+    "Server",
+    "Content-Length",
+    "Location",
+    "Retry-After",
+    "Via",
+    "X-Cache",
+    "CF-RAY",
+    "CF-Mitigated",
+    "cf-chl-bypass",
+    "X-Akamai-Transformed",
+    "X-Robots-Tag",
+)
+
+
+def _wildcard_disallow_rules(robots_txt: str) -> list[str]:
+    """Plain-text Disallow paths under the `User-agent: *` block, for a
+    human-readable summary — the real allow/deny verdict below comes from
+    RobotFileParser, not this."""
+    rules: list[str] = []
+    applies = False
+    for raw_line in robots_txt.splitlines():
+        line = raw_line.split("#", 1)[0].strip()
+        if not line:
+            continue
+        if line.lower().startswith("user-agent:"):
+            applies = line.split(":", 1)[1].strip() == "*"
+            continue
+        if applies and line.lower().startswith("disallow:"):
+            path = line.split(":", 1)[1].strip()
+            if path:
+                rules.append(path)
+    return rules
+
+
+def _check_robots_txt(url: str, on_progress=None) -> dict:
+    """Really fetch and parse the target site's robots.txt to see, live,
+    whether it says our user agent may fetch this exact URL — the actual
+    signal `attempt_scrape` is respecting, not just a mention in a comment."""
+
+    def report(stage: str):
+        if on_progress:
+            on_progress(stage)
+
+    parsed = urlparse(url)
+    robots_url = f"{parsed.scheme}://{parsed.netloc}/robots.txt"
+    report(f"Checking {robots_url} ...")
+    try:
+        response = requests.get(robots_url, headers=BROWSER_HEADERS, timeout=REQUEST_TIMEOUT_SECONDS)
+    except requests.RequestException as exc:
+        report(f"robots.txt check failed ({exc}).")
+        return {"url": robots_url, "found": False, "status_code": None, "allowed": None, "error": str(exc)}
+
+    if response.status_code != 200:
+        report(f"robots.txt: HTTP {response.status_code} (treating as no restrictions declared).")
+        return {"url": robots_url, "found": False, "status_code": response.status_code, "allowed": None}
+
+    parser = RobotFileParser()
+    parser.parse(response.text.splitlines())
+    allowed = parser.can_fetch(BROWSER_HEADERS["User-Agent"], url)
+    disallow_rules = _wildcard_disallow_rules(response.text)
+    report(
+        f"robots.txt found: {'disallows' if not allowed else 'allows'} fetching this URL "
+        f"for our user agent ({len(disallow_rules)} 'Disallow' rule(s) under 'User-agent: *')."
+    )
+    return {
+        "url": robots_url,
+        "found": True,
+        "status_code": response.status_code,
+        "allowed": allowed,
+        "disallow_rules_sample": disallow_rules[:8],
+    }
+
 
 def attempt_scrape(site: str = "immoscout24.ch", on_progress=None) -> dict:
-    """Make one real, respectful GET request to one rental platform.
+    """Make one real, respectful GET request to one rental platform, after
+    first really checking its robots.txt.
 
     Only one attempt — this site has already said, via robots.txt and its
     terms of service, that it doesn't want automated traffic, so this
     doesn't retry or hammer it. The goal is to see, live, what actually
-    happens when you try.
+    happens when you try, and to capture enough real detail (robots.txt
+    verdict, request sent, response status/headers/timing) to explain why.
     """
 
     def report(stage: str):
@@ -101,15 +184,57 @@ def attempt_scrape(site: str = "immoscout24.ch", on_progress=None) -> dict:
             on_progress(stage)
 
     url = SCRAPE_TARGETS.get(site, SCRAPE_TARGETS["immoscout24.ch"])
-    report(f"Trying a live request to {site} ...")
+    robots_txt = _check_robots_txt(url, on_progress=on_progress)
+
+    request_info = {
+        "method": "GET",
+        "url": url,
+        "headers": dict(BROWSER_HEADERS),
+        "timeout_seconds": REQUEST_TIMEOUT_SECONDS,
+    }
+    report(f"GET {url} ...")
     try:
+        started = time.monotonic()
         response = requests.get(url, headers=BROWSER_HEADERS, timeout=REQUEST_TIMEOUT_SECONDS)
+        elapsed_ms = round((time.monotonic() - started) * 1000)
         blocked = response.status_code != 200
-        report(f"{site}: {'blocked' if blocked else 'reachable'} (HTTP {response.status_code}).")
-        return {"site": site, "url": url, "status_code": response.status_code, "blocked": blocked}
+        response_info = {
+            "status_code": response.status_code,
+            "reason": response.reason,
+            "elapsed_ms": elapsed_ms,
+            "final_url": response.url,
+            "redirected": response.url != url,
+            "content_bytes": len(response.content),
+            "headers": {
+                name: response.headers[name]
+                for name in INTERESTING_RESPONSE_HEADERS
+                if name in response.headers
+            },
+        }
+        report(
+            f"{site}: {'blocked' if blocked else 'reachable'} "
+            f"(HTTP {response.status_code} {response.reason}, {elapsed_ms} ms)."
+        )
+        return {
+            "site": site,
+            "url": url,
+            "status_code": response.status_code,
+            "blocked": blocked,
+            "robots_txt": robots_txt,
+            "request": request_info,
+            "response": response_info,
+        }
     except requests.RequestException as exc:
         report(f"{site}: request failed ({exc}).")
-        return {"site": site, "url": url, "status_code": None, "blocked": True, "error": str(exc)}
+        return {
+            "site": site,
+            "url": url,
+            "status_code": None,
+            "blocked": True,
+            "error": str(exc),
+            "robots_txt": robots_txt,
+            "request": request_info,
+        }
 
 
 def search_open_data(query: str = "wohnung miete", on_progress=None) -> dict:
@@ -456,8 +581,12 @@ ATTEMPT_SCRAPE_SCHEMA = {
         "description": (
             "Make one real, live request to a Swiss rental platform to "
             "actually test, live, whether scraping it is possible — don't "
-            "just speculate about it. Call this for one platform at a time; "
-            "see the real result before deciding whether to try another."
+            "just speculate about it. Checks the site's real robots.txt "
+            "first, then sends the real GET request, and returns both plus "
+            "the real response status/headers/timing so you can explain "
+            "*why* it was blocked or allowed, not just that it was. Call "
+            "this for one platform at a time; see the real result before "
+            "deciding whether to try another."
         ),
         "parameters": {
             "type": "object",

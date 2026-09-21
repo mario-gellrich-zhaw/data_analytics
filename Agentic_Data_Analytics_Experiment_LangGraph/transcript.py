@@ -62,6 +62,28 @@ def _format_duration(seconds: float) -> str:
 
 def _render_step3_result_lines(data: dict) -> list[str]:
     lines: list[str] = []
+    for attempt in data.get("scrape_attempts") or []:
+        verdict = "blocked" if attempt.get("blocked") else "reachable"
+        detail = f"- Scrape attempt: {attempt.get('site')} → {verdict}"
+        response = attempt.get("response")
+        if response:
+            detail += (
+                f" (HTTP {response.get('status_code')} {response.get('reason', '')}, "
+                f"{response.get('elapsed_ms')} ms)"
+            )
+        elif attempt.get("error"):
+            detail += f" ({attempt['error']})"
+        lines.append(detail + ".")
+        robots = attempt.get("robots_txt")
+        if robots and robots.get("found"):
+            rule_count = len(robots.get("disallow_rules_sample") or [])
+            lines.append(
+                f"  - robots.txt (HTTP {robots.get('status_code')}): "
+                f"{'allows' if robots.get('allowed') else 'disallows'} this URL for our "
+                f"user agent ({rule_count} 'Disallow' rule(s) under 'User-agent: *')."
+            )
+        elif robots and robots.get("error"):
+            lines.append(f"  - robots.txt check failed: {robots['error']}")
     opendata = data.get("opendata") or {}
     if opendata.get("query"):
         lines.append(
@@ -282,10 +304,70 @@ def _sketch_html(sketch: dict) -> str:
     return "".join(parts)
 
 
+def _scrape_attempts_html(scrape_attempts: list[dict]) -> str:
+    if not scrape_attempts:
+        return ""
+
+    parts = [f'<h3 class="preview-heading">Live scraping attempts ({len(scrape_attempts)})</h3>']
+    parts.append('<ul class="dataset-list">')
+    for attempt in scrape_attempts:
+        verdict = "blocked" if attempt.get("blocked") else "reachable"
+        parts.append('<li class="dataset-item">')
+        parts.append(f'<p class="sketch-title">{_esc(attempt.get("site"))} — {verdict}</p>')
+
+        lines = [f'GET {attempt.get("url")}']
+        robots = attempt.get("robots_txt")
+        if robots:
+            if not robots.get("found"):
+                lines.append(
+                    f"robots.txt: request failed ({robots['error']})"
+                    if robots.get("error")
+                    else f"robots.txt: not found (HTTP {robots.get('status_code', '?')})"
+                )
+            else:
+                rules = robots.get("disallow_rules_sample") or []
+                lines.append(
+                    f"robots.txt (HTTP {robots.get('status_code')}): "
+                    f"{'allows' if robots.get('allowed') else 'disallows'} this URL for our "
+                    f"user agent ({len(rules)} 'Disallow' rule(s) under 'User-agent: *')"
+                )
+                if rules:
+                    lines.append(f"  e.g. Disallow: {', '.join(rules[:3])}")
+
+        if attempt.get("error"):
+            lines.append(f"Request failed: {attempt['error']}")
+        elif attempt.get("response"):
+            r = attempt["response"]
+            lines.append(
+                f'HTTP {r.get("status_code")} {r.get("reason")} — {r.get("elapsed_ms")} ms, '
+                f'{r.get("content_bytes", 0):,} bytes'
+            )
+            if r.get("redirected"):
+                lines.append(f'Redirected to: {r.get("final_url")}')
+            headers = r.get("headers") or {}
+            if headers:
+                lines.append(
+                    "Response headers: " + " · ".join(f"{k}: {v}" for k, v in headers.items())
+                )
+
+        parts.append(f'<pre class="sketch-ascii">{_esc(chr(10).join(lines))}</pre>')
+        parts.append("</li>")
+    parts.append("</ul>")
+    return "".join(parts)
+
+
 def _collecting_card_html(data: dict) -> str:
     download = data.get("download") or {}
-    if not download:
+    scrape_attempts = data.get("scrape_attempts") or []
+    if not download and not scrape_attempts:
         return ""
+
+    parts = ['<article class="phase-card">']
+    parts.append(_scrape_attempts_html(scrape_attempts))
+
+    if not download:
+        parts.append("</article>")
+        return "".join(parts)
 
     if download.get("fallback"):
         heading = "⚠️ Falling back to best available data (not individual-level)"
@@ -294,7 +376,7 @@ def _collecting_card_html(data: dict) -> str:
     else:
         heading = "⚠️ Download didn't complete"
 
-    parts = ["<article class=\"phase-card\">", f"<h2>{_esc(heading)}</h2>"]
+    parts.append(f"<h2>{_esc(heading)}</h2>")
 
     if download.get("dataset_title"):
         url = download.get("dataset_url") or "#"

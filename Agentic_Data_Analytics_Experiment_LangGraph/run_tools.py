@@ -69,6 +69,7 @@ class RunTools:
     def __init__(self, paths: DataPaths, on_progress: Callable):
         self.paths = paths
         self.on_progress = on_progress
+        self.scrape_attempts: list[dict] = []
         self.results: dict[str, dict] = {
             "opendata": {},
             "download": {},
@@ -159,8 +160,13 @@ class RunTools:
     # --- Data Analyst tools: Collecting data --------------------------
 
     def call_attempt_scrape(self, site: str):
-        """Tool: one real, live request to a Swiss rental platform."""
-        return attempt_scrape(site=site, on_progress=self.on_progress)
+        """Tool: one real, live request to a Swiss rental platform (after a
+        real robots.txt check). Every attempt is kept, in order, in
+        `scrape_attempts` so the UI can show all of them regardless of
+        which ones the agent chooses to narrate."""
+        result = attempt_scrape(site=site, on_progress=self.on_progress)
+        self.scrape_attempts.append(result)
+        return result
 
     def call_search_open_data(self, query: str):
         """Tool: query opendata.swiss, handing back short resource ids in

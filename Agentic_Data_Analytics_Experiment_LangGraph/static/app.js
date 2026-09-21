@@ -145,12 +145,87 @@ function renderSketch(sketch) {
   return wrap;
 }
 
+function scrapeAttemptsSection(scrapeAttempts) {
+  if (!Array.isArray(scrapeAttempts) || scrapeAttempts.length === 0) return null;
+
+  const wrap = document.createElement("div");
+
+  const heading = document.createElement("h3");
+  heading.className = "preview-heading";
+  heading.textContent = `Live scraping attempts (${scrapeAttempts.length})`;
+  wrap.appendChild(heading);
+
+  const list = document.createElement("ul");
+  list.className = "dataset-list";
+
+  scrapeAttempts.forEach((attempt) => {
+    const li = document.createElement("li");
+    li.className = "dataset-item";
+
+    const title = document.createElement("p");
+    title.className = "sketch-title";
+    title.textContent = `${attempt.site} — ${attempt.blocked ? "blocked" : "reachable"}`;
+    li.appendChild(title);
+
+    const lines = [];
+    lines.push(`GET ${attempt.url}`);
+
+    const robots = attempt.robots_txt;
+    if (robots) {
+      if (!robots.found) {
+        lines.push(
+          robots.error
+            ? `robots.txt: request failed (${robots.error})`
+            : `robots.txt: not found (HTTP ${robots.status_code ?? "?"})`
+        );
+      } else {
+        const ruleCount = (robots.disallow_rules_sample || []).length;
+        lines.push(
+          `robots.txt (HTTP ${robots.status_code}): ${robots.allowed ? "allows" : "disallows"} ` +
+            `this URL for our user agent (${ruleCount} 'Disallow' rule(s) under 'User-agent: *')`
+        );
+        if (ruleCount > 0) {
+          lines.push(`  e.g. Disallow: ${robots.disallow_rules_sample.slice(0, 3).join(", ")}`);
+        }
+      }
+    }
+
+    if (attempt.error) {
+      lines.push(`Request failed: ${attempt.error}`);
+    } else if (attempt.response) {
+      const r = attempt.response;
+      lines.push(`HTTP ${r.status_code} ${r.reason} — ${r.elapsed_ms} ms, ${r.content_bytes.toLocaleString()} bytes`);
+      if (r.redirected) lines.push(`Redirected to: ${r.final_url}`);
+      const headerEntries = Object.entries(r.headers || {});
+      if (headerEntries.length > 0) {
+        lines.push(`Response headers: ${headerEntries.map(([k, v]) => `${k}: ${v}`).join(" · ")}`);
+      }
+    }
+
+    const pre = document.createElement("pre");
+    pre.className = "sketch-ascii";
+    pre.textContent = lines.join("\n");
+    li.appendChild(pre);
+
+    list.appendChild(li);
+  });
+
+  wrap.appendChild(list);
+  return wrap;
+}
+
 function buildCollectingCard(data) {
-  const { download } = data || {};
-  if (!download || Object.keys(download).length === 0) return null;
+  const { download, scrape_attempts: scrapeAttempts } = data || {};
+  const hasScrapeAttempts = Array.isArray(scrapeAttempts) && scrapeAttempts.length > 0;
+  if ((!download || Object.keys(download).length === 0) && !hasScrapeAttempts) return null;
 
   const card = document.createElement("article");
   card.className = "phase-card";
+
+  const scrapeSection = scrapeAttemptsSection(scrapeAttempts);
+  if (scrapeSection) card.appendChild(scrapeSection);
+
+  if (!download || Object.keys(download).length === 0) return card;
 
   const heading = document.createElement("h2");
   heading.textContent = download.fallback
