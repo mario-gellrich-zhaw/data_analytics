@@ -79,7 +79,9 @@ def _read_table(path: str, data_format: str, **kwargs) -> pd.DataFrame:
     if fmt == "JSON":
         df = pd.read_json(path)
         return df.head(kwargs["nrows"]) if "nrows" in kwargs else df
-    return pd.read_csv(path, sep=None, engine="python", on_bad_lines="skip", encoding="utf-8-sig", **kwargs)
+    return pd.read_csv(
+        path, sep=None, engine="python", on_bad_lines="skip", encoding="utf-8-sig", **kwargs
+    )
 
 
 # --- Data Analyst: Collecting data -----------------------------------------
@@ -93,6 +95,7 @@ def attempt_scrape(site: str = "immoscout24.ch", on_progress=None) -> dict:
     doesn't retry or hammer it. The goal is to see, live, what actually
     happens when you try.
     """
+
     def report(stage: str):
         if on_progress:
             on_progress(stage)
@@ -116,6 +119,7 @@ def search_open_data(query: str = "wohnung miete", on_progress=None) -> dict:
     (format + URL) — nothing is pre-picked; the agent decides which one
     (if any) to actually download based on the titles/organizations shown.
     """
+
     def report(stage: str):
         if on_progress:
             on_progress(stage)
@@ -132,7 +136,9 @@ def search_open_data(query: str = "wohnung miete", on_progress=None) -> dict:
 
     datasets = []
     for pkg in payload["results"]:
-        title = _locale_text(pkg.get("display_name")) or _locale_text(pkg.get("title")) or pkg["name"]
+        title = (
+            _locale_text(pkg.get("display_name")) or _locale_text(pkg.get("title")) or pkg["name"]
+        )
         org = pkg.get("organization") or {}
         organization = _locale_text(org.get("title")) or org.get("name", "")
         resources = [
@@ -154,25 +160,41 @@ def search_open_data(query: str = "wohnung miete", on_progress=None) -> dict:
     return {"query": query, "total_found": payload["count"], "datasets": top5}
 
 
-def download_dataset(resource_url: str, resource_format: str = "CSV", out_path: str = "downloaded_dataset.csv", on_progress=None) -> dict:
+def download_dataset(
+    resource_url: str,
+    resource_format: str = "CSV",
+    out_path: str = "downloaded_dataset.csv",
+    on_progress=None,
+) -> dict:
     """Really download the dataset resource the agent chose."""
+
     def report(stage: str):
         if on_progress:
             on_progress(stage)
 
     report(f"Downloading real data from {resource_url} ...")
     try:
-        response = requests.get(resource_url, headers=BROWSER_HEADERS, timeout=DOWNLOAD_TIMEOUT_SECONDS)
+        response = requests.get(
+            resource_url, headers=BROWSER_HEADERS, timeout=DOWNLOAD_TIMEOUT_SECONDS
+        )
         response.raise_for_status()
 
         # Sanity check: a resource *labeled* CSV/XLSX/JSON can still resolve
         # to an HTML page (redirect, error page, cookie wall). Catch that
         # honestly here rather than silently handing pandas garbage to parse.
         content_type = response.headers.get("Content-Type", "").lower()
-        looks_like_html = "text/html" in content_type or response.content.lstrip()[:15].lower().startswith(b"<!doctype html") or response.content.lstrip()[:5].lower().startswith(b"<html")
+        looks_like_html = (
+            "text/html" in content_type
+            or response.content.lstrip()[:15].lower().startswith(b"<!doctype html")
+            or response.content.lstrip()[:5].lower().startswith(b"<html")
+        )
         if resource_format.upper() != "JSON" and looks_like_html:
             report("Download returned an HTML page, not the real data file.")
-            return {"success": False, "error": "The resource URL returned an HTML page instead of the real data file.", "path": out_path}
+            return {
+                "success": False,
+                "error": "The resource URL returned an HTML page instead of the real data file.",
+                "path": out_path,
+            }
 
         Path(out_path).write_bytes(response.content)
         size = len(response.content)
@@ -183,10 +205,13 @@ def download_dataset(resource_url: str, resource_format: str = "CSV", out_path: 
         return {"success": False, "error": str(exc), "path": out_path}
 
 
-def discard_dataset(path: str = "downloaded_dataset.csv", reason: str = "", on_progress=None) -> dict:
+def discard_dataset(
+    path: str = "downloaded_dataset.csv", reason: str = "", on_progress=None
+) -> dict:
     """Really delete a downloaded file that turned out to be unsuitable
     (aggregated, wrong topic, or otherwise unusable) so it can't be mistaken
     for real data later — use before searching for a replacement."""
+
     def report(stage: str):
         if on_progress:
             on_progress(stage)
@@ -205,8 +230,11 @@ def discard_dataset(path: str = "downloaded_dataset.csv", reason: str = "", on_p
 # --- Data Engineer: Preparing & storing data --------------------------------
 
 
-def preview_data(path: str = "downloaded_dataset.csv", data_format: str = "CSV", n: int = 10, on_progress=None) -> dict:
+def preview_data(
+    path: str = "downloaded_dataset.csv", data_format: str = "CSV", n: int = 10, on_progress=None
+) -> dict:
     """Really read the first n rows of the file."""
+
     def report(stage: str):
         if on_progress:
             on_progress(stage)
@@ -221,9 +249,12 @@ def preview_data(path: str = "downloaded_dataset.csv", data_format: str = "CSV",
     return {"columns": columns, "rows": rows}
 
 
-def profile_data(path: str = "downloaded_dataset.csv", data_format: str = "CSV", on_progress=None) -> dict:
+def profile_data(
+    path: str = "downloaded_dataset.csv", data_format: str = "CSV", on_progress=None
+) -> dict:
     """Load the real file and compute real structure/quality stats — profiling
     to decide what needs cleaning, not data analysis."""
+
     def report(stage: str):
         if on_progress:
             on_progress(stage)
@@ -261,6 +292,7 @@ def clean_data(
 ) -> dict:
     """Really clean the downloaded file: drop exact duplicate rows and/or
     rows missing values in agent-named key columns. Writes a real new file."""
+
     def report(stage: str):
         if on_progress:
             on_progress(stage)
@@ -302,6 +334,7 @@ def store_to_database(
     on_progress=None,
 ) -> dict:
     """Really write the cleaned file into a real local SQLite database."""
+
     def report(stage: str):
         if on_progress:
             on_progress(stage)
@@ -319,7 +352,12 @@ def store_to_database(
 
     db_bytes = Path(db_path).stat().st_size
     report(f"Stored {len(df):,} rows in table '{safe_table}' ({db_bytes:,} bytes).")
-    return {"db_path": db_path, "table_name": safe_table, "rows_stored": len(df), "db_bytes": db_bytes}
+    return {
+        "db_path": db_path,
+        "table_name": safe_table,
+        "rows_stored": len(df),
+        "db_bytes": db_bytes,
+    }
 
 
 _SELECT_ONLY_RE = re.compile(r"^\s*SELECT\b", re.IGNORECASE)
@@ -331,12 +369,16 @@ def run_sql_query(
     on_progress=None,
 ) -> dict:
     """Really run a read-only SQL query against the stored database."""
+
     def report(stage: str):
         if on_progress:
             on_progress(stage)
 
     if not _SELECT_ONLY_RE.match(query) or ";" in query:
-        return {"success": False, "error": "Only a single SELECT statement is allowed (no ';', no writes)."}
+        return {
+            "success": False,
+            "error": "Only a single SELECT statement is allowed (no ';', no writes).",
+        }
 
     report(f"Running SQL query against {Path(db_path).name} ...")
     con = sqlite3.connect(db_path)
@@ -421,7 +463,12 @@ DOWNLOAD_DATASET_SCHEMA = {
         "parameters": {
             "type": "object",
             "properties": {
-                "resource_id": {"type": "string", "description": "The resource's id, exactly as returned by search_open_data (e.g. 'r0')."},
+                "resource_id": {
+                    "type": "string",
+                    "description": (
+                        "The resource's id, exactly as returned by search_open_data (e.g. 'r0')."
+                    ),
+                },
             },
             "required": ["resource_id"],
         },
@@ -435,12 +482,19 @@ DISCARD_DATASET_SCHEMA = {
         "description": (
             "Really delete the currently downloaded file because preview_data showed it's "
             "aggregated, not rental-apartment data, or otherwise unusable. Use this before "
-            "searching for a replacement — never keep or reuse a file you've identified as unsuitable."
+            "searching for a replacement — never keep or reuse a file you've identified "
+            "as unsuitable."
         ),
         "parameters": {
             "type": "object",
             "properties": {
-                "reason": {"type": "string", "description": "Short real reason it's being discarded, e.g. 'aggregated by municipality' or 'not rental data, it's museum exhibitions'."}
+                "reason": {
+                    "type": "string",
+                    "description": (
+                        "Short real reason it's being discarded, e.g. 'aggregated by "
+                        "municipality' or 'not rental data, it's museum exhibitions'."
+                    ),
+                }
             },
             "required": ["reason"],
         },
@@ -451,7 +505,10 @@ PREVIEW_DATA_SCHEMA = {
     "type": "function",
     "function": {
         "name": "preview_data",
-        "description": "Really read and return the first N rows of the downloaded data file, when asked to show what the data actually looks like.",
+        "description": (
+            "Really read and return the first N rows of the downloaded data file, when asked "
+            "to show what the data actually looks like."
+        ),
         "parameters": {
             "type": "object",
             "properties": {
@@ -489,11 +546,17 @@ CLEAN_DATA_SCHEMA = {
         "parameters": {
             "type": "object",
             "properties": {
-                "drop_duplicates": {"type": "boolean", "description": "Drop exact duplicate rows. Default true."},
+                "drop_duplicates": {
+                    "type": "boolean",
+                    "description": "Drop exact duplicate rows. Default true.",
+                },
                 "drop_missing_in": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "Column names to require non-missing values in (rows missing any of these are dropped). Use real column names from profile_data.",
+                    "description": (
+                        "Column names to require non-missing values in (rows missing any of "
+                        "these are dropped). Use real column names from profile_data."
+                    ),
                 },
             },
             "required": [],
@@ -509,7 +572,10 @@ STORE_TO_DATABASE_SCHEMA = {
         "parameters": {
             "type": "object",
             "properties": {
-                "table_name": {"type": "string", "description": "Table name to store the data in, e.g. 'apartments'."},
+                "table_name": {
+                    "type": "string",
+                    "description": "Table name to store the data in, e.g. 'apartments'.",
+                },
             },
             "required": ["table_name"],
         },
@@ -548,7 +614,11 @@ MAKE_SKETCH_SCHEMA = {
         "parameters": {
             "type": "object",
             "properties": {
-                "kind": {"type": "string", "enum": ["ascii", "dot"], "description": "Whether content is plain ASCII art or Graphviz DOT source."},
+                "kind": {
+                    "type": "string",
+                    "enum": ["ascii", "dot"],
+                    "description": "Whether content is plain ASCII art or Graphviz DOT source.",
+                },
                 "title": {"type": "string", "description": "A short title for the sketch."},
                 "content": {"type": "string", "description": "The ASCII art or DOT source itself."},
             },
