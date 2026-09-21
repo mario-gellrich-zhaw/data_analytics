@@ -6,12 +6,12 @@
   --text-muted: #6b6b74;
   --accent: #2f6feb;
 
-  --pm: #ffd872;
-  --pm-border: #e6b93f;
-  --analyst: #4dd091;
-  --analyst-border: #2fa873;
-  --engineer: #b9c8ff;
-  --engineer-border: #7f94e8;
+  --pm: #eab076;
+  --pm-border: #cc935a;
+  --analyst: #ffec59;
+  --analyst-border: #e6c93d;
+  --engineer: #5b5a61;
+  --engineer-border: #403f44;
 
   --chat-bg: #eef0f3;
 }
@@ -178,15 +178,15 @@ h1 {
   position: relative;
   max-width: 78%;
   border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 10px 14px;
+  border-radius: 14px;
+  padding: 8px 12px;
   background: var(--panel);
   animation: fade-in 0.4s ease;
 }
 
 .bubble .speaker {
   font-weight: 600;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   margin-bottom: 3px;
   display: block;
   opacity: 0.75;
@@ -194,26 +194,30 @@ h1 {
 
 .bubble p {
   margin: 0;
-  line-height: 1.5;
-  font-size: 1.05rem;
+  line-height: 1.45;
+  font-size: 0.9rem;
   color: var(--text);
 }
 
-/* The PM/analyst/engineer brand colors stay bright in both themes, so their
-   bubble text stays dark regardless of light/dark mode. */
+/* The PM/analyst brand colors stay bright in both themes, so their bubble
+   text stays dark regardless of light/dark mode. The Data Engineer's gray
+   is darker, so it gets white text instead. */
 .bubble.pm,
-.bubble.analyst,
-.bubble.engineer {
+.bubble.analyst {
   color: #17170f;
 }
 
 .bubble.pm p,
 .bubble.pm .speaker,
 .bubble.analyst p,
-.bubble.analyst .speaker,
+.bubble.analyst .speaker {
+  color: #17170f;
+}
+
+.bubble.engineer,
 .bubble.engineer p,
 .bubble.engineer .speaker {
-  color: #17170f;
+  color: #ffffff;
 }
 
 .bubble.pm {

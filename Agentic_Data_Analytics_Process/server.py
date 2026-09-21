@@ -31,7 +31,6 @@ import json
 import queue
 import random
 import re
-import shutil
 import threading
 import time
 from datetime import datetime
@@ -185,11 +184,22 @@ STATIC_DIR = BASE_DIR / "static"
 DOWNLOAD_PATH = BASE_DIR / "downloaded_dataset.csv"
 CLEANED_PATH = BASE_DIR / "cleaned_dataset.csv"
 DB_PATH = BASE_DIR / "rental_data.db"
-# A snapshot of the best real, readable dataset seen during Step 3, kept in
-# case nothing individual-level is ever confirmed (see the fallback logic
-# in _run_demo) — never a specific hardcoded dataset, just whatever the
-# agents' own search happens to turn up.
 FALLBACK_PATH = BASE_DIR / "fallback_dataset.csv"
+# The guaranteed last-resort dataset if Step 3 never confirms an
+# individual-apartment-level dataset within the search budget — a real
+# Statistik Stadt Zürich rent survey. It's aggregated, not individual-level,
+# but real and always available, so Step 4 still has something genuine to
+# clean/store/query rather than the run ending with nothing.
+FALLBACK_DATASET_URL = (
+    "https://data.stadt-zuerich.ch/dataset/bau_whg_mpe_mietpreis_raum_zizahl_gn_jahr_od5161"
+    "/download/BAU516OD5161.csv"
+)
+FALLBACK_DATASET_FORMAT = "CSV"
+FALLBACK_DATASET_TITLE = "Mietpreise in der Stadt Zürich (MPE Abfragetool)"
+FALLBACK_DATASET_ORGANIZATION = "Statistik Stadt Zürich"
+FALLBACK_DATASET_PAGE_URL = (
+    "https://data.stadt-zuerich.ch/dataset/bau_whg_mpe_mietpreis_raum_zizahl_gn_jahr_od5161"
+)
 # Every run's full agent-to-agent conversation is saved here as a
 # human-readable Markdown file once the run ends, for later review.
 CONVERSATION_HISTORY_DIR = BASE_DIR / "conversation_history"
@@ -417,13 +427,6 @@ def _run_demo(q: "queue.Queue"):
         dataset_ready = {
             "value": False
         }  # True only while current_file points at a real, undiscarded download
-        # The best real, readable dataset seen so far this run, even one
-        # that got auto-rejected or manually discarded — used only as a
-        # last resort if Step 3 never confirms genuine individual-level
-        # data (see the fallback check right after Step 3 below). Never a
-        # specific hardcoded dataset, just whatever the agents' own search
-        # actually turns up.
-        fallback_candidate = {}
 
         def capture_preview(target: dict, path: str, data_format: str):
             # A real preview of the first 10 rows, captured automatically the
@@ -436,25 +439,6 @@ def _run_demo(q: "queue.Queue"):
                 target.update(result)
             except Exception:
                 pass  # best-effort only; never break the run over a preview
-
-        def snapshot_fallback_candidate(path: str, data_format: str, reason: str, meta: dict):
-            # Keep a copy of a real, readable dataset that's about to be
-            # deleted (auto-rejected or manually discarded) in case nothing
-            # better ever turns up — always overwritten by the most recent
-            # one seen, no deeper quality ranking.
-            try:
-                shutil.copyfile(path, FALLBACK_PATH)
-            except OSError:
-                return
-            fallback_candidate.clear()
-            fallback_candidate.update(
-                {
-                    "path": str(FALLBACK_PATH),
-                    "format": data_format,
-                    "reason_rejected": reason,
-                    **meta,
-                }
-            )
 
         min_listing_rows = 15  # a whole-canton listings dataset should clear this easily
 
@@ -569,28 +553,7 @@ def _run_demo(q: "queue.Queue"):
                     # Automatically recognized as unsuitable (aggregated /
                     # not listing-level) — really delete it and report the
                     # rejection as the actual tool result, regardless of
-                    # what the agent itself would have concluded. Still a
-                    # real, readable dataset though (unless preview_data
-                    # itself couldn't even parse it) — worth keeping as a
-                    # last-resort fallback in case nothing better ever
-                    # turns up.
-                    unreadable = (
-                        "couldn't even be read as a table" in reason
-                        or "no readable columns" in reason
-                    )
-                    if not unreadable:
-                        snapshot_fallback_candidate(
-                            str(DOWNLOAD_PATH),
-                            picked["format"],
-                            reason,
-                            {
-                                "dataset_title": picked["dataset_title"],
-                                "dataset_organization": picked["dataset_organization"],
-                                "dataset_url": picked["dataset_url"],
-                                "resource_url": picked["url"],
-                                "bytes": result.get("bytes"),
-                            },
-                        )
+                    # what the agent itself would have concluded.
                     Path(DOWNLOAD_PATH).unlink(missing_ok=True)
                     result["success"] = False
                     result["error"] = (
@@ -622,23 +585,6 @@ def _run_demo(q: "queue.Queue"):
             return result
 
         def call_discard_dataset(reason: str = ""):
-            # Same last-resort snapshot as the automatic rejection path
-            # above, for datasets the agent itself judged unsuitable (e.g.
-            # ones the structural check missed) before they're really
-            # deleted for good.
-            if current_file["path"] and Path(current_file["path"]).exists():
-                snapshot_fallback_candidate(
-                    current_file["path"],
-                    current_file["format"],
-                    reason or "the Data Analyst judged it unsuitable",
-                    {
-                        "dataset_title": download_result.get("dataset_title"),
-                        "dataset_organization": download_result.get("dataset_organization"),
-                        "dataset_url": download_result.get("dataset_url"),
-                        "resource_url": download_result.get("resource_url"),
-                        "bytes": download_result.get("bytes"),
-                    },
-                )
             result = discard_dataset(
                 path=current_file["path"], reason=reason, on_progress=on_progress
             )
@@ -1137,69 +1083,84 @@ def _run_demo(q: "queue.Queue"):
                 max_turns_override=MAX_TURNS_COLLECT,
             )
 
-            # No individual-level dataset ever got confirmed, but a real,
-            # readable one WAS found along the way (auto-rejected or
-            # manually discarded) — fall back to it rather than ending with
-            # nothing. Never a specific hardcoded dataset: whatever the
-            # agents' own search actually turned up.
-            if not dataset_ready["value"] and fallback_candidate.get("path"):
-                current_file["path"] = fallback_candidate["path"]
-                current_file["format"] = fallback_candidate["format"]
-                dataset_ready["value"] = True
-                download_result.clear()
-                download_result.update(
-                    {
-                        "success": True,
-                        "fallback": True,
-                        "format": fallback_candidate.get("format"),
-                        "bytes": fallback_candidate.get("bytes"),
-                        "resource_url": fallback_candidate.get("resource_url"),
-                        "dataset_title": fallback_candidate.get("dataset_title"),
-                        "dataset_organization": fallback_candidate.get("dataset_organization"),
-                        "dataset_url": fallback_candidate.get("dataset_url"),
-                        "reason_rejected": fallback_candidate.get("reason_rejected"),
-                    }
+            # No individual-level dataset ever got confirmed within the
+            # search budget — really download a known, always-available
+            # real dataset (aggregated, not individual-level) as a
+            # guaranteed last resort, rather than ending Step 3 with
+            # nothing. Still a real HTTP download, same download_dataset()
+            # used for every other Step 3 download.
+            if not dataset_ready["value"]:
+                fallback_download = download_dataset(
+                    resource_url=FALLBACK_DATASET_URL,
+                    resource_format=FALLBACK_DATASET_FORMAT,
+                    out_path=str(FALLBACK_PATH),
+                    on_progress=on_progress,
                 )
-                capture_preview(
-                    download_preview_result, current_file["path"], current_file["format"]
-                )
+                if fallback_download.get("success"):
+                    current_file["path"] = str(FALLBACK_PATH)
+                    current_file["format"] = FALLBACK_DATASET_FORMAT
+                    dataset_ready["value"] = True
+                    fallback_reason = (
+                        "it's aggregated (one row per district/room-count/year), not "
+                        "individual-apartment listings"
+                    )
+                    download_result.clear()
+                    download_result.update(
+                        {
+                            "success": True,
+                            "fallback": True,
+                            "format": FALLBACK_DATASET_FORMAT,
+                            "bytes": fallback_download.get("bytes"),
+                            "resource_url": FALLBACK_DATASET_URL,
+                            "dataset_title": FALLBACK_DATASET_TITLE,
+                            "dataset_organization": FALLBACK_DATASET_ORGANIZATION,
+                            "dataset_url": FALLBACK_DATASET_PAGE_URL,
+                            "reason_rejected": fallback_reason,
+                        }
+                    )
+                    capture_preview(
+                        download_preview_result, current_file["path"], current_file["format"]
+                    )
 
-                # The decision has to be voiced by an agent, not a silent
-                # system switch — prime the Product Manager with the real
-                # facts and have it actually say so, the same
-                # speak-then-stream pattern used for Step 1's
-                # acknowledgment turn. The Product Manager (not the Data
-                # Analyst) says this specifically so we don't hand a
-                # tool-bearing agent a reason to call discard_dataset again
-                # on the file we just salvaged.
-                fallback_title = fallback_candidate.get("dataset_title") or "an unnamed dataset"
-                fallback_org = fallback_candidate.get("dataset_organization") or "unknown source"
-                fallback_reason = (
-                    fallback_candidate.get("reason_rejected") or "it did not look individual-level"
-                )
-                transcript.append(
-                    {
-                        "speaker": "system",
-                        "text": (
-                            "No individual-apartment-level dataset could be confirmed within "
-                            "the search budget. The best real dataset actually found during "
-                            f'the search was "{fallback_title}" ({fallback_org}), set aside '
-                            f"earlier because {fallback_reason}. Product Manager: state, in "
-                            "ONE or TWO short natural sentences and without calling any tools, "
-                            "that the team is going with this real dataset as the best "
-                            "available option rather than having nothing to work with — name "
-                            "it, and be upfront that it's an aggregated/best-available "
-                            "substitute, not genuine individual-level data."
-                        ),
-                    }
-                )
-                fallback_reply, fallback_used_tool = product_manager.speak(transcript)
-                fallback_clean = STATUS_TAG_RE.sub("", fallback_reply or "").strip()
-                fallback_clean = SPEAKER_PREFIX_RE.sub("", fallback_clean)
-                transcript.append({"speaker": product_manager.name, "text": fallback_clean})
-                stream_turn(
-                    product_manager.name, fallback_clean, fallback_used_tool, 3, "Collecting data"
-                )
+                    # The decision has to be voiced by an agent, not a
+                    # silent system switch — prime the Product Manager with
+                    # the real facts and have it actually say so, the same
+                    # speak-then-stream pattern used for Step 1's
+                    # acknowledgment turn. The Product Manager (not the
+                    # Data Analyst) says this specifically so we don't hand
+                    # a tool-bearing agent a reason to call discard_dataset
+                    # again on the file we just downloaded.
+                    transcript.append(
+                        {
+                            "speaker": "system",
+                            "text": (
+                                "No individual-apartment-level dataset could be confirmed "
+                                "within the search budget. Falling back to a real, "
+                                f'always-available dataset: "{FALLBACK_DATASET_TITLE}" '
+                                f"({FALLBACK_DATASET_ORGANIZATION}) — real Zurich rent-survey "
+                                f"data, but {fallback_reason}. Product Manager: state, in ONE "
+                                "or TWO short natural sentences and without calling any tools, "
+                                "that the team is going with this real dataset as the best "
+                                "available option rather than having nothing to work with — "
+                                "name it, and be upfront that it's an aggregated substitute, "
+                                "not genuine individual-level data."
+                            ),
+                        }
+                    )
+                    fallback_reply, fallback_used_tool = product_manager.speak(transcript)
+                    fallback_clean = STATUS_TAG_RE.sub("", fallback_reply or "").strip()
+                    fallback_clean = SPEAKER_PREFIX_RE.sub("", fallback_clean)
+                    transcript.append({"speaker": product_manager.name, "text": fallback_clean})
+                    stream_turn(
+                        product_manager.name,
+                        fallback_clean,
+                        fallback_used_tool,
+                        3,
+                        "Collecting data",
+                    )
+                # If even the guaranteed fallback download fails (e.g. a
+                # real network issue), fall through — the "incomplete"
+                # outcome below still applies honestly.
 
             step3_result = {
                 "step": 3,
