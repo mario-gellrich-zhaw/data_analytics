@@ -44,17 +44,21 @@ via the **Stop** button.
 ## Setup
 
 1. Install dependencies (from the repo root): `pip install -r requirements.txt`
-2. Create a `.env` file at the **repository root** with your own key:
+2. Create your `.env` file at the **repository root** from the provided
+   template, then fill in your own key:
+   ```console
+   cp .env.example .env    # run from the repo root
+   ```
    ```
    OPENAI_API_KEY=sk-...
    ```
-   This file is already excluded via `.gitignore` &mdash; never commit your key.
+   `.env` is already excluded via `.gitignore` &mdash; never commit your key.
 3. From this folder, run the server:
-   ```
+   ```console
    python server.py
    ```
-4. Open <http://localhost:8000> and click **Start conversation**. Click
-   **Stop** at any point to end the run.
+4. Open <http://localhost:8000> in your browser and click **Start
+   conversation**. Click **Stop** at any point to end the run.
 
 > [!NOTE]
 > A full run makes real outbound HTTP requests, writes real local files
