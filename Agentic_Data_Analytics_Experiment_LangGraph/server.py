@@ -44,16 +44,33 @@ from run_tools import DataPaths, RunTools
 
 load_dotenv()  # finds the .env at the repo root
 
-TURN_DELAY_SECONDS = 4  # pace the conversation so a class can read along
+# The one knob for how long a full run should take, wall-clock — everything
+# below is derived from it, scaled relative to the tuned 20-minute baseline
+# (set this to 20 to get exactly the original, hand-tuned numbers back).
+DEMO_LENGTH_MINUTES = 60
+_SCALE = DEMO_LENGTH_MINUTES / 20
+
+TURN_DELAY_SECONDS = 4  # pace the conversation so a class can read along;
+# NOT scaled — a longer run should mean more real turns, not more waiting.
+
 # No-tool discussion phases have nothing real to anchor to yet, so kept
 # short — left running long, they tend to invent increasingly elaborate
 # fictional detail (a different database system, timelines, etc.) instead of
-# staying grounded in what the real tools actually do. Tool-backed action
-# phases get more room since real results keep grounding each turn.
-MIN_TURNS_DISCUSSION = 2
-MAX_TURNS_DISCUSSION = 6
-MIN_TURNS_ACTION = 4
-MAX_TURNS_ACTION = 14
+# staying grounded in what the real tools actually do. So these scale much
+# more mildly than the tool-backed budgets below, on purpose: a 3x longer
+# demo should mean far more real scraping/searching, not 3x more invented
+# small talk.
+_DISCUSSION_SCALE = 1 + (_SCALE - 1) * 0.3
+MIN_TURNS_DISCUSSION = round(2 * _DISCUSSION_SCALE)
+MAX_TURNS_DISCUSSION = round(6 * _DISCUSSION_SCALE)
+# The 3-way round-robins (Step 1's "other objectives" / privacy checks) need
+# at least one turn per peer, however short the demo is set to.
+MIN_TURNS_ROUND_ROBIN = max(3, round(3 * _DISCUSSION_SCALE))
+
+# Tool-backed action phases get more room since real results keep grounding
+# each turn — these scale with the full length.
+MIN_TURNS_ACTION = round(4 * _SCALE)
+MAX_TURNS_ACTION = round(14 * _SCALE)
 # Collecting data (step 3) must now keep trying different searches until it
 # finds genuine listing-level data rather than settling for an aggregate, so
 # it gets extra room beyond the normal action budget above — and since the
@@ -61,9 +78,9 @@ MAX_TURNS_ACTION = 14
 # (see agents.py's data_engineer_collecting), the budget is scaled up so the
 # Data Analyst still gets roughly as many actual searching/downloading turns
 # as before.
-MAX_TURNS_COLLECT = 36
-MAX_TURNS = 80  # safety net: a live demo shouldn't run forever if nobody stops it
-MAX_RUNTIME_SECONDS = 20 * 60  # ...or 20 minutes, whichever comes first
+MAX_TURNS_COLLECT = round(36 * _SCALE)
+MAX_TURNS = round(80 * _SCALE)  # safety net: a live demo shouldn't run forever if nobody stops it
+MAX_RUNTIME_SECONDS = DEMO_LENGTH_MINUTES * 60  # ...or this many minutes, whichever comes first
 
 # Varied so a class watching several runs back-to-back doesn't hear the
 # exact same opening line every time — the substance after the opener stays
@@ -103,6 +120,20 @@ STEP1B_GOAL = (
     "e.g. a live pricing API, a refreshed dashboard, or scheduled re-scraping. "
     "Keep it short, then explicitly agree you're sticking with the "
     "price-prediction objective for this project."
+)
+STEP1C_GOAL = (
+    "Before collecting any data, briefly flag the privacy/legal side of it — a "
+    "few short points, not a legal review. Data Analyst: these are listings "
+    "about properties, not people, but note that a field like a landlord/agent "
+    "name or contact details would count as personal data under the Swiss "
+    "nDSG/GDPR, so flag if we should avoid keeping those. Data Engineer: note "
+    "that scraping a site against its robots.txt or terms of service is a "
+    "real legal/reputational risk regardless of whether the data itself is "
+    "personal — which is why any scrape attempt later checks robots.txt first "
+    "and treats a block as a real no, not something to route around. Product "
+    "Manager: say whether that risk should make us prefer open, licensed data "
+    "over scraping when both exist. Keep it short, then agree on that "
+    "approach before moving on."
 )
 STEP2_GOAL = (
     "Decide together what real data would let us build this price-prediction "
@@ -448,7 +479,28 @@ class DemoRun:
                     sub_label="other objectives to consider",
                     goal=STEP1B_GOAL,
                     has_tools=False,
-                    min_turns_override=3,
+                    min_turns_override=MIN_TURNS_ROUND_ROBIN,
+                ),
+            )
+
+        # A short privacy/legal check before any data collection starts —
+        # deliberately placed here (not Step 3) so the legal call is made
+        # up front, not improvised mid-scrape once a block is already
+        # staring the agents in the face.
+        if not self._should_stop():
+            self.run_phase(
+                [
+                    self.agents.product_manager,
+                    self.agents.data_analyst_notools,
+                    self.agents.data_engineer_notools,
+                ],
+                PhaseSpec(
+                    step=1,
+                    step_label="Business objective",
+                    sub_label="data privacy & legal check",
+                    goal=STEP1C_GOAL,
+                    has_tools=False,
+                    min_turns_override=MIN_TURNS_ROUND_ROBIN,
                 ),
             )
 
