@@ -28,3 +28,10 @@ fear-and-greed==0.4
 prettytable
 yfinance==0.2.66
 ollama==0.6.0
+openai==3.16.2
+python-dotenv==1.0.1
+fastapi==0.141.1
+uvicorn==0.53.0
+langgraph==1.2.11
+langchain-openai==1.6.2
+langchain-core==1.6.3
