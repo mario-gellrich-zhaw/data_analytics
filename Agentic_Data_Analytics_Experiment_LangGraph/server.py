@@ -7,7 +7,8 @@ course's Data Analytics Process Model, in order, once:
 
   1. Business objective    — fixed (given, not agent-decided)
   2. Defining appropriate data — discussion only (no tools yet)
-  3. Collecting data        — real scraping/search/download tools
+  3. Collecting data        — agent-written scraper code (really run),
+                               real open-data search/download tools
   4. Preparing & storing data — discussion, then real cleaning + real
                                  SQLite storage + a real SQL query
 
@@ -25,6 +26,7 @@ generous safety net (max turns / max wall-clock time) bounds it regardless.
 import json
 import queue
 import random
+import shutil
 import threading
 import time
 from datetime import datetime
@@ -143,8 +145,10 @@ STEP2_GOAL = (
     "price-prediction model needs per-apartment examples to learn from."
 )
 STEP3_GOAL = (
-    "Actually try to obtain real Swiss rental data now, using your real tools. "
-    "After every download, call preview_data and check the real column names "
+    "Actually try to obtain real Swiss rental data now, using your real tools: "
+    "write your own scraper (write_scraper_code, then run_scraper) and/or search "
+    "and download open data. After every download or successful scraper run, "
+    "call preview_data and check the real column names "
     "before claiming anything about whether the dataset is at the "
     "individual-apartment level (one row per listing) or just aggregated "
     "statistics — mention this explicitly, grounded in what preview_data "
@@ -157,7 +161,8 @@ STEP3_GOAL = (
     "discard_dataset to really delete that file, say so, and try a different "
     "angle rather than keeping it around. Step 4 needs an actual, verified, "
     "listing-level file to work with. Data Engineer: react to what's actually "
-    "being found — flag real ingestion/pipeline concerns (format, encoding, how "
+    "being found — review the scraper code that was written, flag real "
+    "ingestion/pipeline concerns (format, encoding, how "
     "stable the source looks for scraping again later, rate-limiting/blocking "
     "behavior) — but let the Data Analyst drive the search and make the "
     "individual-level-vs-aggregated call."
@@ -187,6 +192,10 @@ STATIC_DIR = BASE_DIR / "static"
 DATA_DIR = BASE_DIR / "data"
 DATA_DIR.mkdir(exist_ok=True)
 DOWNLOAD_PATH = DATA_DIR / "downloaded_dataset.csv"
+SCRAPED_PATH = DATA_DIR / "scraped_listings.csv"
+# Every scraper version the agents write (scraper_vN.py) and each run's
+# working folder (request log, printed output, raw CSV).
+SCRAPERS_DIR = DATA_DIR / "scrapers"
 CLEANED_PATH = DATA_DIR / "cleaned_dataset.csv"
 DB_PATH = DATA_DIR / "rental_data.db"
 FALLBACK_PATH = DATA_DIR / "fallback_dataset.csv"
@@ -293,12 +302,26 @@ class DemoRun:
         self.phase_graph = build_phase_graph()  # one compiled graph, reused for every phase
 
         self.agents = build_agents()
-        data_paths = DataPaths(download=DOWNLOAD_PATH, cleaned=CLEANED_PATH, db=DB_PATH)
-        self.tools = RunTools(data_paths, on_progress=self._on_progress)
+        data_paths = DataPaths(
+            download=DOWNLOAD_PATH,
+            scraped=SCRAPED_PATH,
+            scrapers_dir=SCRAPERS_DIR,
+            cleaned=CLEANED_PATH,
+            db=DB_PATH,
+        )
+        self.tools = RunTools(
+            data_paths, on_progress=self._on_progress, on_artifact=self._on_artifact
+        )
         self.tool_impls = self.tools.build_tool_impls()
 
     def _on_progress(self, stage: str):
         self.q.put(_sse("progress", {"stage": stage}))
+
+    def _on_artifact(self, kind: str, data: dict):
+        """A scraper version the agent just wrote, or a scraper run that
+        just finished — shown inline in the chat and kept in the history."""
+        self.q.put(_sse(kind, data))
+        self.history.append({"kind": kind, "data": data})
 
     def _time_left(self) -> bool:
         return (time.monotonic() - self.started_at) < MAX_RUNTIME_SECONDS
@@ -550,7 +573,6 @@ class DemoRun:
         step3_result = {
             "step": 3,
             "step_label": "Collecting data",
-            "scrape_attempts": [dict(attempt) for attempt in self.tools.scrape_attempts],
             "opendata": dict(self.tools.results["opendata"]),
             "download": dict(self.tools.results["download"]),
             "preview": dict(self.tools.results["download_preview"]),
@@ -704,8 +726,9 @@ class DemoRun:
         try:
             # Each run starts genuinely fresh — no file from a previous run
             # can leak in and be mistaken for real data in this one.
-            for stale_path in (DOWNLOAD_PATH, CLEANED_PATH, DB_PATH, FALLBACK_PATH):
+            for stale_path in (DOWNLOAD_PATH, SCRAPED_PATH, CLEANED_PATH, DB_PATH, FALLBACK_PATH):
                 stale_path.unlink(missing_ok=True)
+            shutil.rmtree(SCRAPERS_DIR, ignore_errors=True)
 
             self._run_step1()
             if not self._should_stop():

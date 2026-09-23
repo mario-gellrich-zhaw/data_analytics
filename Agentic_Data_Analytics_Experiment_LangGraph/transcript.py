@@ -62,28 +62,6 @@ def _format_duration(seconds: float) -> str:
 
 def _render_step3_result_lines(data: dict) -> list[str]:
     lines: list[str] = []
-    for attempt in data.get("scrape_attempts") or []:
-        verdict = "blocked" if attempt.get("blocked") else "reachable"
-        detail = f"- Scrape attempt: {attempt.get('site')} → {verdict}"
-        response = attempt.get("response")
-        if response:
-            detail += (
-                f" (HTTP {response.get('status_code')} {response.get('reason', '')}, "
-                f"{response.get('elapsed_ms')} ms)"
-            )
-        elif attempt.get("error"):
-            detail += f" ({attempt['error']})"
-        lines.append(detail + ".")
-        robots = attempt.get("robots_txt")
-        if robots and robots.get("found"):
-            rule_count = len(robots.get("disallow_rules_sample") or [])
-            lines.append(
-                f"  - robots.txt (HTTP {robots.get('status_code')}): "
-                f"{'allows' if robots.get('allowed') else 'disallows'} this URL for our "
-                f"user agent ({rule_count} 'Disallow' rule(s) under 'User-agent: *')."
-            )
-        elif robots and robots.get("error"):
-            lines.append(f"  - robots.txt check failed: {robots['error']}")
     opendata = data.get("opendata") or {}
     if opendata.get("query"):
         lines.append(
@@ -91,7 +69,12 @@ def _render_step3_result_lines(data: dict) -> list[str]:
             "candidate(s) found on opendata.swiss."
         )
     download = data.get("download") or {}
-    if download.get("success"):
+    if download.get("scraped"):
+        lines.append(
+            f"- Scraped: {download.get('rows', 0):,} listings from "
+            f"{download.get('dataset_organization')} by {download.get('dataset_title')}."
+        )
+    elif download.get("success"):
         title = download.get("dataset_title")
         if title:
             org = download.get("dataset_organization") or "opendata.swiss"
@@ -145,6 +128,59 @@ def _render_step4_result_lines(data: dict) -> list[str]:
     return lines
 
 
+def _describe_request(entry: dict) -> str:
+    if entry.get("blocked"):
+        return f"✖ {entry.get('url')}\n    blocked: {entry['blocked']}"
+    if entry.get("kind") == "robots.txt":
+        return f"· {entry.get('url')} → HTTP {entry.get('status')}"
+    return f"✔ GET {entry.get('url')} → HTTP {entry.get('status')} ({entry.get('elapsed_ms')} ms)"
+
+
+def _run_outcome(data: dict) -> str:
+    if data.get("timed_out"):
+        return "timed out"
+    if data.get("exit_code") == 0:
+        return "exit code 0"
+    return f"crashed (exit code {data.get('exit_code')})"
+
+
+def _pages_fetched(data: dict) -> int:
+    return sum(
+        1 for e in data.get("requests") or [] if e.get("kind") == "page" and not e.get("blocked")
+    )
+
+
+def _render_scraper_code_lines(data: dict) -> list[str]:
+    check = (
+        "check passed"
+        if data.get("check_passed")
+        else "check failed: " + "; ".join(data.get("problems") or [])
+    )
+    return [
+        f"**Data Analyst wrote `scraper_v{data['version']}.py`** ({data.get('lines')} lines, {check}):",
+        "```python",
+        data.get("code", "").rstrip(),
+        "```",
+    ]
+
+
+def _render_scraper_run_lines(data: dict) -> list[str]:
+    lines = [
+        f"**Ran `scraper_v{data['version']}.py`:** {_run_outcome(data)}, "
+        f"{_pages_fetched(data)} page(s) fetched, {data.get('rows_saved', 0)} row(s) saved, "
+        f"{data.get('elapsed_seconds')} s."
+    ]
+    if data.get("accepted_as_dataset"):
+        lines.append("- Accepted as the current dataset.")
+    elif data.get("rejected_because"):
+        lines.append(f"- Not accepted as a dataset: {data['rejected_because']}")
+    if data.get("requests"):
+        lines += ["```", *(_describe_request(e) for e in data["requests"]), "```"]
+    if data.get("output_tail"):
+        lines += ["Printed output:", "```", data["output_tail"].rstrip(), "```"]
+    return lines
+
+
 def _render_phase_result_lines(step: int, data: dict) -> list[str]:
     if step == 3:
         return _render_step3_result_lines(data)
@@ -182,6 +218,12 @@ def render_markdown(
         elif entry["kind"] == "turn":
             suffix = " _(used a real tool)_" if entry["action"] else ""
             lines.append(f"**{entry['speaker']}:** {entry['text']}{suffix}")
+            lines.append("")
+        elif entry["kind"] == "scraper_code":
+            lines.extend(_render_scraper_code_lines(entry["data"]))
+            lines.append("")
+        elif entry["kind"] == "scraper_run":
+            lines.extend(_render_scraper_run_lines(entry["data"]))
             lines.append("")
         elif entry["kind"] == "phase_result":
             result_lines = _render_phase_result_lines(entry["step"], entry["data"])
@@ -304,73 +346,72 @@ def _sketch_html(sketch: dict) -> str:
     return "".join(parts)
 
 
-def _scrape_attempts_html(scrape_attempts: list[dict]) -> str:
-    if not scrape_attempts:
-        return ""
+def _scraper_code_card_html(data: dict) -> str:
+    check = (
+        "Code check passed (only allowed imports; web access only via scraper_kit)."
+        if data.get("check_passed")
+        else "Code check failed: " + "; ".join(data.get("problems") or [])
+    )
+    return (
+        '<article class="phase-card">'
+        f"<h2>🧑‍💻 scraper_v{_esc(data['version'])}.py — written by the Data Analyst "
+        f"({_esc(data.get('lines'))} lines)</h2>"
+        f'<p class="result-meta">{_esc(check)}</p>'
+        f'<pre class="sketch-ascii code-block">{_esc(data.get("code"))}</pre>'
+        "</article>"
+    )
 
-    parts = [f'<h3 class="preview-heading">Live scraping attempts ({len(scrape_attempts)})</h3>']
-    parts.append('<ul class="dataset-list">')
-    for attempt in scrape_attempts:
-        verdict = "blocked" if attempt.get("blocked") else "reachable"
-        parts.append('<li class="dataset-item">')
-        parts.append(f'<p class="sketch-title">{_esc(attempt.get("site"))} — {verdict}</p>')
 
-        lines = [f'GET {attempt.get("url")}']
-        robots = attempt.get("robots_txt")
-        if robots:
-            if not robots.get("found"):
-                lines.append(
-                    f"robots.txt: request failed ({robots['error']})"
-                    if robots.get("error")
-                    else f"robots.txt: not found (HTTP {robots.get('status_code', '?')})"
-                )
-            else:
-                rules = robots.get("disallow_rules_sample") or []
-                lines.append(
-                    f"robots.txt (HTTP {robots.get('status_code')}): "
-                    f"{'allows' if robots.get('allowed') else 'disallows'} this URL for our "
-                    f"user agent ({len(rules)} 'Disallow' rule(s) under 'User-agent: *')"
-                )
-                if rules:
-                    lines.append(f"  e.g. Disallow: {', '.join(rules[:3])}")
-
-        if attempt.get("error"):
-            lines.append(f"Request failed: {attempt['error']}")
-        elif attempt.get("response"):
-            r = attempt["response"]
-            lines.append(
-                f'HTTP {r.get("status_code")} {r.get("reason")} — {r.get("elapsed_ms")} ms, '
-                f'{r.get("content_bytes", 0):,} bytes'
-            )
-            if r.get("redirected"):
-                lines.append(f'Redirected to: {r.get("final_url")}')
-            headers = r.get("headers") or {}
-            if headers:
-                lines.append(
-                    "Response headers: " + " · ".join(f"{k}: {v}" for k, v in headers.items())
-                )
-
-        parts.append(f'<pre class="sketch-ascii">{_esc(chr(10).join(lines))}</pre>')
-        parts.append("</li>")
-    parts.append("</ul>")
+def _scraper_run_card_html(data: dict) -> str:
+    outcome = _run_outcome(data)
+    if data.get("timed_out"):
+        outcome = f"⏱️ {outcome}"
+    elif data.get("exit_code") != 0:
+        outcome = f"❌ {outcome}"
+    parts = ['<article class="phase-card">']
+    parts.append(f"<h2>▶️ Ran scraper_v{_esc(data['version'])}.py — {_esc(outcome)}</h2>")
+    parts.append('<div class="stat-grid">')
+    parts.append(_stat_tile_html("pages fetched", _pages_fetched(data)))
+    parts.append(_stat_tile_html("rows saved", data.get("rows_saved", 0)))
+    parts.append(_stat_tile_html("seconds", data.get("elapsed_seconds")))
+    parts.append("</div>")
+    if data.get("accepted_as_dataset"):
+        parts.append(
+            '<p class="result-meta">✅ Accepted as the current dataset '
+            "(looks like individual listings).</p>"
+        )
+    elif data.get("rejected_because"):
+        parts.append(
+            f'<p class="result-meta">⚠️ Not accepted as a dataset: '
+            f'{_esc(data["rejected_because"])}</p>'
+        )
+    requests_log = data.get("requests") or []
+    if requests_log:
+        parts.append(f'<h3 class="preview-heading">Requests ({len(requests_log)})</h3>')
+        text = "\n".join(_describe_request(e) for e in requests_log)
+        parts.append(f'<pre class="sketch-ascii">{_esc(text)}</pre>')
+    if data.get("output_tail"):
+        parts.append('<h3 class="preview-heading">Printed output</h3>')
+        parts.append(f'<pre class="sketch-ascii code-block">{_esc(data["output_tail"])}</pre>')
+    sample_rows = data.get("sample_rows") or []
+    if sample_rows:
+        parts.append(f'<h3 class="preview-heading">First {len(sample_rows)} scraped rows</h3>')
+        parts.append(_data_table_html(data.get("columns") or [], sample_rows))
+    parts.append("</article>")
     return "".join(parts)
 
 
 def _collecting_card_html(data: dict) -> str:
     download = data.get("download") or {}
-    scrape_attempts = data.get("scrape_attempts") or []
-    if not download and not scrape_attempts:
+    if not download:
         return ""
 
     parts = ['<article class="phase-card">']
-    parts.append(_scrape_attempts_html(scrape_attempts))
-
-    if not download:
-        parts.append("</article>")
-        return "".join(parts)
 
     if download.get("fallback"):
         heading = "⚠️ Falling back to best available data (not individual-level)"
+    elif download.get("scraped"):
+        heading = "✅ Real data scraped by the agents' own code"
     elif download.get("success"):
         heading = "✅ Real data downloaded"
     else:
@@ -395,7 +436,12 @@ def _collecting_card_html(data: dict) -> str:
             "real option found.</p>"
         )
 
-    if download.get("success"):
+    if download.get("scraped"):
+        parts.append(
+            f'<p class="result-meta">Scraped: {download.get("rows", 0):,} listings, '
+            f'{download.get("bytes", 0):,} bytes saved (CSV).</p>'
+        )
+    elif download.get("success"):
         parts.append(
             f'<p class="result-meta">Download: {download.get("bytes", 0):,} bytes saved '
             f'({_esc(download.get("format") or "file")}).</p>'
@@ -493,6 +539,10 @@ def _render_body_html(history: list[dict]) -> str:
             )
         elif entry["kind"] == "turn":
             parts.append(_bubble_html(entry["speaker"], entry["text"], entry["action"]))
+        elif entry["kind"] == "scraper_code":
+            parts.append(_scraper_code_card_html(entry["data"]))
+        elif entry["kind"] == "scraper_run":
+            parts.append(_scraper_run_card_html(entry["data"]))
         elif entry["kind"] == "phase_result":
             if entry["step"] == 3:
                 parts.append(_collecting_card_html(entry["data"]))

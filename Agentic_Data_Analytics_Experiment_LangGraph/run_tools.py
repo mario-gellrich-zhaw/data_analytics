@@ -8,11 +8,11 @@ handed to the model in place of long opendata.swiss resource URLs.
 agents invoke, one fresh instance per run.
 """
 
+import shutil
 from pathlib import Path
 from typing import Callable, NamedTuple
 
 from data_tool import (
-    attempt_scrape,
     clean_data,
     discard_dataset,
     download_dataset,
@@ -23,6 +23,7 @@ from data_tool import (
     search_open_data,
     store_to_database,
 )
+from scraper_tool import run_scraper_code, save_scraper_code
 
 # Column-name fragments that reliably indicate a pre-aggregated statistics
 # table (one row per stratum — e.g. per district/year/room-count — not per
@@ -47,12 +48,15 @@ AGGREGATE_COLUMN_HINTS = (
     "variance",
 )
 MIN_LISTING_ROWS = 15  # a whole-canton listings dataset should clear this easily
+MAX_SCRAPER_RUNS = 4  # per demo run — each scraper run may make up to 15 requests
 
 
 class DataPaths(NamedTuple):
-    """The three real files one run's tools read from / write to."""
+    """The real files/folders one run's tools read from / write to."""
 
     download: Path
+    scraped: Path  # the accepted output of the agents' own scraper
+    scrapers_dir: Path  # every scraper version the agents wrote, plus each run's log
     cleaned: Path
     db: Path
 
@@ -66,10 +70,14 @@ class RunTools:
     right now.
     """
 
-    def __init__(self, paths: DataPaths, on_progress: Callable):
+    def __init__(self, paths: DataPaths, on_progress: Callable, on_artifact: Callable):
         self.paths = paths
         self.on_progress = on_progress
-        self.scrape_attempts: list[dict] = []
+        # (kind, data) -> None: shows a scraper version / run inline in the
+        # chat the moment it happens (see server.py's _on_artifact).
+        self.on_artifact = on_artifact
+        self.scraper_versions: list[dict] = []  # every write_scraper_code call, in order
+        self.scraper_runs: list[dict] = []  # every run_scraper call, in order
         self.results: dict[str, dict] = {
             "opendata": {},
             "download": {},
@@ -90,7 +98,8 @@ class RunTools:
         share across every agent: a model can only ever request a tool
         that was actually bound to it for that call (see agents.py)."""
         return {
-            "attempt_scrape": self.call_attempt_scrape,
+            "write_scraper_code": self.call_write_scraper_code,
+            "run_scraper": self.call_run_scraper,
             "search_open_data": self.call_search_open_data,
             "download_dataset": self.call_download_dataset,
             "discard_dataset": self.call_discard_dataset,
@@ -159,14 +168,94 @@ class RunTools:
 
     # --- Data Analyst tools: Collecting data --------------------------
 
-    def call_attempt_scrape(self, site: str):
-        """Tool: one real, live request to a Swiss rental platform (after a
-        real robots.txt check). Every attempt is kept, in order, in
-        `scrape_attempts` so the UI can show all of them regardless of
-        which ones the agent chooses to narrate."""
-        result = attempt_scrape(site=site, on_progress=self.on_progress)
-        self.scrape_attempts.append(result)
+    def call_write_scraper_code(self, code: str):
+        """Tool: save (and statically check) a new version of the agent's
+        own scraper script. Every version is kept for the UI/transcript."""
+        version = len(self.scraper_versions) + 1
+        result = save_scraper_code(code, self.paths.scrapers_dir, version)
+        self.scraper_versions.append({**result, "code": code})
+        self.on_artifact("scraper_code", {**result, "code": code})
+        self.on_progress(
+            f"scraper_v{version}.py written ({result['lines']} lines) — "
+            + ("check passed." if result["check_passed"] else "check FAILED.")
+        )
         return result
+
+    def call_run_scraper(self, version: int | None = None):
+        """Tool: really run one saved scraper version (see scraper_tool.py).
+        If it saved enough rows that look like listings, its CSV becomes
+        the current dataset — exactly like an accepted download."""
+        if not self.scraper_versions:
+            return {"success": False, "error": "No scraper written yet — call write_scraper_code first."}
+        if len(self.scraper_runs) >= MAX_SCRAPER_RUNS:
+            return {
+                "success": False,
+                "error": f"Scraper run budget used up ({MAX_SCRAPER_RUNS} runs). Work with what you have or use open data.",
+            }
+        version = version or len(self.scraper_versions)
+        if not 1 <= version <= len(self.scraper_versions):
+            return {"success": False, "error": f"Unknown version {version}."}
+        written = self.scraper_versions[version - 1]
+        if not written["check_passed"]:
+            return {
+                "success": False,
+                "error": "That version failed the code check — fix it first.",
+                "problems": written["problems"],
+            }
+
+        work_dir = self.paths.scrapers_dir / f"run_{len(self.scraper_runs) + 1}_v{version}"
+        out_path = work_dir / "scraped_listings.csv"
+        result = run_scraper_code(
+            Path(written["path"]), work_dir, out_path, on_progress=self.on_progress
+        )
+        result["version"] = version
+        result["success"] = result["exit_code"] == 0 and not result["timed_out"]
+
+        if result["rows_saved"] > 0:
+            looks_ok, reason = self.check_looks_like_listing_data(str(out_path), "CSV")
+            if looks_ok:
+                shutil.copyfile(out_path, self.paths.scraped)
+                self.current_file["path"] = str(self.paths.scraped)
+                self.current_file["format"] = "CSV"
+                self.dataset_ready = True
+                self.results["download"] = self._scraped_download_result(result)
+                self.capture_preview("download_preview", str(self.paths.scraped), "CSV")
+                result["accepted_as_dataset"] = True
+            else:
+                result["accepted_as_dataset"] = False
+                result["rejected_because"] = reason
+        self.scraper_runs.append(result)
+        self.on_artifact("scraper_run", result)
+
+        # The model only needs a compact request log; the UI gets it all.
+        return {
+            **{k: v for k, v in result.items() if k != "requests"},
+            "requests": [
+                {k: e.get(k) for k in ("url", "status", "blocked") if e.get(k) is not None}
+                for e in result["requests"]
+            ],
+        }
+
+    def _scraped_download_result(self, run: dict) -> dict:
+        """Shape an accepted scraper run like a download result, so the
+        Step 3 card and Step 4's tools treat it the same way."""
+        hosts = sorted(
+            {
+                e["url"].split("/")[2]
+                for e in run["requests"]
+                if e.get("kind") == "page" and e.get("status") == 200
+            }
+        )
+        return {
+            "success": True,
+            "scraped": True,
+            "format": "CSV",
+            "bytes": self.paths.scraped.stat().st_size,
+            "rows": run["rows_saved"],
+            "dataset_title": f"Scraped by the agents' own code (scraper_v{run['version']}.py)",
+            "dataset_organization": ", ".join(hosts) or "web",
+            "dataset_url": f"https://{hosts[0]}" if hosts else "",
+        }
 
     def call_search_open_data(self, query: str):
         """Tool: query opendata.swiss, handing back short resource ids in

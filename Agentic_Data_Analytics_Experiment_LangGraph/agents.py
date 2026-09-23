@@ -12,7 +12,6 @@ from typing import NamedTuple
 from langchain_openai import ChatOpenAI
 
 from data_tool import (
-    ATTEMPT_SCRAPE_SCHEMA,
     CLEAN_DATA_SCHEMA,
     DISCARD_DATASET_SCHEMA,
     DOWNLOAD_DATASET_SCHEMA,
@@ -24,6 +23,7 @@ from data_tool import (
     STORE_TO_DATABASE_SCHEMA,
 )
 from graph import AgentConfig
+from scraper_tool import RUN_SCRAPER_SCHEMA, WRITE_SCRAPER_CODE_SCHEMA
 
 MODEL = "gpt-4o-mini"
 
@@ -114,12 +114,20 @@ def build_agents() -> DemoAgents:
         name="Data Analyst",
         persona=(
             "You are the Data Analyst. You now have real tools — "
-            "attempt_scrape, search_open_data, download_dataset, "
-            "preview_data, discard_dataset, make_sketch — and decide "
-            "yourself, turn by turn, whether and which to use. Try real "
-            "platforms one at a time and look at each real result before "
-            "trying another; if scraping is blocked, pivot to "
-            "search_open_data. As soon as search_open_data returns a "
+            "write_scraper_code, run_scraper, search_open_data, "
+            "download_dataset, preview_data, discard_dataset, make_sketch "
+            "— and decide yourself, turn by turn, whether and which to "
+            "use. To scrape, you write the scraper yourself: call "
+            "write_scraper_code with a complete Python script, then "
+            "run_scraper to really run it, and read the real output. If "
+            "it crashed or found nothing, read the traceback/printed "
+            "output, fix the code and run again — a first, small "
+            "exploratory version that just prints the structure of one "
+            "page is a good idea. A site that answers 403/429 or a bot "
+            "challenge is a real no: say why it was blocked and move on "
+            "to another site or to search_open_data — never try to get "
+            "around a block. Filter to the canton of Zurich in your own "
+            "code. As soon as search_open_data returns a "
             "candidate resource that looks plausible, actually call "
             "download_dataset on its resource_id right away — don't just "
             "say you'll download it, and don't call search_open_data "
@@ -148,7 +156,8 @@ def build_agents() -> DemoAgents:
         ),
         model=_model(
             [
-                ATTEMPT_SCRAPE_SCHEMA,
+                WRITE_SCRAPER_CODE_SCHEMA,
+                RUN_SCRAPER_SCHEMA,
                 SEARCH_OPEN_DATA_SCHEMA,
                 DOWNLOAD_DATASET_SCHEMA,
                 PREVIEW_DATA_SCHEMA,
@@ -162,10 +171,13 @@ def build_agents() -> DemoAgents:
         name="Data Engineer",
         persona=(
             "You are the Data Engineer. This step belongs to the Data "
-            "Analyst — they own the actual scraping/search/download "
-            "tools and decide what to try next; you don't have data "
-            "tools yet here either (except optionally make_sketch). "
-            "Weigh in on ingestion/pipeline concerns as they go: file "
+            "Analyst — they write and run the scraper code and own the "
+            "search/download tools, and decide what to try next; you "
+            "don't have data tools yet here either (except optionally "
+            "make_sketch). Weigh in on ingestion/pipeline concerns as "
+            "they go — including a quick review of the scraper code "
+            "they wrote (pagination, error handling, which fields it "
+            "maps, the Zurich filter): file "
             "format and encoding, whether a source's structure looks "
             "stable enough to scrape again later, rate-limiting or "
             "blocking behavior worth designing around, how the raw file "

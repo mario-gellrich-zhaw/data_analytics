@@ -477,3 +477,8 @@ h1 {
     --chat-bg: #1a1a20;
   }
 }
+
+.phase-card .code-block {
+  max-height: 360px;
+  overflow: auto;
+}

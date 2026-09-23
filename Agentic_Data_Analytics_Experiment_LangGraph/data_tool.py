@@ -4,11 +4,9 @@ No local fallback dataset, nothing faked, and no pre-decided choices: these
 tools report real results and hand real options back to whichever agent
 called them. Split by who actually owns the work in the process model:
 
-Data Analyst — Collecting data:
-1. `attempt_scrape` really tries to fetch listings from one Swiss rental
-   platform (one respectful request, no retries/hammering). Expected to
-   fail — these platforms actively guard against automated access — which
-   is the point: it's what the agents debate.
+Data Analyst — Collecting data (scraping lives in scraper_tool.py: the
+agent writes its own scraper code and really runs it):
+1. (see scraper_tool.py) `write_scraper_code` / `run_scraper`.
 2. `search_open_data` queries opendata.swiss's genuinely public CKAN API
    for real Swiss housing/rental datasets and returns each candidate's
    real downloadable resources (format + URL) — the agent picks which
@@ -40,8 +38,6 @@ import re
 import sqlite3
 import time
 from pathlib import Path
-from urllib.parse import urlparse
-from urllib.robotparser import RobotFileParser
 
 import pandas as pd
 import requests
@@ -53,13 +49,6 @@ BROWSER_HEADERS = {
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
         "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
     )
-}
-
-SCRAPE_TARGETS = {
-    "immoscout24.ch": "https://www.immoscout24.ch/de/immobilien/mieten/kanton-zuerich",
-    "homegate.ch": "https://www.homegate.ch/mieten/immobilien/kanton-zuerich/trefferliste",
-    "comparis.ch": "https://www.comparis.ch/immobilien/result/mietobjekte",
-    "tutti.ch": "https://www.tutti.ch/de/li/ganze-schweiz/mieten/immobilien",
 }
 
 OPENDATA_SEARCH_URL = "https://opendata.swiss/api/3/action/package_search"
@@ -89,154 +78,6 @@ def _read_table(path: str, data_format: str, **kwargs) -> pd.DataFrame:
 
 # --- Data Analyst: Collecting data -----------------------------------------
 
-# Response headers worth surfacing when they're present — a mix of ordinary
-# diagnostic headers and the ones bot-detection/CDN layers (Cloudflare,
-# Akamai, etc.) tend to add, since those are often the real explanation for
-# a block.
-INTERESTING_RESPONSE_HEADERS = (
-    "Content-Type",
-    "Server",
-    "Content-Length",
-    "Location",
-    "Retry-After",
-    "Via",
-    "X-Cache",
-    "CF-RAY",
-    "CF-Mitigated",
-    "cf-chl-bypass",
-    "X-Akamai-Transformed",
-    "X-Robots-Tag",
-)
-
-
-def _wildcard_disallow_rules(robots_txt: str) -> list[str]:
-    """Plain-text Disallow paths under the `User-agent: *` block, for a
-    human-readable summary — the real allow/deny verdict below comes from
-    RobotFileParser, not this."""
-    rules: list[str] = []
-    applies = False
-    for raw_line in robots_txt.splitlines():
-        line = raw_line.split("#", 1)[0].strip()
-        if not line:
-            continue
-        if line.lower().startswith("user-agent:"):
-            applies = line.split(":", 1)[1].strip() == "*"
-            continue
-        if applies and line.lower().startswith("disallow:"):
-            path = line.split(":", 1)[1].strip()
-            if path:
-                rules.append(path)
-    return rules
-
-
-def _check_robots_txt(url: str, on_progress=None) -> dict:
-    """Really fetch and parse the target site's robots.txt to see, live,
-    whether it says our user agent may fetch this exact URL — the actual
-    signal `attempt_scrape` is respecting, not just a mention in a comment."""
-
-    def report(stage: str):
-        if on_progress:
-            on_progress(stage)
-
-    parsed = urlparse(url)
-    robots_url = f"{parsed.scheme}://{parsed.netloc}/robots.txt"
-    report(f"Checking {robots_url} ...")
-    try:
-        response = requests.get(robots_url, headers=BROWSER_HEADERS, timeout=REQUEST_TIMEOUT_SECONDS)
-    except requests.RequestException as exc:
-        report(f"robots.txt check failed ({exc}).")
-        return {"url": robots_url, "found": False, "status_code": None, "allowed": None, "error": str(exc)}
-
-    if response.status_code != 200:
-        report(f"robots.txt: HTTP {response.status_code} (treating as no restrictions declared).")
-        return {"url": robots_url, "found": False, "status_code": response.status_code, "allowed": None}
-
-    parser = RobotFileParser()
-    parser.parse(response.text.splitlines())
-    allowed = parser.can_fetch(BROWSER_HEADERS["User-Agent"], url)
-    disallow_rules = _wildcard_disallow_rules(response.text)
-    report(
-        f"robots.txt found: {'disallows' if not allowed else 'allows'} fetching this URL "
-        f"for our user agent ({len(disallow_rules)} 'Disallow' rule(s) under 'User-agent: *')."
-    )
-    return {
-        "url": robots_url,
-        "found": True,
-        "status_code": response.status_code,
-        "allowed": allowed,
-        "disallow_rules_sample": disallow_rules[:8],
-    }
-
-
-def attempt_scrape(site: str = "immoscout24.ch", on_progress=None) -> dict:
-    """Make one real, respectful GET request to one rental platform, after
-    first really checking its robots.txt.
-
-    Only one attempt — this site has already said, via robots.txt and its
-    terms of service, that it doesn't want automated traffic, so this
-    doesn't retry or hammer it. The goal is to see, live, what actually
-    happens when you try, and to capture enough real detail (robots.txt
-    verdict, request sent, response status/headers/timing) to explain why.
-    """
-
-    def report(stage: str):
-        if on_progress:
-            on_progress(stage)
-
-    url = SCRAPE_TARGETS.get(site, SCRAPE_TARGETS["immoscout24.ch"])
-    robots_txt = _check_robots_txt(url, on_progress=on_progress)
-
-    request_info = {
-        "method": "GET",
-        "url": url,
-        "headers": dict(BROWSER_HEADERS),
-        "timeout_seconds": REQUEST_TIMEOUT_SECONDS,
-    }
-    report(f"GET {url} ...")
-    try:
-        started = time.monotonic()
-        response = requests.get(url, headers=BROWSER_HEADERS, timeout=REQUEST_TIMEOUT_SECONDS)
-        elapsed_ms = round((time.monotonic() - started) * 1000)
-        blocked = response.status_code != 200
-        response_info = {
-            "status_code": response.status_code,
-            "reason": response.reason,
-            "elapsed_ms": elapsed_ms,
-            "final_url": response.url,
-            "redirected": response.url != url,
-            "content_bytes": len(response.content),
-            "headers": {
-                name: response.headers[name]
-                for name in INTERESTING_RESPONSE_HEADERS
-                if name in response.headers
-            },
-        }
-        report(
-            f"{site}: {'blocked' if blocked else 'reachable'} "
-            f"(HTTP {response.status_code} {response.reason}, {elapsed_ms} ms)."
-        )
-        return {
-            "site": site,
-            "url": url,
-            "status_code": response.status_code,
-            "blocked": blocked,
-            "robots_txt": robots_txt,
-            "request": request_info,
-            "response": response_info,
-        }
-    except requests.RequestException as exc:
-        report(f"{site}: request failed ({exc}).")
-        return {
-            "site": site,
-            "url": url,
-            "status_code": None,
-            "blocked": True,
-            "error": str(exc),
-            "robots_txt": robots_txt,
-            "request": request_info,
-        }
-
-
 def search_open_data(query: str = "wohnung miete", on_progress=None) -> dict:
     """Query opendata.swiss's real, public CKAN catalog for relevant datasets.
 
@@ -262,7 +103,7 @@ def search_open_data(query: str = "wohnung miete", on_progress=None) -> dict:
     except requests.RequestException as exc:
         # A real network hiccup (timeout, connection error, HTTP error from
         # opendata.swiss) should read as "this attempt failed, try
-        # something else" — same as attempt_scrape/download_dataset — not
+        # something else" — same as download_dataset — not
         # crash the entire run.
         report(f"opendata.swiss query failed ({exc}).")
         return {"query": query, "total_found": 0, "datasets": [], "error": str(exc)}
@@ -573,34 +414,6 @@ def make_sketch(content: str, kind: str = "ascii", title: str = "") -> dict:
 
 
 # --- Tool schemas ------------------------------------------------------------
-
-ATTEMPT_SCRAPE_SCHEMA = {
-    "type": "function",
-    "function": {
-        "name": "attempt_scrape",
-        "description": (
-            "Make one real, live request to a Swiss rental platform to "
-            "actually test, live, whether scraping it is possible — don't "
-            "just speculate about it. Checks the site's real robots.txt "
-            "first, then sends the real GET request, and returns both plus "
-            "the real response status/headers/timing so you can explain "
-            "*why* it was blocked or allowed, not just that it was. Call "
-            "this for one platform at a time; see the real result before "
-            "deciding whether to try another."
-        ),
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "site": {
-                    "type": "string",
-                    "enum": list(SCRAPE_TARGETS),
-                    "description": "Which platform to test right now.",
-                }
-            },
-            "required": ["site"],
-        },
-    },
-}
 
 SEARCH_OPEN_DATA_SCHEMA = {
     "type": "function",

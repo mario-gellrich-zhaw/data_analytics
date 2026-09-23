@@ -145,94 +145,113 @@ function renderSketch(sketch) {
   return wrap;
 }
 
-function scrapeAttemptsSection(scrapeAttempts) {
-  if (!Array.isArray(scrapeAttempts) || scrapeAttempts.length === 0) return null;
+function preBlock(text, extraClass = "") {
+  const pre = document.createElement("pre");
+  pre.className = `sketch-ascii${extraClass ? ` ${extraClass}` : ""}`;
+  pre.textContent = text;
+  return pre;
+}
 
-  const wrap = document.createElement("div");
+function describeRequest(entry) {
+  if (entry.blocked) return `✖ ${entry.url}\n    blocked: ${entry.blocked}`;
+  if (entry.kind === "robots.txt") return `· ${entry.url} → HTTP ${entry.status}`;
+  return `✔ GET ${entry.url} → HTTP ${entry.status} (${entry.elapsed_ms} ms)`;
+}
 
-  const heading = document.createElement("h3");
-  heading.className = "preview-heading";
-  heading.textContent = `Live scraping attempts (${scrapeAttempts.length})`;
-  wrap.appendChild(heading);
+// One scraper version the Data Analyst just wrote — shown inline, in full,
+// so the class can read the code the agent came up with.
+function buildScraperCodeCard(data) {
+  const card = document.createElement("article");
+  card.className = "phase-card";
 
-  const list = document.createElement("ul");
-  list.className = "dataset-list";
+  const heading = document.createElement("h2");
+  heading.textContent = `🧑‍💻 scraper_v${data.version}.py — written by the Data Analyst (${data.lines} lines)`;
+  card.appendChild(heading);
 
-  scrapeAttempts.forEach((attempt) => {
-    const li = document.createElement("li");
-    li.className = "dataset-item";
+  const check = document.createElement("p");
+  check.className = "result-meta";
+  check.textContent = data.check_passed
+    ? "Code check passed (only allowed imports; web access only via scraper_kit)."
+    : `Code check failed: ${data.problems.join("; ")}`;
+  card.appendChild(check);
 
-    const title = document.createElement("p");
-    title.className = "sketch-title";
-    title.textContent = `${attempt.site} — ${attempt.blocked ? "blocked" : "reachable"}`;
-    li.appendChild(title);
+  card.appendChild(preBlock(data.code, "code-block"));
+  return card;
+}
 
-    const lines = [];
-    lines.push(`GET ${attempt.url}`);
+// What really happened when a scraper version ran: every request with its
+// real status or block reason, the printed output, and rows saved.
+function buildScraperRunCard(data) {
+  const card = document.createElement("article");
+  card.className = "phase-card";
 
-    const robots = attempt.robots_txt;
-    if (robots) {
-      if (!robots.found) {
-        lines.push(
-          robots.error
-            ? `robots.txt: request failed (${robots.error})`
-            : `robots.txt: not found (HTTP ${robots.status_code ?? "?"})`
-        );
-      } else {
-        const ruleCount = (robots.disallow_rules_sample || []).length;
-        lines.push(
-          `robots.txt (HTTP ${robots.status_code}): ${robots.allowed ? "allows" : "disallows"} ` +
-            `this URL for our user agent (${ruleCount} 'Disallow' rule(s) under 'User-agent: *')`
-        );
-        if (ruleCount > 0) {
-          lines.push(`  e.g. Disallow: ${robots.disallow_rules_sample.slice(0, 3).join(", ")}`);
-        }
-      }
-    }
+  const heading = document.createElement("h2");
+  const outcome = data.timed_out
+    ? "⏱️ timed out"
+    : data.exit_code === 0 ? "exit code 0" : `❌ crashed (exit code ${data.exit_code})`;
+  heading.textContent = `▶️ Ran scraper_v${data.version}.py — ${outcome}`;
+  card.appendChild(heading);
 
-    if (attempt.error) {
-      lines.push(`Request failed: ${attempt.error}`);
-    } else if (attempt.response) {
-      const r = attempt.response;
-      lines.push(`HTTP ${r.status_code} ${r.reason} — ${r.elapsed_ms} ms, ${r.content_bytes.toLocaleString()} bytes`);
-      if (r.redirected) lines.push(`Redirected to: ${r.final_url}`);
-      const headerEntries = Object.entries(r.headers || {});
-      if (headerEntries.length > 0) {
-        lines.push(`Response headers: ${headerEntries.map(([k, v]) => `${k}: ${v}`).join(" · ")}`);
-      }
-    }
+  const pages = (data.requests || []).filter((e) => e.kind === "page" && !e.blocked).length;
+  const grid = document.createElement("div");
+  grid.className = "stat-grid";
+  grid.append(
+    statTile("pages fetched", pages),
+    statTile("rows saved", data.rows_saved),
+    statTile("seconds", data.elapsed_seconds),
+  );
+  card.appendChild(grid);
 
-    const pre = document.createElement("pre");
-    pre.className = "sketch-ascii";
-    pre.textContent = lines.join("\n");
-    li.appendChild(pre);
+  if (data.accepted_as_dataset !== undefined) {
+    const verdict = document.createElement("p");
+    verdict.className = "result-meta";
+    verdict.textContent = data.accepted_as_dataset
+      ? "✅ Accepted as the current dataset (looks like individual listings)."
+      : `⚠️ Not accepted as a dataset: ${data.rejected_because}`;
+    card.appendChild(verdict);
+  }
 
-    list.appendChild(li);
-  });
+  if (data.requests && data.requests.length > 0) {
+    const reqHeading = document.createElement("h3");
+    reqHeading.className = "preview-heading";
+    reqHeading.textContent = `Requests (${data.requests.length})`;
+    card.append(reqHeading, preBlock(data.requests.map(describeRequest).join("\n")));
+  }
 
-  wrap.appendChild(list);
-  return wrap;
+  if (data.output_tail) {
+    const outHeading = document.createElement("h3");
+    outHeading.className = "preview-heading";
+    outHeading.textContent = "Printed output";
+    card.append(outHeading, preBlock(data.output_tail, "code-block"));
+  }
+
+  if (Array.isArray(data.sample_rows) && data.sample_rows.length > 0) {
+    const sampleHeading = document.createElement("h3");
+    sampleHeading.className = "preview-heading";
+    sampleHeading.textContent = `First ${data.sample_rows.length} scraped rows`;
+    card.appendChild(sampleHeading);
+    const table = dataTable(data.columns, data.sample_rows);
+    if (table) card.appendChild(table);
+  }
+
+  return card;
 }
 
 function buildCollectingCard(data) {
-  const { download, scrape_attempts: scrapeAttempts } = data || {};
-  const hasScrapeAttempts = Array.isArray(scrapeAttempts) && scrapeAttempts.length > 0;
-  if ((!download || Object.keys(download).length === 0) && !hasScrapeAttempts) return null;
+  const { download } = data || {};
+  if (!download || Object.keys(download).length === 0) return null;
 
   const card = document.createElement("article");
   card.className = "phase-card";
 
-  const scrapeSection = scrapeAttemptsSection(scrapeAttempts);
-  if (scrapeSection) card.appendChild(scrapeSection);
-
-  if (!download || Object.keys(download).length === 0) return card;
-
   const heading = document.createElement("h2");
   heading.textContent = download.fallback
     ? "⚠️ Falling back to best available data (not individual-level)"
-    : download.success
-      ? "✅ Real data downloaded"
-      : "⚠️ Download didn't complete";
+    : download.scraped
+      ? "✅ Real data scraped by the agents' own code"
+      : download.success
+        ? "✅ Real data downloaded"
+        : "⚠️ Download didn't complete";
   card.appendChild(heading);
 
   if (download.dataset_title) {
@@ -256,7 +275,9 @@ function buildCollectingCard(data) {
 
   const dl = document.createElement("p");
   dl.className = "result-meta";
-  dl.textContent = download.success
+  dl.textContent = download.scraped
+    ? `Scraped: ${download.rows.toLocaleString()} listings, ${download.bytes.toLocaleString()} bytes saved (CSV).`
+    : download.success
     ? `Download: ${download.bytes.toLocaleString()} bytes saved (${download.format || "file"}).`
     : `Download failed: ${download.error}`;
   card.appendChild(dl);
@@ -410,6 +431,14 @@ function startDemo() {
     const { speaker, text, action } = JSON.parse(event.data);
     turnsInPhase += 1;
     addBubble(speaker, text, action);
+  });
+
+  eventSource.addEventListener("scraper_code", (event) => {
+    addPhaseCard(buildScraperCodeCard, JSON.parse(event.data));
+  });
+
+  eventSource.addEventListener("scraper_run", (event) => {
+    addPhaseCard(buildScraperRunCard, JSON.parse(event.data));
   });
 
   eventSource.addEventListener("phase_done", (event) => {
