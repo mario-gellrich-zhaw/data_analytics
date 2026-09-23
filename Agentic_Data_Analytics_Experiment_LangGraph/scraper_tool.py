@@ -305,7 +305,11 @@ WRITE_SCRAPER_CODE_SCHEMA = {
             "raises scraper_kit.ScrapeBlocked at the first 403/429/bot challenge "
             "(that site then stays blocked for the run — never try to get around "
             "it). Store results with scraper_kit.save_rows(list_of_dicts) using only "
-            f"these keys: {', '.join(FIELDS)} (at most {MAX_ROWS} rows kept). "
+            f"these keys: {', '.join(FIELDS)} (at most {MAX_ROWS} rows kept) — call "
+            "it after EVERY page, not once at the end: rows already saved are kept "
+            "even if the script stops or crashes later. "
+            "Keep only rental apartments — listing sites also carry parking "
+            "spaces, commercial units and properties for sale. "
             "print() anything useful — you'll "
             "see the output. Known entry points: immoscout24.ch search "
             "https://www.immoscout24.ch/de/wohnung/mieten/ort-zuerich?pn=1 ; "
@@ -313,7 +317,9 @@ WRITE_SCRAPER_CODE_SCHEMA = {
             "trefferliste ; flatfox.ch public JSON API "
             "https://flatfox.ch/api/v1/public-listing/ (paginated with limit (max "
             "100) and offset, returns {count, next, results: [...]}, all of "
-            "Switzerland, no server-side location filter). Catch ScrapeBlocked per "
+            "Switzerland, no server-side location filter or sorting; results are "
+            "oldest first and the first pages contain very few Zurich listings, so "
+            "spread your offsets across the whole range up to count). Catch ScrapeBlocked per "
             "site so one blocked site doesn't stop the whole script."
         ),
         "parameters": {

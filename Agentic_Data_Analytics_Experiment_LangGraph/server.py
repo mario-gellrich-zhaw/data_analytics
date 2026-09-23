@@ -302,7 +302,6 @@ class DemoRun:
         self.current_step = {"step": 1, "step_label": "Business objective"}
         self.phase_graph = build_phase_graph()  # one compiled graph, reused for every phase
 
-        self.agents = build_agents()
         data_paths = DataPaths(
             download=DOWNLOAD_PATH,
             scraped=SCRAPED_PATH,
@@ -314,6 +313,7 @@ class DemoRun:
             data_paths, on_progress=self._on_progress, on_artifact=self._on_artifact
         )
         self.tool_impls = self.tools.build_tool_impls()
+        self.agents = build_agents(analyst_working_notes=self.tools.scraper_working_notes)
 
     def _on_progress(self, stage: str):
         self.q.put(_sse("progress", {"stage": stage}))

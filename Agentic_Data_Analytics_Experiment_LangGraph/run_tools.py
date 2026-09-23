@@ -8,9 +8,12 @@ handed to the model in place of long opendata.swiss resource URLs.
 agents invoke, one fresh instance per run.
 """
 
+import json
 import shutil
 from pathlib import Path
 from typing import Callable, NamedTuple
+
+import pandas as pd
 
 from data_tool import (
     clean_data,
@@ -49,6 +52,23 @@ AGGREGATE_COLUMN_HINTS = (
 )
 MIN_LISTING_ROWS = 15  # a whole-canton listings dataset should clear this easily
 MAX_SCRAPER_RUNS = 6  # per demo run — each scraper run may make up to 15 requests
+# Scraped output only counts as a dataset if each of these is mostly
+# filled in (any one column of a group is enough) — a scraper that maps the
+# wrong field names, or keeps parking spaces/commercial units alongside
+# apartments, produces a well-shaped but half-empty table.
+SCRAPED_REQUIRED_FIELDS = (
+    ("listing_id",),
+    ("rent_gross_chf", "rent_net_chf"),
+    ("rooms",),
+    ("zip", "city"),
+)
+MIN_FILLED_SHARE = 0.8
+
+
+def _filled_share(csv_path: Path) -> dict[str, float]:
+    """Share of non-empty values per column of a scraped CSV."""
+    df = pd.read_csv(csv_path)
+    return {col: round(float(df[col].notna().mean()), 2) for col in df.columns}
 
 
 class DataPaths(NamedTuple):
@@ -212,7 +232,10 @@ class RunTools:
         result["success"] = result["exit_code"] == 0 and not result["timed_out"]
 
         if result["rows_saved"] > 0:
-            looks_ok, reason = self.check_looks_like_listing_data(str(out_path), "CSV")
+            result["filled_share"] = _filled_share(out_path)
+            looks_ok, reason = self._check_scraped_fields(result["filled_share"])
+            if looks_ok:
+                looks_ok, reason = self.check_looks_like_listing_data(str(out_path), "CSV")
             if looks_ok:
                 shutil.copyfile(out_path, self.paths.scraped)
                 self.current_file["path"] = str(self.paths.scraped)
@@ -227,18 +250,77 @@ class RunTools:
         self.scraper_runs.append(result)
         self.on_artifact("scraper_run", result)
 
-        # The model only needs a compact request log; the UI gets it all.
-        return {
-            **{k: v for k, v in result.items() if k != "requests"},
-            "requests": [
-                {k: e.get(k) for k in ("url", "status", "blocked") if e.get(k) is not None}
-                for e in result["requests"]
-            ],
-            # The real structure of the first page per site — parse against this.
-            "response_structure": [
-                {"url": e["url"], **e["shape"]} for e in result["requests"] if e.get("shape")
-            ],
-        }
+        # The model gets the real structure first (it's what to parse
+        # against) and only a compact request log; the UI gets it all.
+        structure = [{"url": e["url"], **e["shape"]} for e in result["requests"] if e.get("shape")]
+        agent_view = {"response_structure": structure}
+        parsing_failed = result["exit_code"] != 0 or result.get("rejected_because")
+        if structure and parsing_failed:
+            agent_view["diagnosis"] = (
+                "The site itself answered fine (HTTP 200) — this is a bug in YOUR code, "
+                "not a problem with the source, so don't give up on it: compare the key "
+                "names your code reads with the real ones in response_structure (see the "
+                "first_item sample and its values), fix the mapping with "
+                "write_scraper_code, and run again."
+            )
+        agent_view.update({k: v for k, v in result.items() if k != "requests"})
+        agent_view["requests"] = [
+            {k: e.get(k) for k in ("url", "status", "blocked") if e.get(k) is not None}
+            for e in result["requests"]
+        ]
+        return agent_view
+
+    def scraper_working_notes(self) -> str:
+        """The Data Analyst's private memory of its latest scraper run —
+        tool results only live for the turn that called the tool, so
+        without this a fix written on a later turn would have to guess the
+        real field names and error all over again."""
+        if not self.scraper_runs:
+            return ""
+        run = self.scraper_runs[-1]
+        code = self.scraper_versions[run["version"] - 1]["code"]
+        structure = [{"url": e["url"], **e["shape"]} for e in run["requests"] if e.get("shape")]
+        if run.get("accepted_as_dataset"):
+            verdict = "ACCEPTED as the current dataset"
+        elif run.get("rejected_because"):
+            verdict = f"REJECTED: {run['rejected_because']}"
+        else:
+            verdict = "no dataset produced"
+        lines = [
+            "Your private working notes (only you see these) from your LAST scraper run — "
+            f"scraper_v{run['version']}.py ({len(self.scraper_runs)}/{MAX_SCRAPER_RUNS} runs used):",
+            f"- exit code {run['exit_code']}{' (timed out)' if run['timed_out'] else ''}, "
+            f"{run['rows_saved']} rows saved, {verdict}",
+            "- requests: "
+            + "; ".join(
+                f"{e['url']} -> {e.get('blocked') or e.get('status')}" for e in run["requests"]
+            ),
+            f"- last printed output / traceback:\n{run['output_tail'][-800:]}",
+        ]
+        if structure:
+            lines.append(
+                "- REAL response structure (use exactly these key names):\n"
+                + json.dumps(structure, ensure_ascii=False)
+            )
+        lines.append(f"- the code you ran:\n{code}")
+        return "\n".join(lines)
+
+    @staticmethod
+    def _check_scraped_fields(filled_share: dict) -> tuple[bool, str]:
+        """Whether the key listing fields are really filled in."""
+        missing = []
+        for group in SCRAPED_REQUIRED_FIELDS:
+            best = max(filled_share.get(col, 0) for col in group)
+            if best < MIN_FILLED_SHARE:
+                missing.append(f"{' or '.join(group)} ({best:.0%} filled)")
+        if missing:
+            return False, (
+                f"key field(s) not filled in for at least {MIN_FILLED_SHARE:.0%} of rows: "
+                f"{', '.join(missing)} — either the scraper maps the wrong source field "
+                "names (check response_structure), or it keeps rows that aren't rental "
+                "apartments (parking spaces, commercial units, properties for sale)"
+            )
+        return True, ""
 
     def _scraped_download_result(self, run: dict) -> dict:
         """Shape an accepted scraper run like a download result, so the

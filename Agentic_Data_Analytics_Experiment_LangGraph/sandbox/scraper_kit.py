@@ -178,8 +178,21 @@ def _shape_of(response: requests.Response) -> dict:
     for key, value in data.items():
         if isinstance(value, list) and value and isinstance(value[0], dict):
             shape[f"keys_of_first_item_in_{key}"] = list(value[0])[:80]
+            shape[f"first_item_in_{key}_sample"] = {
+                k: _short(v) for k, v in list(value[0].items())[:60]
+            }
             break
     return shape
+
+
+def _short(value):
+    """A value small enough to show the agent: scalars as-is (long strings
+    cut), nested lists/dicts summarized by type and size."""
+    if isinstance(value, str):
+        return value[:60]
+    if isinstance(value, (dict, list)):
+        return f"<{type(value).__name__} of {len(value)}>"
+    return value
 
 
 def polite_get(url: str, params: dict | None = None) -> Page:
@@ -194,7 +207,11 @@ def polite_get(url: str, params: dict | None = None) -> Page:
     if host in _blocked_hosts:
         _refuse(full_url, f"{host} already blocked this run ({_blocked_hosts[host]}) — not retrying")
     if _state["requests_made"] >= MAX_REQUESTS:
-        _refuse(full_url, f"request budget used up ({MAX_REQUESTS} requests per run)")
+        _refuse(
+            full_url,
+            f"this scraper run's own request budget is used up ({MAX_REQUESTS} requests "
+            "per run) — not a block by the site; rows already passed to save_rows are kept",
+        )
 
     robots = _robots_for(parsed.scheme, host)
     if robots is None:

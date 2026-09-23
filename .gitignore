@@ -132,6 +132,7 @@ Week_LC/LC_12/my_image.jpg
 Agentic_Data_Analytics_Experiment_LangGraph/__pycache__/
 Agentic_Data_Analytics_Experiment_LangGraph/data/*.csv
 Agentic_Data_Analytics_Experiment_LangGraph/data/*.db
+Agentic_Data_Analytics_Experiment_LangGraph/data/scrapers/
 Agentic_Data_Analytics_Experiment_LangGraph/conversation_history/
 Agentic_Data_Analytics_Experiment_LangGraph/fallback_dataset.csv
 

@@ -1,40 +1,36 @@
 import scraper_kit
-from bs4 import BeautifulSoup
+import json
+import time
 
-# Set the URL for the ImmoScout24 rental listings in Zurich
-url = 'https://www.immoscout24.ch/de/wohnung/mieten/ort-zuerich?pn={}'
+# Starting with ImmoScout24 Zurich apartments for rent
+start_url = "https://www.immoscout24.ch/de/wohnung/mieten/ort-zuerich?pn=1"
 
-# Function to scrape listings from a single page
-def scrape_listings(page):
-    response = scraper_kit.polite_get(url.format(page))
-    if response.status_code != 200:
-        return []  # return empty list on error
-    soup = BeautifulSoup(response.text, 'html.parser')
-    listings = []
-    for item in soup.select('.result-list__listing'):  # CSS selector for listings
-        title = item.select_one('.result-list__title').get_text(strip=True)
-        rent_gross_chf = item.select_one('.result-list__price').get_text(strip=True)
-        # Extract other necessary details, assuming the HTML structure supports it
-        listing_id = item['data-id']
-        rooms = item.select_one('.result-list__rooms').get_text(strip=True)
-        living_space_m2 = item.select_one('.result-list__space').get_text(strip=True)
-        url = item.select_one('.result-list__title')['href']
+results = []
+page_num = 1
+pages_to_scrape = 2  # Stay low for first run to check structure, see if blocked
 
-        listings.append({
-            'source': 'ImmoScout24',
-            'listing_id': listing_id,
-            'title': title,
-            'rent_gross_chf': rent_gross_chf,
-            'rooms': rooms,
-            'living_space_m2': living_space_m2,
-            'url': url
-        })
-    return listings
-
-# Main scraping loop to get multiple pages
-all_listings = []
-for page in range(1, 6):  # Collect data from the first 5 pages
-    all_listings.extend(scrape_listings(page))
-
-# Save results
-scraper_kit.save_rows(all_listings)
+try:
+    while page_num <= pages_to_scrape:
+        url = f"https://www.immoscout24.ch/de/wohnung/mieten/ort-zuerich?pn={page_num}"
+        page = scraper_kit.polite_get(url)
+        print(f"Fetched page {page_num} status {page.status_code}")
+        if page.status_code != 200:
+            break
+        soup = scraper_kit.make_soup(page.text)
+        # Print the html title as structure hint for the Data Engineer
+        print('HTML title:', soup.title.string if soup.title else 'No title')
+        # Print some classnames from main list for reference
+        offers = soup.find_all('article')
+        print(f"Found {len(offers)} <article> blocks (listing candidates) on page {page_num}")
+        for off in offers:
+            title = off.get('aria-label')
+            url_elem = off.find('a', href=True)
+            href = url_elem['href'] if url_elem else None
+            row = { 'source': 'immoscout24', 'listing_id': None, 'title': title, 'rent_gross_chf': None, 'rent_net_chf': None, 'rent_charges_chf': None, 'rooms': None, 'living_space_m2': None, 'floor': None, 'year_built': None, 'street': None, 'zip': None, 'city': 'Zürich', 'lat': None, 'lon': None, 'url': f'https://www.immoscout24.ch{href}' if href else None }
+            results.append(row)
+        scraper_kit.save_rows(results)
+        results = []    # Clear for next page
+        page_num += 1
+        time.sleep(2)
+except scraper_kit.ScrapeBlocked:
+    print("Scraping blocked by ImmoScout24 (403/429/bot challenge detected). Try another site.")

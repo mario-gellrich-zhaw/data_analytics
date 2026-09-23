@@ -7,7 +7,7 @@ on which phase of the process model they're speaking in. Kept separate
 from server.py so the orchestration code isn't buried under persona text.
 """
 
-from typing import NamedTuple
+from typing import Callable, NamedTuple
 
 from langchain_openai import ChatOpenAI
 
@@ -26,6 +26,11 @@ from graph import AgentConfig
 from scraper_tool import RUN_SCRAPER_SCHEMA, WRITE_SCRAPER_CODE_SCHEMA
 
 MODEL = "gpt-4o-mini"
+# Writing and debugging a real scraper against real responses needs a
+# stronger model: in live tests gpt-4o-mini kept guessing field names from
+# memory instead of reading the real response structure, and gave up on
+# working sources; gpt-4.1 read the structure and handled blocks properly.
+CODE_WRITING_MODEL = "gpt-4.1"
 
 STATUS_TAG_INSTRUCTION = (
     " End every message on a new line with exactly '[STATUS: CONTINUE]' if "
@@ -57,8 +62,8 @@ BE_CONCISE = (
 )
 
 
-def _model(tools: list[dict] | None = None):
-    base = ChatOpenAI(model=MODEL)
+def _model(tools: list[dict] | None = None, model: str | None = None):
+    base = ChatOpenAI(model=model or MODEL)
     return base.bind_tools(tools) if tools else base
 
 
@@ -75,11 +80,12 @@ class DemoAgents(NamedTuple):
     data_engineer_with_tools: AgentConfig
 
 
-def build_agents() -> DemoAgents:
+def build_agents(analyst_working_notes: Callable[[], str] | None = None) -> DemoAgents:
     """Construct a fresh set of agents for one run. Each agent is a
     LangChain `ChatOpenAI`, `.bind_tools(...)`-ed when tools apply for the
     phase it plays — a model can only ever request a tool actually bound
-    to it for that call."""
+    to it for that call. `analyst_working_notes` is the tool-using Data
+    Analyst's private memory of its last scraper run (see RunTools)."""
     product_manager = AgentConfig(
         name="Product Manager",
         persona=(
@@ -165,8 +171,10 @@ def build_agents() -> DemoAgents:
                 PREVIEW_DATA_SCHEMA,
                 DISCARD_DATASET_SCHEMA,
                 MAKE_SKETCH_SCHEMA,
-            ]
+            ],
+            model=CODE_WRITING_MODEL,
         ),
+        working_notes=analyst_working_notes,
     )
 
     data_engineer_collecting = AgentConfig(

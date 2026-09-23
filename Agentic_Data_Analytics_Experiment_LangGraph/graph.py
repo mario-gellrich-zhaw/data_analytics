@@ -59,6 +59,10 @@ class AgentConfig:
     name: str
     persona: str
     model: Any  # a langchain_openai.ChatOpenAI, optionally `.bind_tools(...)`-ed
+    # Private working memory: called before every turn; any text it returns
+    # is shown only to this agent (e.g. its last scraper run's real error and
+    # response structure, which the one-sentence shared transcript can't hold).
+    working_notes: Callable[[], str] | None = None
 
 
 def _messages_for(cfg: AgentConfig, transcript: list[dict]) -> list:
@@ -71,6 +75,9 @@ def _messages_for(cfg: AgentConfig, transcript: list[dict]) -> list:
             messages.append(AIMessage(content=entry["text"]))
         else:
             messages.append(HumanMessage(content=f'{entry["speaker"]}: {entry["text"]}'))
+    notes = cfg.working_notes() if cfg.working_notes else ""
+    if notes:
+        messages.append(SystemMessage(content=notes))
     return messages
 
 
