@@ -102,6 +102,16 @@ class ScraperKitTest(unittest.TestCase):
         page = self.get({"https://flatfox.ch/a": FakeResponse(200, '{"n": 1}')}, "https://flatfox.ch/a")
         self.assertEqual(page.json(), {"n": 1})
 
+    def test_first_page_structure_logged_once_per_host(self):
+        body = '{"count": 2, "results": [{"pk": 1, "rent_gross": 2000}]}'
+        pages = {f"https://flatfox.ch/{i}": FakeResponse(200, body) for i in range(2)}
+        self.get(pages, "https://flatfox.ch/0")
+        self.get(pages, "https://flatfox.ch/1")
+        log = scraper_tool._read_request_log(Path(self.kit.LOG_PATH))  # pylint: disable=protected-access
+        shapes = [e["shape"] for e in log if e.get("shape")]
+        self.assertEqual(len(shapes), 1)
+        self.assertEqual(shapes[0]["keys_of_first_item_in_results"], ["pk", "rent_gross"])
+
     def test_domain_not_allowed(self):
         with self.assertRaisesRegex(self.kit.ScrapeBlocked, "domain not allowed"):
             self.get({}, "https://example.com/")

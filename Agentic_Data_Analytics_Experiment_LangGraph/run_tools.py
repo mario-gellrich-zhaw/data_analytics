@@ -48,7 +48,7 @@ AGGREGATE_COLUMN_HINTS = (
     "variance",
 )
 MIN_LISTING_ROWS = 15  # a whole-canton listings dataset should clear this easily
-MAX_SCRAPER_RUNS = 4  # per demo run — each scraper run may make up to 15 requests
+MAX_SCRAPER_RUNS = 6  # per demo run — each scraper run may make up to 15 requests
 
 
 class DataPaths(NamedTuple):
@@ -233,6 +233,10 @@ class RunTools:
             "requests": [
                 {k: e.get(k) for k in ("url", "status", "blocked") if e.get(k) is not None}
                 for e in result["requests"]
+            ],
+            # The real structure of the first page per site — parse against this.
+            "response_structure": [
+                {"url": e["url"], **e["shape"]} for e in result["requests"] if e.get("shape")
             ],
         }
 

@@ -3,7 +3,7 @@ transcript (nobody has private memory), and the model deciding for itself,
 turn by turn, whether to call a real tool (`tool_choice="auto"` applies;
 nothing here forces a tool) — expressed as a small LangGraph `StateGraph`:
 
-  agent_turn -> (tool_calls?) -> tools -> record_turn -> loop or end
+  agent_turn -> (tool_calls?) -> tools (up to 3 chained rounds) -> record_turn -> loop or end
                               -> finish_turn -^
 
 `agent_turn` asks the current agent to speak. If it asked for a real tool,
@@ -36,8 +36,15 @@ SPEAKER_PREFIX_RE = re.compile(
     r"^(Product Manager|Data Analyst|Data Engineer)\s*:\s*", re.IGNORECASE
 )
 
+# One turn may chain a few tool rounds (e.g. write_scraper_code, then
+# run_scraper on it, then preview_data) before the agent has to say
+# something; past that, it's asked for plain text only.
+MAX_TOOL_ROUNDS = 3
+
 REACT_PROMPT = (
-    "React to that real result in ONE short sentence (max ~15 words). Do not "
+    "If this result means you should immediately use another tool (e.g. run "
+    "the scraper you just wrote, or fix and rewrite it), call it now. "
+    "Otherwise react to that real result in ONE short sentence (max ~15 words). Do not "
     "list individual items or repeat numbers already in the result — they're "
     "shown separately in the UI."
 )
@@ -110,20 +117,37 @@ def route_after_agent_turn(state: PhaseState) -> str:
     return "tools" if state["pending_ai_message"].tool_calls else "finish_turn"
 
 
+def _tools_then_react(
+    cfg: AgentConfig, messages: list, ai_message: AIMessage, tool_impls: dict[str, Callable]
+) -> str:
+    """Really call the tool(s) the agent asked for and ask it to react to
+    the real result. If its reaction is another tool call (e.g. running
+    the scraper it just wrote), that runs too — up to MAX_TOOL_ROUNDS —
+    and the last reaction is forced to be plain text. Kept ephemeral: none
+    of this lands in the shared transcript, only the returned text does."""
+    messages = list(messages)
+    for tool_round in range(1, MAX_TOOL_ROUNDS + 1):
+        messages.append(ai_message)
+        for call in ai_message.tool_calls:
+            fn = tool_impls[call["name"]]
+            result = fn(**call["args"])
+            messages.append(ToolMessage(content=json.dumps(result), tool_call_id=call["id"]))
+        messages.append(HumanMessage(content=REACT_PROMPT))
+        ai_message = cfg.model.invoke(messages)
+        if not ai_message.tool_calls:
+            return ai_message.content
+        if tool_round == MAX_TOOL_ROUNDS:
+            break
+    return cfg.model.invoke(messages, tool_choice="none").content
+
+
 def run_tools(state: PhaseState) -> dict:
-    """Really call whichever tool(s) the agent asked for, then ask it to
-    react to the real result — kept ephemeral (not part of
-    `pending_messages`, so it never lands in the shared transcript)."""
+    """Really call whichever tool(s) the agent asked for, then let it react."""
     cfg = _current_agent(state)
-    ai_message = state["pending_ai_message"]
-    messages = list(state["pending_messages"]) + [ai_message]
-    for call in ai_message.tool_calls:
-        fn = state["tool_impls"][call["name"]]
-        result = fn(**call["args"])
-        messages.append(ToolMessage(content=json.dumps(result), tool_call_id=call["id"]))
-    messages.append(HumanMessage(content=REACT_PROMPT))
-    reaction = cfg.model.invoke(messages)
-    return {"final_text": reaction.content, "used_tool": True}
+    final_text = _tools_then_react(
+        cfg, state["pending_messages"], state["pending_ai_message"], state["tool_impls"]
+    )
+    return {"final_text": final_text, "used_tool": True}
 
 
 def finish_turn(state: PhaseState) -> dict:
@@ -200,12 +224,4 @@ def speak_once(
     ai_message = cfg.model.invoke(messages)
     if not ai_message.tool_calls:
         return ai_message.content, False
-
-    messages = messages + [ai_message]
-    for call in ai_message.tool_calls:
-        fn = tool_impls[call["name"]]
-        result = fn(**call["args"])
-        messages.append(ToolMessage(content=json.dumps(result), tool_call_id=call["id"]))
-    messages.append(HumanMessage(content=REACT_PROMPT))
-    reaction = cfg.model.invoke(messages)
-    return reaction.content, True
+    return _tools_then_react(cfg, messages, ai_message, tool_impls), True

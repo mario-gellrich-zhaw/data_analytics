@@ -337,9 +337,12 @@ RUN_SCRAPER_SCHEMA = {
             "Really run a scraper version you wrote with write_scraper_code, in a "
             f"separate process (time limit {RUN_TIMEOUT_SECONDS} s). Returns the "
             "real exit code, the tail of its printed output (incl. any traceback), "
-            "every request it made with its real HTTP status or block reason, and "
-            "how many rows it saved plus a sample. If it failed, read the error, "
-            "fix the code with write_scraper_code, and run again."
+            "every request it made with its real HTTP status or block reason, the "
+            "real structure of the first page fetched per site (response_structure: "
+            "JSON keys, or the HTML title) and how many rows it saved plus a sample. "
+            "If it failed, read the error and response_structure — use the real key "
+            "names shown there, don't guess — fix the code with write_scraper_code, "
+            "and run again."
         ),
         "parameters": {
             "type": "object",

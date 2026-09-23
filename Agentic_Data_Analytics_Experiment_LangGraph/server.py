@@ -145,9 +145,10 @@ STEP2_GOAL = (
     "price-prediction model needs per-apartment examples to learn from."
 )
 STEP3_GOAL = (
-    "Actually try to obtain real Swiss rental data now, using your real tools: "
-    "write your own scraper (write_scraper_code, then run_scraper) and/or search "
-    "and download open data. After every download or successful scraper run, "
+    "Actually try to obtain real Swiss rental data now, using your real tools. "
+    "Preferred: write your own scraper (write_scraper_code, then run_scraper) — "
+    "if a site blocks it, try the other allowed sites before falling back to "
+    "searching and downloading open data. After every download or successful scraper run, "
     "call preview_data and check the real column names "
     "before claiming anything about whether the dataset is at the "
     "individual-apartment level (one row per listing) or just aggregated "

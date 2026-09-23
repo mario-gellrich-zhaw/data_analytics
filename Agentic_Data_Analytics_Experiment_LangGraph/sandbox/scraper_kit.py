@@ -15,7 +15,9 @@ ignore:
 - an honest User-Agent, no browser impersonation
 
 Every request (allowed or not) is appended to a JSON-lines log the app
-reads back afterwards, so the UI can show exactly what happened.
+reads back afterwards, so the UI can show exactly what happened — plus
+the real structure (JSON keys / HTML title) of the first page fetched from
+each site, so the agent can fix its parsing against real data.
 
 Usage from agent code:
 
@@ -94,6 +96,7 @@ class Page:
 _state = {"requests_made": 0, "last_request_at": None}
 _robots: dict[str, RobotFileParser | None] = {}  # host -> parser (None = unreadable)
 _blocked_hosts: dict[str, str] = {}  # host -> reason
+_shapes_logged: set[str] = set()  # hosts whose first page's structure is already logged
 _rows: list[dict] = []
 _row_keys: set[tuple] = set()
 
@@ -157,6 +160,28 @@ def _looks_like_bot_challenge(response: requests.Response) -> bool:
     return "<title>just a moment" in head
 
 
+def _shape_of(response: requests.Response) -> dict:
+    """The real structure of a response — JSON keys (top level and the
+    first item of the first list), or an HTML page's <title> — so the agent
+    can write its parsing code against what's actually there."""
+    try:
+        data = json.loads(response.text)
+    except ValueError:
+        text = response.text
+        start = text.lower().find("<title>")
+        end = text.lower().find("</title>", start)
+        title = text[start + 7 : end].strip() if 0 <= start < end else ""
+        return {"type": "html", "title": title[:120], "chars": len(text)}
+    if not isinstance(data, dict):
+        return {"type": "json", "top_level": type(data).__name__}
+    shape: dict = {"type": "json", "top_level_keys": list(data)[:40]}
+    for key, value in data.items():
+        if isinstance(value, list) and value and isinstance(value[0], dict):
+            shape[f"keys_of_first_item_in_{key}"] = list(value[0])[:80]
+            break
+    return shape
+
+
 def polite_get(url: str, params: dict | None = None) -> Page:
     """Fetch one URL politely. Returns a `Page` (use `.json()` or `.text`)
     on HTTP 200; raises `ScrapeBlocked` otherwise."""
@@ -206,13 +231,17 @@ def polite_get(url: str, params: dict | None = None) -> Page:
         _refuse(full_url, f"HTTP {response.status_code} — stopping for this site",
                 status=response.status_code, host=host)
 
-    _log({
+    entry = {
         "url": full_url,
         "kind": "page",
         "status": response.status_code,
         "elapsed_ms": elapsed_ms,
         "bytes": len(response.content),
-    })
+    }
+    if host not in _shapes_logged:
+        _shapes_logged.add(host)
+        entry["shape"] = _shape_of(response)
+    _log(entry)
     return Page(
         url=response.url,
         status_code=response.status_code,
