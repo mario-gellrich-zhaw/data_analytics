@@ -1,11 +1,12 @@
-"""Per-run wrappers around data_tool.py's real tools.
+"""Per-run wrappers around the pure tool functions in opendata.py,
+preparation.py and scraper.py.
 
-data_tool.py's functions are pure and stateless; a live run needs a bit of
-shared state on top of them — which file is "current" right now, the real
-results captured so each phase's result card can be built, and short ids
-handed to the model in place of long opendata.swiss resource URLs.
-`RunTools` bundles that state with the actual tool-calling wrappers the
-agents invoke, one fresh instance per run.
+Those functions are stateless; a live run needs a bit of shared state on
+top of them — which file is "current" right now, the real results captured
+so each phase's result card can be built, and short ids handed to the
+model in place of long opendata.swiss resource URLs. `RunTools` bundles
+that state with the actual tool-calling wrappers the agents invoke, one
+fresh instance per run.
 """
 
 import json
@@ -13,62 +14,19 @@ import shutil
 from pathlib import Path
 from typing import Callable, NamedTuple
 
-import pandas as pd
-
-from data_tool import (
+from tools.opendata import discard_dataset, download_dataset, search_open_data
+from tools.preparation import (
     clean_data,
-    discard_dataset,
-    download_dataset,
     make_sketch,
     preview_data,
     profile_data,
     run_sql_query,
-    search_open_data,
     store_to_database,
 )
-from scraper_tool import run_scraper_code, save_scraper_code
+from tools.scraper import run_scraper_code, save_scraper_code
+from tools.validation import check_scraped_fields, filled_share, looks_like_listing_data
 
-# Column-name fragments that reliably indicate a pre-aggregated statistics
-# table (one row per stratum — e.g. per district/year/room-count — not per
-# apartment) even when every column is fully named, so the "≥50% unnamed
-# columns" check below can't catch it. Real Swiss rent-price tables (e.g.
-# opendata.swiss's Mietpreise dataset) look exactly like this: named
-# mean/quantile columns, plenty of rows, zero unnamed columns — and slip
-# straight through without this. Deliberately narrow (no "count"/"min"/
-# "max"/"sum"/"total" — those show up in legitimate per-listing fields too,
-# e.g. "room_count") so it only fires on genuine statistical-summary terms.
-AGGREGATE_COLUMN_HINTS = (
-    "mean",
-    "median",
-    "average",
-    "quantile",
-    "percentile",
-    "qu25",
-    "qu50",
-    "qu75",
-    "stdev",
-    "stddev",
-    "variance",
-)
-MIN_LISTING_ROWS = 15  # a whole-canton listings dataset should clear this easily
 MAX_SCRAPER_RUNS = 6  # per demo run — each scraper run may make up to 15 requests
-# Scraped output only counts as a dataset if each of these is mostly
-# filled in (any one column of a group is enough) — a scraper that maps the
-# wrong field names, or keeps parking spaces/commercial units alongside
-# apartments, produces a well-shaped but half-empty table.
-SCRAPED_REQUIRED_FIELDS = (
-    ("listing_id",),
-    ("rent_gross_chf", "rent_net_chf"),
-    ("rooms",),
-    ("zip", "city"),
-)
-MIN_FILLED_SHARE = 0.8
-
-
-def _filled_share(csv_path: Path) -> dict[str, float]:
-    """Share of non-empty values per column of a scraped CSV."""
-    df = pd.read_csv(csv_path)
-    return {col: round(float(df[col].notna().mean()), 2) for col in df.columns}
 
 
 class DataPaths(NamedTuple):
@@ -85,7 +43,7 @@ class RunTools:
     """Real-tool state and call wrappers for one run.
 
     `results` holds the real, latest result of each tool a phase's result
-    card needs to show (see server.py's step3_result/step4_result); the
+    card needs to show (see app/demo_run.py's step3_result/step4_result); the
     other attributes track which file preview/profile/clean/store act on
     right now.
     """
@@ -94,7 +52,7 @@ class RunTools:
         self.paths = paths
         self.on_progress = on_progress
         # (kind, data) -> None: shows a scraper version / run inline in the
-        # chat the moment it happens (see server.py's _on_artifact).
+        # chat the moment it happens (see app/demo_run.py's _on_artifact).
         self.on_artifact = on_artifact
         self.scraper_versions: list[dict] = []  # every write_scraper_code call, in order
         self.scraper_runs: list[dict] = []  # every run_scraper call, in order
@@ -116,7 +74,7 @@ class RunTools:
     def build_tool_impls(self) -> dict[str, Callable]:
         """Name -> callable, for the graph's tool-execution step. Safe to
         share across every agent: a model can only ever request a tool
-        that was actually bound to it for that call (see agents.py)."""
+        that was actually bound to it for that call (see agents/personas.py)."""
         return {
             "write_scraper_code": self.call_write_scraper_code,
             "run_scraper": self.call_run_scraper,
@@ -141,51 +99,6 @@ class RunTools:
         except Exception:  # pylint: disable=broad-exception-caught
             pass  # best-effort only; never break the run over a preview
 
-    def check_looks_like_listing_data(self, path: str, data_format: str) -> tuple[bool, str]:
-        """Whether a downloaded file looks like individual-apartment
-        listings rather than a pre-aggregated statistics table."""
-        # A real, code-level structural sanity check that runs on every
-        # download regardless of whether the agent itself remembers to
-        # call preview_data — prompting alone proved unreliable here (the
-        # model sometimes skipped its own verification step and declared
-        # success on an obviously aggregated file). This can't judge
-        # topic/semantics, but it reliably catches the two most common
-        # real failure shapes seen live: multi-header statistics exports
-        # (mostly "Unnamed: N" columns after pandas parses them),
-        # named-but-aggregated statistics tables (mean/quantile columns,
-        # e.g. opendata.swiss's Mietpreise dataset), and pivot/summary
-        # tables (a handful of rows).
-        result = preview_data(path=path, data_format=data_format, n=50)
-        if result.get("error"):
-            return False, f"the file couldn't even be read as a table ({result['error']})"
-        columns = result["columns"]
-        n_rows = len(result["rows"])
-        if not columns:
-            return False, "the file has no readable columns"
-        unnamed = sum(1 for c in columns if str(c).lower().startswith("unnamed"))
-        if unnamed / len(columns) >= 0.5:
-            return False, (
-                f"{unnamed}/{len(columns)} columns came back unnamed — this looks like a "
-                "multi-header statistics export (e.g. a pivoted year-by-year table), not "
-                "one row per apartment listing"
-            )
-        aggregate_hits = [
-            c for c in columns if any(hint in str(c).lower() for hint in AGGREGATE_COLUMN_HINTS)
-        ]
-        if len(aggregate_hits) >= 2:
-            return False, (
-                f"columns like {', '.join(map(str, aggregate_hits[:4]))} look like "
-                "statistical aggregates (mean/median/quantile), not per-apartment fields — "
-                "this is a pre-aggregated summary table (one row per stratum, e.g. per "
-                "district/year/room-count), not one row per apartment listing"
-            )
-        if n_rows < MIN_LISTING_ROWS:
-            return False, (
-                f"only {n_rows} rows — far too few to be individual apartment listings for "
-                "the canton of Zurich, this looks like a small summary/pivot table"
-            )
-        return True, ""
-
     # --- Data Analyst tools: Collecting data --------------------------
 
     def call_write_scraper_code(self, code: str):
@@ -202,7 +115,7 @@ class RunTools:
         return result
 
     def call_run_scraper(self, version: int | None = None):
-        """Tool: really run one saved scraper version (see scraper_tool.py).
+        """Tool: really run one saved scraper version (see scraper.py).
         If it saved enough rows that look like listings, its CSV becomes
         the current dataset — exactly like an accepted download."""
         if not self.scraper_versions:
@@ -232,10 +145,10 @@ class RunTools:
         result["success"] = result["exit_code"] == 0 and not result["timed_out"]
 
         if result["rows_saved"] > 0:
-            result["filled_share"] = _filled_share(out_path)
-            looks_ok, reason = self._check_scraped_fields(result["filled_share"])
+            result["filled_share"] = filled_share(out_path)
+            looks_ok, reason = check_scraped_fields(result["filled_share"])
             if looks_ok:
-                looks_ok, reason = self.check_looks_like_listing_data(str(out_path), "CSV")
+                looks_ok, reason = looks_like_listing_data(str(out_path), "CSV")
             if looks_ok:
                 shutil.copyfile(out_path, self.paths.scraped)
                 self.current_file["path"] = str(self.paths.scraped)
@@ -305,23 +218,6 @@ class RunTools:
         lines.append(f"- the code you ran:\n{code}")
         return "\n".join(lines)
 
-    @staticmethod
-    def _check_scraped_fields(filled_share: dict) -> tuple[bool, str]:
-        """Whether the key listing fields are really filled in."""
-        missing = []
-        for group in SCRAPED_REQUIRED_FIELDS:
-            best = max(filled_share.get(col, 0) for col in group)
-            if best < MIN_FILLED_SHARE:
-                missing.append(f"{' or '.join(group)} ({best:.0%} filled)")
-        if missing:
-            return False, (
-                f"key field(s) not filled in for at least {MIN_FILLED_SHARE:.0%} of rows: "
-                f"{', '.join(missing)} — either the scraper maps the wrong source field "
-                "names (check response_structure), or it keeps rows that aren't rental "
-                "apartments (parking spaces, commercial units, properties for sale)"
-            )
-        return True, ""
-
     def _scraped_download_result(self, run: dict) -> dict:
         """Shape an accepted scraper run like a download result, so the
         Step 3 card and Step 4's tools treat it the same way."""
@@ -350,7 +246,7 @@ class RunTools:
         self.results["opendata"] = result
 
         # Short, stable resource ids instead of making the model retype a
-        # long URL to pick one (see data_tool.py's search_open_data docs).
+        # long URL to pick one (see opendata.py's search_open_data docs).
         agent_view_datasets = []
         for dataset in result["datasets"]:
             resource_views = []
@@ -418,7 +314,7 @@ class RunTools:
     def _accept_or_reject_download(self, result: dict, picked: dict) -> None:
         """Mutates `result` in place: accept the download (update
         `current_file`/`dataset_ready`) or reject and delete it."""
-        looks_ok, reason = self.check_looks_like_listing_data(
+        looks_ok, reason = looks_like_listing_data(
             str(self.paths.download), picked["format"]
         )
         if not looks_ok:

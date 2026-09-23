@@ -7,7 +7,7 @@ nothing here forces a tool) — expressed as a small LangGraph `StateGraph`:
                               -> finish_turn -^
 
 `agent_turn` asks the current agent to speak. If it asked for a real tool,
-`tools` actually calls it (the same Python functions in data_tool.py) and
+`tools` actually calls it (the same Python functions in tools/) and
 then asks the model to react to the real result in one short sentence.
 Either way, `record_turn` strips the status tag, appends the clean reply to
 the shared transcript, and a conditional edge decides whether to loop back
@@ -98,7 +98,7 @@ class PhaseState(TypedDict):
     pending_ai_message: Any
     final_text: str
     used_tool: bool
-    # written by record_turn, read by the driver (server.py) after every step
+    # written by record_turn, read by the driver (app/demo_run.py) after every step
     last_turn: dict | None
 
 
@@ -199,7 +199,7 @@ def route_after_record_turn(state: PhaseState) -> str:
 
 def build_phase_graph():
     """Compile the small state graph that drives ONE phase's conversation.
-    Reused for every phase of the run — server.py's `run_phase()` just
+    Reused for every phase of the run — app/demo_run.py's `run_phase()` just
     streams it with a different initial state each time."""
     builder = StateGraph(PhaseState)
     builder.add_node("agent_turn", agent_turn)

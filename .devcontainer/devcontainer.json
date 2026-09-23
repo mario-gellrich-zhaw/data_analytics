@@ -19,9 +19,16 @@
 			"settings": {
 				"workbench.colorTheme": "Default Dark+",
 				"editor.rulers": [80],
-				"workbench.iconTheme": "vs-seti"
+				"workbench.iconTheme": "vs-seti",
+				"remote.autoForwardPorts": true,
+				"remote.otherPortsAttributes": { "onAutoForward": "ignore" }
 			}
 		}
+	},
+
+	"forwardPorts": [8000],
+	"portsAttributes": {
+		"8000": { "label": "Agentic app", "onAutoForward": "notify" }
 	},
 
 	"postCreateCommand": "pip install -r requirements.txt"

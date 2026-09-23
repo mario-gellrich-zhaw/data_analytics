@@ -16,8 +16,8 @@ from unittest import mock
 APP_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(APP_DIR))
 
-import scraper_tool  # noqa: E402  pylint: disable=wrong-import-position
 from sandbox import scraper_kit  # noqa: E402  pylint: disable=wrong-import-position
+from tools import scraper as scraper_tool  # noqa: E402  pylint: disable=wrong-import-position
 
 
 class FakeResponse:  # pylint: disable=too-few-public-methods
@@ -202,7 +202,7 @@ class RunnerTest(unittest.TestCase):
     def test_app_modules_not_importable(self):
         with tempfile.TemporaryDirectory() as tmp:
             script = Path(tmp) / "s.py"
-            script.write_text("import data_tool\n", encoding="utf-8")
+            script.write_text("import tools.preparation\n", encoding="utf-8")
             result = scraper_tool.run_scraper_code(script, Path(tmp) / "w", Path(tmp) / "w" / "o.csv")
         self.assertIn("ModuleNotFoundError", result["output_tail"])
 

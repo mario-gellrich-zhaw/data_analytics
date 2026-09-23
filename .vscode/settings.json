@@ -1,3 +1,8 @@
 {
-    "python.defaultInterpreterPath": "/usr/local/bin/python"
+    "python.defaultInterpreterPath": "/usr/local/bin/python",
+    "remote.autoForwardPorts": true,
+    "remote.otherPortsAttributes": { "onAutoForward": "ignore" },
+    "portsAttributes": {
+        "8000": { "label": "Agentic app", "onAutoForward": "notify" }
+    }
 }

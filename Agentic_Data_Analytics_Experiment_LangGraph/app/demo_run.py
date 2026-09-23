@@ -1,9 +1,7 @@
-"""Tiny web backend for the agentic demo (FastAPI, not Flask).
-
-Serves a single static page and one Server-Sent-Events endpoint that walks
-three peer agents — a Product Manager, a Data Analyst, and a Data Engineer,
-none of them ranking above the others — through the first four steps of the
-course's Data Analytics Process Model, in order, once:
+"""One live demo run: walks three peer agents — a Product Manager, a Data
+Analyst, and a Data Engineer, none of them ranking above the others —
+through the first four steps of the course's Data Analytics Process Model,
+in order, once:
 
   1. Business objective    — fixed (given, not agent-decided)
   2. Defining appropriate data — discussion only (no tools yet)
@@ -15,236 +13,52 @@ course's Data Analytics Process Model, in order, once:
 Deliberately no analysis/interpretation happens here (that's the next,
 not-yet-built part of the process model) — step 4's tools profile and clean
 data structurally, they don't derive insights. Turn-taking and tool-calling
-are driven by a LangGraph `StateGraph` (see graph.py): each phase streams
-the compiled graph until its agents reach consensus (a status tag) or a
-turn cap is hit.
+are driven by a LangGraph `StateGraph` (see agents/graph.py): each phase
+streams the compiled graph until its agents reach consensus (a status tag)
+or a turn cap is hit.
 
-A manual Stop (POST /api/stop) ends the run cleanly at any point, and a
-generous safety net (max turns / max wall-clock time) bounds it regardless.
+Every event is pushed onto a queue as a Server-Sent-Events string; the
+FastAPI endpoint in server.py streams that queue to the browser.
 """
 
 import json
 import queue
-import random
 import shutil
 import threading
 import time
 from datetime import datetime
-from pathlib import Path
 from typing import NamedTuple
 
-from dotenv import load_dotenv
-from fastapi import FastAPI
-from fastapi.responses import FileResponse, Response, StreamingResponse
-from fastapi.staticfiles import StaticFiles
-
-import transcript
-from agents import build_agents
-from data_tool import download_dataset
-from graph import SPEAKER_PREFIX_RE, STATUS_TAG_RE, AgentConfig, build_phase_graph, speak_once
-from run_tools import DataPaths, RunTools
-
-load_dotenv()  # finds the .env at the repo root
-
-# The one knob for how long a full run should take, wall-clock — everything
-# below is derived from it, scaled relative to the tuned 20-minute baseline
-# (set this to 20 to get exactly the original, hand-tuned numbers back).
-DEMO_LENGTH_MINUTES = 60
-_SCALE = DEMO_LENGTH_MINUTES / 20
-
-TURN_DELAY_SECONDS = 4  # pace the conversation so a class can read along;
-# NOT scaled — a longer run should mean more real turns, not more waiting.
-
-# No-tool discussion phases have nothing real to anchor to yet, so kept
-# short — left running long, they tend to invent increasingly elaborate
-# fictional detail (a different database system, timelines, etc.) instead of
-# staying grounded in what the real tools actually do. So these scale much
-# more mildly than the tool-backed budgets below, on purpose: a 3x longer
-# demo should mean far more real scraping/searching, not 3x more invented
-# small talk.
-_DISCUSSION_SCALE = 1 + (_SCALE - 1) * 0.3
-MIN_TURNS_DISCUSSION = round(2 * _DISCUSSION_SCALE)
-MAX_TURNS_DISCUSSION = round(6 * _DISCUSSION_SCALE)
-# The 3-way round-robins (Step 1's "other objectives" / privacy checks) need
-# at least one turn per peer, however short the demo is set to.
-MIN_TURNS_ROUND_ROBIN = max(3, round(3 * _DISCUSSION_SCALE))
-
-# Tool-backed action phases get more room since real results keep grounding
-# each turn — these scale with the full length.
-MIN_TURNS_ACTION = round(4 * _SCALE)
-MAX_TURNS_ACTION = round(14 * _SCALE)
-# Collecting data (step 3) must now keep trying different searches until it
-# finds genuine listing-level data rather than settling for an aggregate, so
-# it gets extra room beyond the normal action budget above — and since the
-# Data Engineer now takes a third of the round-robin's turns there too
-# (see agents.py's data_engineer_collecting), the budget is scaled up so the
-# Data Analyst still gets roughly as many actual searching/downloading turns
-# as before.
-MAX_TURNS_COLLECT = round(36 * _SCALE)
-MAX_TURNS = round(80 * _SCALE)  # safety net: a live demo shouldn't run forever if nobody stops it
-MAX_RUNTIME_SECONDS = DEMO_LENGTH_MINUTES * 60  # ...or this many minutes, whichever comes first
-
-# Varied so a class watching several runs back-to-back doesn't hear the
-# exact same opening line every time — the substance after the opener stays
-# the same, only the greeting/framing changes.
-BUSINESS_OBJECTIVE_OPENERS = [
-    "Welcome, everyone!",
-    "Hi team, thanks for joining.",
-    "Morning, everyone — let's get started.",
-    "Good to have you all here.",
-    "Alright team, let's dive in.",
-]
-
-
-def _build_business_objective() -> str:
-    opener = random.choice(BUSINESS_OBJECTIVE_OPENERS)
-    return (
-        f"{opener} Our goal for this project is to build a price-prediction "
-        "model for rental apartments in the canton of Zurich. The "
-        "deliverable is a model that estimates a fair market rent for a "
-        "given apartment from real features like size, room count, and "
-        "location — useful for tenants sanity-checking an asking price and "
-        "for landlords pricing a listing. To get there, we'll follow our "
-        "data analytics process model, starting with figuring out what "
-        "data we actually need."
-    )
-
-
-STEP1B_GOAL = (
-    "Before nailing down data requirements, briefly brainstorm what OTHER "
-    "objectives this same rental dataset could serve — one or two ideas each, "
-    "from your own angle. Product Manager: business/product value, e.g. a "
-    "market-transparency tool for tenants, an investment-screening tool for "
-    "landlords, or flagging overpriced/underpriced listings. Data Analyst: "
-    "analytical questions the data could answer, e.g. which features drive "
-    "price most, or how prices differ across Zurich districts or over time. "
-    "Data Engineer: what other data products the same pipeline could feed, "
-    "e.g. a live pricing API, a refreshed dashboard, or scheduled re-scraping. "
-    "Keep it short, then explicitly agree you're sticking with the "
-    "price-prediction objective for this project."
+from agents import prompts
+from agents.graph import SPEAKER_PREFIX_RE, STATUS_TAG_RE, AgentConfig, build_phase_graph, speak_once
+from agents.personas import build_agents
+from app.config import (
+    CLEANED_PATH,
+    CONVERSATION_HISTORY_DIR,
+    DB_PATH,
+    DOWNLOAD_PATH,
+    FALLBACK_DATASET_FORMAT,
+    FALLBACK_DATASET_ORGANIZATION,
+    FALLBACK_DATASET_PAGE_URL,
+    FALLBACK_DATASET_TITLE,
+    FALLBACK_DATASET_URL,
+    FALLBACK_PATH,
+    MAX_RUNTIME_SECONDS,
+    MAX_TURNS,
+    MAX_TURNS_ACTION,
+    MAX_TURNS_COLLECT,
+    MAX_TURNS_DISCUSSION,
+    MIN_TURNS_ACTION,
+    MIN_TURNS_DISCUSSION,
+    MIN_TURNS_ROUND_ROBIN,
+    SCRAPED_PATH,
+    SCRAPERS_DIR,
+    STATIC_DIR,
+    TURN_DELAY_SECONDS,
 )
-STEP1C_GOAL = (
-    "Before collecting any data, briefly flag the privacy/legal side of it — a "
-    "few short points, not a legal review. Data Analyst: these are listings "
-    "about properties, not people, but note that a field like a landlord/agent "
-    "name or contact details would count as personal data under the Swiss "
-    "nDSG/GDPR, so flag if we should avoid keeping those. Data Engineer: note "
-    "that scraping a site against its robots.txt or terms of service is a "
-    "real legal/reputational risk regardless of whether the data itself is "
-    "personal — which is why any scrape attempt later checks robots.txt first "
-    "and treats a block as a real no, not something to route around. Product "
-    "Manager: say whether that risk should make us prefer open, licensed data "
-    "over scraping when both exist. Keep it short, then agree on that "
-    "approach before moving on."
-)
-STEP2_GOAL = (
-    "Decide together what real data would let us build this price-prediction "
-    "model — which sources, which fields. We need individual, "
-    "single-apartment-level records (one row per listing) — not pre-aggregated "
-    "statistics (e.g. medians/percentiles by room count or district) — since a "
-    "price-prediction model needs per-apartment examples to learn from."
-)
-STEP3_GOAL = (
-    "Actually try to obtain real Swiss rental data now, using your real tools. "
-    "Preferred: write your own scraper (write_scraper_code, then run_scraper) — "
-    "if a site blocks it, try the other allowed sites before falling back to "
-    "searching and downloading open data. After every download or successful scraper run, "
-    "call preview_data and check the real column names "
-    "before claiming anything about whether the dataset is at the "
-    "individual-apartment level (one row per listing) or just aggregated "
-    "statistics — mention this explicitly, grounded in what preview_data "
-    "actually showed. Keep searching — with different search terms, different "
-    "datasets, different platforms — until you genuinely find and confirm data "
-    "at the individual-apartment level. Aggregated or wrong-topic statistics "
-    "are NOT an acceptable substitute, no matter how many attempts it takes: if "
-    "preview_data shows a result is aggregated, not actually about rental "
-    "apartments, or otherwise unusable (e.g. unnamed/garbled columns), call "
-    "discard_dataset to really delete that file, say so, and try a different "
-    "angle rather than keeping it around. Step 4 needs an actual, verified, "
-    "listing-level file to work with. Data Engineer: react to what's actually "
-    "being found — review the scraper code that was written, flag real "
-    "ingestion/pipeline concerns (format, encoding, how "
-    "stable the source looks for scraping again later, rate-limiting/blocking "
-    "behavior) — but let the Data Analyst drive the search and make the "
-    "individual-level-vs-aggregated call."
-)
-STEP4A_GOAL = (
-    "Briefly discuss how you'll clean and store the downloaded data before doing "
-    "it. Ground this in the REAL tool you actually have: store_to_database "
-    "writes to a real local SQLite file via Python's stdlib sqlite3 — not "
-    "PostgreSQL, MySQL, or any other system. Keep this planning short and "
-    "concrete, tied to that real tool, not a hypothetical enterprise setup."
-)
-STEP4B_GOAL = (
-    "Really clean the downloaded data, store it in the real SQLite database, "
-    "and verify it with a real SQL query. Once that's verified, wrap up: you "
-    "may note in ONE short clause that Exploratory Data Analysis (EDA) is "
-    "the next step in the process — nothing more. Do NOT describe how you'd "
-    "do EDA, do NOT name or discuss any modeling technique, algorithm, or "
-    "statistical method (regression, decision trees, neural networks, etc.) "
-    "— that's a separate, not-yet-built part of the process."
-)
-
-BASE_DIR = Path(__file__).resolve().parent
-STATIC_DIR = BASE_DIR / "static"
-# Every real dataset file a run touches (downloaded, cleaned, the SQLite
-# database, the fallback dataset) lives here — kept separate from the
-# source files above it.
-DATA_DIR = BASE_DIR / "data"
-DATA_DIR.mkdir(exist_ok=True)
-DOWNLOAD_PATH = DATA_DIR / "downloaded_dataset.csv"
-SCRAPED_PATH = DATA_DIR / "scraped_listings.csv"
-# Every scraper version the agents write (scraper_vN.py) and each run's
-# working folder (request log, printed output, raw CSV).
-SCRAPERS_DIR = DATA_DIR / "scrapers"
-CLEANED_PATH = DATA_DIR / "cleaned_dataset.csv"
-DB_PATH = DATA_DIR / "rental_data.db"
-FALLBACK_PATH = DATA_DIR / "fallback_dataset.csv"
-# The guaranteed last-resort dataset if Step 3 never confirms an
-# individual-apartment-level dataset within the search budget — a real
-# Statistik Stadt Zürich rent survey. It's aggregated, not individual-level,
-# but real and always available, so Step 4 still has something genuine to
-# clean/store/query rather than the run ending with nothing.
-FALLBACK_DATASET_URL = (
-    "https://data.stadt-zuerich.ch/dataset/bau_whg_mpe_mietpreis_raum_zizahl_gn_jahr_od5161"
-    "/download/BAU516OD5161.csv"
-)
-FALLBACK_DATASET_FORMAT = "CSV"
-FALLBACK_DATASET_TITLE = "Mietpreise in der Stadt Zürich (MPE Abfragetool)"
-FALLBACK_DATASET_ORGANIZATION = "Statistik Stadt Zürich"
-FALLBACK_DATASET_PAGE_URL = (
-    "https://data.stadt-zuerich.ch/dataset/bau_whg_mpe_mietpreis_raum_zizahl_gn_jahr_od5161"
-)
-# Every run's full agent-to-agent conversation is saved here as a
-# human-readable Markdown file once the run ends, for later review.
-CONVERSATION_HISTORY_DIR = BASE_DIR / "conversation_history"
-
-app = FastAPI()
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
-
-# One demo at a time (this is a single-instructor classroom tool, not a
-# multi-user service) — a plain module-level flag is enough to let the
-# frontend's Stop button end an in-progress run.
-stop_event = threading.Event()
-
-
-@app.get("/")
-def index():
-    """Serve the single static demo page."""
-    return FileResponse(STATIC_DIR / "index.html")
-
-
-@app.get("/favicon.ico", include_in_schema=False)
-def favicon():
-    """Avoid noisy 404s from browsers auto-requesting /favicon.ico."""
-    return Response(status_code=204)
-
-
-@app.post("/api/stop")
-def stop():
-    """Signal an in-progress run to end cleanly at its next checkpoint."""
-    stop_event.set()
-    return {"stopping": True}
+from reporting import transcript
+from tools.opendata import download_dataset
+from tools.run_tools import DataPaths, RunTools
 
 
 def _sse(event: str, data: dict) -> str:
@@ -252,7 +66,7 @@ def _sse(event: str, data: dict) -> str:
 
 
 def _save_conversation_history(history: list[dict], started_at: datetime, outcome: dict) -> None:
-    """Save one run as both Markdown and HTML (see transcript.py) — the
+    """Save one run as both Markdown and HTML (see reporting/transcript.py) — the
     HTML version reuses the live page's own stylesheet, header, and process
     diagram, read fresh each time so an edit to any of them is picked up
     without a restart."""
@@ -281,13 +95,15 @@ class PhaseSpec(NamedTuple):
 class DemoRun:
     """One live run's state and step-by-step orchestration.
 
-    Instantiated fresh per HTTP request (see `stream()` below) so runs
-    never share state; `run()` is the entry point, called from a
+    Instantiated fresh per HTTP request (see app/server.py's `stream()`)
+    so runs never share state; `run()` is the entry point, called from a
     background thread while the FastAPI endpoint streams `self.q`.
+    `stop_event` is set by the frontend's Stop button (POST /api/stop).
     """
 
-    def __init__(self, q: "queue.Queue"):
+    def __init__(self, q: "queue.Queue", stop_event: threading.Event):
         self.q = q
+        self.stop_event = stop_event
         self.run_started_at = datetime.now()
         self.history: list[dict] = []  # every phase header and turn, saved once the run ends
         # Overwritten on every real exit path; this default only matters if
@@ -328,7 +144,7 @@ class DemoRun:
         return (time.monotonic() - self.started_at) < MAX_RUNTIME_SECONDS
 
     def _should_stop(self) -> bool:
-        return self.turn_count >= MAX_TURNS or not self._time_left() or stop_event.is_set()
+        return self.turn_count >= MAX_TURNS or not self._time_left() or self.stop_event.is_set()
 
     def _stream_turn(self, speaker: str, text: str, used_tool: bool, step: int, step_label: str):
         self.turn_count += 1
@@ -355,7 +171,7 @@ class DemoRun:
         self._stream_turn(agent.name, clean_reply, used_tool, step, step_label)
 
     def run_phase(self, agents: list[AgentConfig], spec: PhaseSpec):
-        """Stream one phase's conversation loop (see graph.py) until its
+        """Stream one phase's conversation loop (see agents/graph.py) until its
         agents reach consensus, a turn cap is hit, or the run-level safety
         net / a manual Stop says to end early."""
         self.current_step["step"] = spec.step
@@ -380,7 +196,14 @@ class DemoRun:
                 "goal": spec.goal,
             }
         )
-        self.transcript.append({"speaker": "system", "text": self._phase_instructions(spec)})
+        self.transcript.append(
+            {
+                "speaker": "system",
+                "text": prompts.phase_instructions(
+                    spec.step, spec.step_label, spec.sub_label, spec.goal
+                ),
+            }
+        )
 
         if self._should_stop():
             return
@@ -392,25 +215,6 @@ class DemoRun:
             MAX_TURNS_ACTION if spec.has_tools else MAX_TURNS_DISCUSSION
         )
         self._stream_phase_graph(agents, spec, min_turns, max_turns)
-
-    @staticmethod
-    def _phase_instructions(spec: PhaseSpec) -> str:
-        return (
-            f"Step {spec.step}/4 — {spec.step_label} ({spec.sub_label}). Goal: {spec.goal} "
-            "Stay strictly on THIS goal — don't jump ahead to later steps (e.g. "
-            "don't discuss cleaning approach or database design before data is "
-            "even collected). Data ENGINEERING topics are fair game whenever "
-            "relevant — data types, the database/table schema (the 'data "
-            "model'), ingestion steps, keys, formats. What's OUT OF SCOPE for "
-            "this whole demo is DATA ANALYSIS/MODELING — never name or discuss "
-            "an analysis or predictive-modeling technique (outlier detection, "
-            "scoring, statistics, regression, decision trees, neural networks, "
-            "or any other algorithm) — that's a separate, not-yet-built part "
-            "of the process; at most, note in passing that analysis comes "
-            "later, with zero detail. If your peer's message drifts into "
-            "something premature, don't follow along — redirect them back to "
-            "this step's goal instead."
-        )
 
     def _stream_phase_graph(
         self, agents: list[AgentConfig], spec: PhaseSpec, min_turns: int, max_turns: int
@@ -455,7 +259,7 @@ class DemoRun:
     # --- Step 1: Business objective — fixed, not agent-decided ----------
 
     def _run_step1(self):
-        business_objective = _build_business_objective()
+        business_objective = prompts.build_business_objective()
         self.q.put(
             _sse(
                 "phase_start",
@@ -501,7 +305,7 @@ class DemoRun:
                     step=1,
                     step_label="Business objective",
                     sub_label="other objectives to consider",
-                    goal=STEP1B_GOAL,
+                    goal=prompts.STEP1B_GOAL,
                     has_tools=False,
                     min_turns_override=MIN_TURNS_ROUND_ROBIN,
                 ),
@@ -522,7 +326,7 @@ class DemoRun:
                     step=1,
                     step_label="Business objective",
                     sub_label="data privacy & legal check",
-                    goal=STEP1C_GOAL,
+                    goal=prompts.STEP1C_GOAL,
                     has_tools=False,
                     min_turns_override=MIN_TURNS_ROUND_ROBIN,
                 ),
@@ -537,7 +341,7 @@ class DemoRun:
                 step=2,
                 step_label="Defining appropriate data",
                 sub_label="discussion",
-                goal=STEP2_GOAL,
+                goal=prompts.STEP2_GOAL,
                 has_tools=False,
             ),
         )
@@ -555,7 +359,7 @@ class DemoRun:
                 step=3,
                 step_label="Collecting data",
                 sub_label="action",
-                goal=STEP3_GOAL,
+                goal=prompts.STEP3_GOAL,
                 has_tools=True,
                 max_turns_override=MAX_TURNS_COLLECT,
             ),
@@ -628,17 +432,8 @@ class DemoRun:
         self.transcript.append(
             {
                 "speaker": "system",
-                "text": (
-                    "No individual-apartment-level dataset could be confirmed "
-                    "within the search budget. Falling back to a real, "
-                    f'always-available dataset: "{FALLBACK_DATASET_TITLE}" '
-                    f"({FALLBACK_DATASET_ORGANIZATION}) — real Zurich rent-survey "
-                    f"data, but {fallback_reason}. Product Manager: state, in ONE "
-                    "or TWO short natural sentences and without calling any tools, "
-                    "that the team is going with this real dataset as the best "
-                    "available option rather than having nothing to work with — "
-                    "name it, and be upfront that it's an aggregated substitute, "
-                    "not genuine individual-level data."
+                "text": prompts.fallback_announcement(
+                    FALLBACK_DATASET_TITLE, FALLBACK_DATASET_ORGANIZATION, fallback_reason
                 ),
             }
         )
@@ -653,7 +448,7 @@ class DemoRun:
                 step=4,
                 step_label="Preparing & storing data",
                 sub_label="planning",
-                goal=STEP4A_GOAL,
+                goal=prompts.STEP4A_GOAL,
                 has_tools=False,
             ),
         )
@@ -664,7 +459,7 @@ class DemoRun:
                     step=4,
                     step_label="Preparing & storing data",
                     sub_label="execution",
-                    goal=STEP4B_GOAL,
+                    goal=prompts.STEP4B_GOAL,
                     has_tools=True,
                 ),
             )
@@ -712,7 +507,7 @@ class DemoRun:
         # should_stop() was already true before step 3/4 even ran — either
         # the user clicked Stop, or the turn/time safety net kicked in.
         where = f"during Step {self.current_step['step']}/4 · {self.current_step['step_label']}"
-        if stop_event.is_set():
+        if self.stop_event.is_set():
             self.outcome = {"status": "stopped", "message": f"Stopped by the user {where}."}
         else:
             minutes = MAX_RUNTIME_SECONDS // 60
@@ -756,42 +551,3 @@ class DemoRun:
             # errored) so a partial conversation is never silently lost.
             _save_conversation_history(self.history, self.run_started_at, self.outcome)
             self.q.put(None)  # sentinel: stop the stream
-
-
-def _run_demo(q: "queue.Queue"):
-    DemoRun(q).run()
-
-
-@app.get("/api/stream")
-def stream():
-    """Start a fresh demo run and stream it to the browser as SSE events."""
-    stop_event.clear()
-    q: "queue.Queue" = queue.Queue()
-    threading.Thread(target=_run_demo, args=(q,), daemon=True).start()
-
-    def event_generator():
-        # A single turn can legitimately take a while (a slow model reply, a
-        # multi-MB download). Without something sent regularly, some proxies
-        # / port-forwarding layers treat the connection as idle and kill it,
-        # which the browser reports as "connection lost" even though the
-        # backend is still working. An SSE comment line (browsers ignore
-        # lines starting with ':') sent whenever nothing real has happened
-        # in heartbeat_seconds keeps the connection visibly alive.
-        heartbeat_seconds = 15
-        while True:
-            try:
-                item = q.get(timeout=heartbeat_seconds)
-            except queue.Empty:
-                yield ": ping\n\n"
-                continue
-            if item is None:
-                break
-            yield item
-
-    return StreamingResponse(event_generator(), media_type="text/event-stream")
-
-
-if __name__ == "__main__":
-    import uvicorn
-
-    uvicorn.run(app, host="0.0.0.0", port=8000)

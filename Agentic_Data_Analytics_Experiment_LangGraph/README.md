@@ -23,38 +23,60 @@ via the **Stop** button.
 
 ## How it works
 
-- **`graph.py`** &mdash; the LangGraph orchestration: a small compiled
-  `StateGraph` that drives one agent's turn (speak &rarr; optionally call a
-  real tool &rarr; react to the real result &rarr; record the turn), looped
-  via a conditional edge until the phase's agents reach consensus (their
-  status tag) or a turn cap is hit.
-- **`agents.py`** &mdash; builds the six agent personas (a no-tools and a
-  tools-bound variant of the Data Analyst and Data Engineer, plus the
-  Product Manager), each a LangChain `ChatOpenAI`, `.bind_tools(...)`-ed
-  where relevant. All run on `gpt-4o-mini` except the tool-using Data
-  Analyst, which writes and debugs real scraper code and uses `gpt-4.1`
-  (`CODE_WRITING_MODEL`).
-- **`scraper_tool.py`** &mdash; the agent-written scraper: `write_scraper_code`
-  (the Data Analyst hands in a complete Python script, statically checked
-  and saved as `data/scrapers/scraper_vN.py`) and `run_scraper` (really runs
-  it in a separate, time-limited process without your API key).
-- **`sandbox/scraper_kit.py`** &mdash; the scraper's only way to the web
-  (see [Agent-written scraper](#agent-written-scraper) below).
-- **`data_tool.py`** &mdash; the other real tools: open-data
-  search/download, data profiling/cleaning, database storage, and a small
-  sketching tool.
-- **`run_tools.py`** &mdash; per-run state on top of `data_tool.py`'s pure
-  functions: which file is "current" right now, and the real results each
-  phase's result card needs to show.
-- **`server.py`** &mdash; the FastAPI backend: a `DemoRun` runs the four
-  steps in order, streaming each phase's compiled graph to the browser via
+```
+main.py                  start the server: python main.py
+app/
+  config.py              run length, turn budgets, file paths, fallback dataset
+  server.py              FastAPI routes + the Server-Sent-Events stream
+  demo_run.py            DemoRun: steps 1-4 in order, stop/timeout handling
+agents/
+  prompts.py             every persona, phase goal and system message
+  personas.py            builds the six agents (model + bound tools)
+  graph.py               LangGraph StateGraph: one phase's turn-taking
+tools/
+  opendata.py            opendata.swiss search / download / discard
+  preparation.py         preview, profile, clean, SQLite store, SQL query, sketch
+  scraper.py             check, save and run agent-written scrapers
+  validation.py          "is this really listing-level data?" checks
+  schemas.py             every tool schema the models see
+  run_tools.py           RunTools: per-run state + tool dispatch
+sandbox/scraper_kit.py   agent-written scrapers' only way to the web
+reporting/transcript.py  saves each run as Markdown + HTML
+static/                  plain HTML/CSS/JS frontend (no build step)
+tests/                   offline tests for the scraper tools
+```
+
+- **`app/`** &mdash; the web layer. `config.py` holds every setting a run
+  depends on (`DEMO_LENGTH_MINUTES` is the one knob for pacing).
+  `demo_run.py`'s `DemoRun` runs the four steps in order, streaming each
+  phase's compiled graph; `server.py` sends that to the browser via
   Server-Sent Events.
-- **`transcript.py`** &mdash; once a run ends, renders it to
+- **`agents/`** &mdash; `graph.py` is the LangGraph orchestration: a small
+  compiled `StateGraph` that drives one agent's turn (speak &rarr;
+  optionally call a real tool &rarr; react to the real result &rarr; record
+  the turn), looped via a conditional edge until the phase's agents reach
+  consensus (their status tag) or a turn cap is hit. `personas.py` builds
+  the six agent variants (a no-tools and a tools-bound variant of the Data
+  Analyst and Data Engineer, plus the Product Manager), each a LangChain
+  `ChatOpenAI`, `.bind_tools(...)`-ed where relevant. All run on
+  `gpt-4o-mini` except the tool-using Data Analyst, which writes and debugs
+  real scraper code and uses `gpt-4.1` (`CODE_WRITING_MODEL`). All the
+  wording they get lives in `prompts.py`.
+- **`tools/`** &mdash; the real tools. `scraper.py` is the agent-written
+  scraper: `write_scraper_code` (the Data Analyst hands in a complete Python
+  script, statically checked and saved as `data/scrapers/scraper_vN.py`)
+  and `run_scraper` (really runs it in a separate, time-limited process
+  without your API key). `opendata.py` and `preparation.py` are the other
+  real tools; `validation.py` rejects aggregated or half-empty datasets in
+  code; `run_tools.py` adds per-run state on top (which file is "current",
+  the real results each phase's result card shows).
+- **`sandbox/scraper_kit.py`** &mdash; the scraper's only way to the web
+  (see [Agent-written scraper](#agent-written-scraper) below). Kept outside
+  the packages on purpose: the scraper process can import it, but none of
+  the app's own code.
+- **`reporting/transcript.py`** &mdash; once a run ends, renders it to
   `conversation_history/` as both a Markdown transcript and a
-  self-contained HTML page styled like the live chat (see Architecture
-  below).
-- **`static/`** &mdash; a plain HTML/CSS/JS frontend (no build step) that
-  renders the conversation as a chat, with live progress and result cards.
+  self-contained HTML page styled like the live chat.
 - **`data/`** &mdash; where a run's real dataset files land: the scraped or
   downloaded dataset, the cleaned version, the SQLite database, the
   fallback dataset if one was needed, and `data/scrapers/` (every scraper
@@ -72,13 +94,13 @@ How the pieces fit together for one run:
 ```mermaid
 flowchart LR
     Browser["Browser<br/>static/ (index.html, app.js)"]
-    Server["server.py<br/>FastAPI + Server-Sent Events"]
-    DemoRun["DemoRun<br/>steps 1-4, once, in order"]
-    Graph["graph.py<br/>LangGraph StateGraph<br/>(one phase's turn-taking)"]
-    Agents["agents.py<br/>personas &rarr; ChatOpenAI"]
-    Tools["run_tools.py<br/>RunTools: per-run tool state"]
-    DataTool["data_tool.py<br/>real tool functions"]
-    Transcript["transcript.py<br/>Markdown + HTML export"]
+    Server["app/server.py<br/>FastAPI + Server-Sent Events"]
+    DemoRun["app/demo_run.py<br/>DemoRun: steps 1-4, once, in order"]
+    Graph["agents/graph.py<br/>LangGraph StateGraph<br/>(one phase's turn-taking)"]
+    Agents["agents/personas.py<br/>personas &rarr; ChatOpenAI"]
+    Tools["tools/run_tools.py<br/>RunTools: per-run tool state"]
+    DataTool["tools/opendata.py, preparation.py<br/>real tool functions"]
+    Transcript["reporting/transcript.py<br/>Markdown + HTML export"]
     OpenAI(["OpenAI API"])
     RealWorld(["Real web<br/>rental sites, opendata.swiss"])
     SQLite[("data/rental_data.db")]
@@ -99,7 +121,7 @@ flowchart LR
     Transcript --> History
 ```
 
-And what `graph.py`'s compiled `StateGraph` actually does for a single
+And what `agents/graph.py`'s compiled `StateGraph` actually does for a single
 agent's turn, looped until the phase ends:
 
 ```mermaid
@@ -168,7 +190,7 @@ publicly. Check each site's terms of use before using its data.
    `.env` is already excluded via `.gitignore` &mdash; never commit your key.
 3. From this folder, run the server:
    ```console
-   python server.py
+   python main.py
    ```
 4. Open <http://localhost:8000> in your browser and click **Start
    conversation**. Click **Stop** at any point to end the run.

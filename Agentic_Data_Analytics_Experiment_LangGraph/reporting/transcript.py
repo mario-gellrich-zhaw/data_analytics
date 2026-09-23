@@ -1,4 +1,4 @@
-"""Renders one run's recorded history (see server.py's `DemoRun.history`)
+"""Renders one run's recorded history (see app/demo_run.py's `DemoRun.history`)
 to disk once a run ends: a human-readable Markdown transcript, and a
 self-contained HTML page that looks like the live chat — same CSS classes
 `static/app.js` builds in the browser (bubbles, phase dividers, result
@@ -34,7 +34,7 @@ OUTCOME_HEADLINES = {
 
 
 def _objective_headline(business_objective: str) -> str:
-    # The opener varies run to run (see server.py's BUSINESS_OBJECTIVE_OPENERS);
+    # The opener varies run to run (see agents/prompts.py's BUSINESS_OBJECTIVE_OPENERS);
     # the actual goal sentence that follows it doesn't, so anchor on that
     # instead of assuming a fixed prefix length.
     marker = "Our goal"

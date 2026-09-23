@@ -1,6 +1,6 @@
 """The only door to the web for scraper code the agents write themselves.
 
-Agent-written scrapers (see scraper_tool.py) run in a separate Python
+Agent-written scrapers (see tools/scraper.py) run in a separate Python
 process and may import nothing network-related except this module — the
 politeness rules live here, in code, not in a prompt the model could
 ignore:

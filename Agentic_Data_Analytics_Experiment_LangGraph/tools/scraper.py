@@ -1,4 +1,5 @@
-"""Tools that let the Data Analyst write its own scraper and really run it.
+"""Tools that let the Data Analyst write its own scraper and really run it
+(their schemas — what the model is told — are in schemas.py).
 
 1. `write_scraper_code` — the agent hands in a complete Python script; it's
    statically checked (see `check_scraper_code`) and saved as
@@ -26,9 +27,8 @@ from pathlib import Path
 
 import pandas as pd
 
-from sandbox.scraper_kit import ALLOWED_DOMAINS, FIELDS
-
-SANDBOX_DIR = Path(__file__).resolve().parent / "sandbox"
+# The sandbox folder sits next to tools/, at the app root.
+SANDBOX_DIR = Path(__file__).resolve().parent.parent / "sandbox"
 RUN_TIMEOUT_SECONDS = 180
 MAX_REQUESTS_PER_RUN = 15
 MAX_ROWS = 150
@@ -282,82 +282,3 @@ def run_scraper_code(
         "columns": columns,
         "sample_rows": sample_rows,
     }
-
-
-# --- Tool schemas -------------------------------------------------------
-
-WRITE_SCRAPER_CODE_SCHEMA = {
-    "type": "function",
-    "function": {
-        "name": "write_scraper_code",
-        "description": (
-            "Write (or rewrite) your own complete Python scraper script. It is "
-            "checked and saved as a new version; then call run_scraper to really "
-            "run it. Rules, enforced in code: the script may import only "
-            "scraper_kit, bs4, json, re, math, time, datetime, collections, "
-            "itertools, functools, statistics, string, html, unicodedata, typing, "
-            "dataclasses, urllib.parse — no requests/urllib.request/socket/os/"
-            "subprocess, no open/eval/exec/getattr, no _private attributes. The ONLY "
-            "way to the web is scraper_kit.polite_get(url, params=None) -> Page "
-            "(.status_code, .text, .headers, .json()); it checks robots.txt, allows "
-            f"only {', '.join(ALLOWED_DOMAINS)}, waits 2-5 s between "
-            f"requests, allows at most {MAX_REQUESTS_PER_RUN} requests per run, and "
-            "raises scraper_kit.ScrapeBlocked at the first 403/429/bot challenge "
-            "(that site then stays blocked for the run — never try to get around "
-            "it). Store results with scraper_kit.save_rows(list_of_dicts) using only "
-            f"these keys: {', '.join(FIELDS)} (at most {MAX_ROWS} rows kept) — call "
-            "it after EVERY page, not once at the end: rows already saved are kept "
-            "even if the script stops or crashes later. "
-            "Keep only rental apartments — listing sites also carry parking "
-            "spaces, commercial units and properties for sale. "
-            "print() anything useful — you'll "
-            "see the output. Known entry points: immoscout24.ch search "
-            "https://www.immoscout24.ch/de/wohnung/mieten/ort-zuerich?pn=1 ; "
-            "homegate.ch search https://www.homegate.ch/mieten/wohnung/ort-zuerich/"
-            "trefferliste ; flatfox.ch public JSON API "
-            "https://flatfox.ch/api/v1/public-listing/ (paginated with limit (max "
-            "100) and offset, returns {count, next, results: [...]}, all of "
-            "Switzerland, no server-side location filter or sorting; results are "
-            "oldest first and the first pages contain very few Zurich listings, so "
-            "spread your offsets across the whole range up to count). Catch ScrapeBlocked per "
-            "site so one blocked site doesn't stop the whole script."
-        ),
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "code": {
-                    "type": "string",
-                    "description": "The complete Python script (not a diff).",
-                }
-            },
-            "required": ["code"],
-        },
-    },
-}
-
-RUN_SCRAPER_SCHEMA = {
-    "type": "function",
-    "function": {
-        "name": "run_scraper",
-        "description": (
-            "Really run a scraper version you wrote with write_scraper_code, in a "
-            f"separate process (time limit {RUN_TIMEOUT_SECONDS} s). Returns the "
-            "real exit code, the tail of its printed output (incl. any traceback), "
-            "every request it made with its real HTTP status or block reason, the "
-            "real structure of the first page fetched per site (response_structure: "
-            "JSON keys, or the HTML title) and how many rows it saved plus a sample. "
-            "If it failed, read the error and response_structure — use the real key "
-            "names shown there, don't guess — fix the code with write_scraper_code, "
-            "and run again."
-        ),
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "version": {
-                    "type": "integer",
-                    "description": "Which version to run; omit for the latest.",
-                }
-            },
-        },
-    },
-}
