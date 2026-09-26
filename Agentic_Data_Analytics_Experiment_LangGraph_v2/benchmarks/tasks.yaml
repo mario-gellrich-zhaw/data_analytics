@@ -26,8 +26,9 @@ tasks:
     expected: "holdout MAE ~150-200 CHF after cleaning (naive ~600); requires unit parsing and outlier removal"
 
   rental_web:
-    objective: Build a price prediction model for rental apartments.
-    region: null
+    objective: >-
+      Build a price prediction model for rental apartments in Switzerland, trained on apartment-level data (one row per individual rental listing, not aggregated statistics).
+    region: Switzerland
     offline: false
     score_metric: mape
     expected: "depends on the sourced data; must beat the naive median and document sources/licences"

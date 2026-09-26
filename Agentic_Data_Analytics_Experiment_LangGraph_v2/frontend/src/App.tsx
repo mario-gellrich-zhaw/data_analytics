@@ -39,8 +39,8 @@ function useRunEvents(runId: string | null) {
 }
 
 function StartPanel({ onStarted, defaults }: { onStarted: (id: string) => void; defaults: any }) {
-  const [objective, setObjective] = useState("Build a price prediction model for rental apartments.");
-  const [region, setRegion] = useState("");
+  const [objective, setObjective] = useState("Build a price prediction model for rental apartments in Switzerland, trained on apartment-level data (one row per individual rental listing, not aggregated statistics).");
+  const [region, setRegion] = useState("Switzerland");
   const [maxUsd, setMaxUsd] = useState<number>(5);
   const [maxMin, setMaxMin] = useState<number>(90);
   const [maxLoops, setMaxLoops] = useState<number>(8);

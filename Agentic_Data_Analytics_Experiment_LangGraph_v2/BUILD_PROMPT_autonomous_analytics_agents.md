@@ -11,8 +11,8 @@ You are a senior ML platform engineer. Build, run, and iteratively improve a **f
 
 ## FIRST TEST OBJECTIVE (the system must solve this, but must not be hard-coded for it)
 
-> "Build a price prediction model for rental apartments."
-> Target market: `{{REGION, e.g. a city or country — or "agent decides based on data availability"}}`
+> "Build a price prediction model for rental apartments in Switzerland, trained on apartment-level data (one row per individual rental listing, not aggregated statistics)."
+> Target market: Switzerland
 
 The agents must themselves: find appropriate data, collect it, clean and enrich it, analyse it, model it, evaluate it, and present results. The system must work for any tabular prediction or analytics objective passed in at start time.
 
