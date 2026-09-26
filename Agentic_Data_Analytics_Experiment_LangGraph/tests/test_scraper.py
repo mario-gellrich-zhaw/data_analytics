@@ -207,5 +207,50 @@ class RunnerTest(unittest.TestCase):
         self.assertIn("ModuleNotFoundError", result["output_tail"])
 
 
+class ParsingDiagnosisTest(unittest.TestCase):
+    """A run that got real pages but saved nothing must be flagged as a bug
+    in the agent's code, not reported as an empty source."""
+
+    def run_tool(self, rows_saved: int):
+        from tools import run_tools  # pylint: disable=import-outside-toplevel
+
+        with tempfile.TemporaryDirectory() as tmp:
+            paths = run_tools.DataPaths(*(Path(tmp) / name for name in "abcde"))
+            tools = run_tools.RunTools(paths, on_progress=lambda _: None, on_artifact=lambda *_: None)
+            tools.call_write_scraper_code("import scraper_kit\n")
+            fake_run = {
+                "exit_code": 0,
+                "timed_out": False,
+                "elapsed_seconds": 1.0,
+                "output_tail": "",
+                "requests": [
+                    {"url": "https://flatfox.ch/a", "kind": "page", "status": 200, "shape": {"type": "json"}}
+                ],
+                "rows_saved": rows_saved,
+                "columns": [],
+                "sample_rows": [],
+            }
+            with mock.patch.object(run_tools, "run_scraper_code", return_value=fake_run), \
+                    mock.patch.object(run_tools, "filled_share", return_value={}):
+                return tools.call_run_scraper(), tools.scraper_working_notes()
+
+    def test_zero_rows_after_http_200_gets_diagnosis(self):
+        agent_view, notes = self.run_tool(rows_saved=0)
+        self.assertIn("bug in YOUR code", agent_view.get("diagnosis", ""))
+        self.assertIn("bug in YOUR code", notes)
+
+    def test_accepted_rows_get_no_diagnosis(self):
+        from tools import run_tools  # pylint: disable=import-outside-toplevel
+
+        with mock.patch.object(run_tools, "check_scraped_fields", return_value=(True, "")), \
+                mock.patch.object(run_tools, "looks_like_listing_data", return_value=(True, "")), \
+                mock.patch.object(run_tools.shutil, "copyfile"), \
+                mock.patch.object(run_tools.RunTools, "capture_preview"), \
+                mock.patch.object(run_tools.RunTools, "_scraped_download_result", return_value={}):
+            agent_view, notes = self.run_tool(rows_saved=40)
+        self.assertNotIn("diagnosis", agent_view)
+        self.assertNotIn("bug in YOUR code", notes)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -28,6 +28,24 @@ from tools.validation import check_scraped_fields, filled_share, looks_like_list
 
 MAX_SCRAPER_RUNS = 6  # per demo run — each scraper run may make up to 15 requests
 
+PARSING_BUG_DIAGNOSIS = (
+    "The site itself answered fine (HTTP 200) — this is a bug in YOUR code, "
+    "not a problem with the source, so don't give up on it: compare the key "
+    "names your code reads with the real ones in response_structure (see the "
+    "first_item sample and its values), fix the mapping with "
+    "write_scraper_code, and run again."
+)
+
+
+def _parsing_failed(run: dict) -> bool:
+    """Whether a run that got real pages still failed to turn them into
+    usable rows: it crashed, its rows were rejected, or it saved nothing at
+    all. A clean exit with 0 rows is almost always field names or filters
+    that don't match the real response (e.g. reading `zip` when the API
+    says `zipcode` silently filters out every listing) — not an empty
+    source."""
+    return bool(run["exit_code"] != 0 or run.get("rejected_because") or run["rows_saved"] == 0)
+
 
 class DataPaths(NamedTuple):
     """The real files/folders one run's tools read from / write to."""
@@ -167,15 +185,8 @@ class RunTools:
         # against) and only a compact request log; the UI gets it all.
         structure = [{"url": e["url"], **e["shape"]} for e in result["requests"] if e.get("shape")]
         agent_view = {"response_structure": structure}
-        parsing_failed = result["exit_code"] != 0 or result.get("rejected_because")
-        if structure and parsing_failed:
-            agent_view["diagnosis"] = (
-                "The site itself answered fine (HTTP 200) — this is a bug in YOUR code, "
-                "not a problem with the source, so don't give up on it: compare the key "
-                "names your code reads with the real ones in response_structure (see the "
-                "first_item sample and its values), fix the mapping with "
-                "write_scraper_code, and run again."
-            )
+        if structure and _parsing_failed(result):
+            agent_view["diagnosis"] = PARSING_BUG_DIAGNOSIS
         agent_view.update({k: v for k, v in result.items() if k != "requests"})
         agent_view["requests"] = [
             {k: e.get(k) for k in ("url", "status", "blocked") if e.get(k) is not None}
@@ -199,6 +210,8 @@ class RunTools:
             verdict = f"REJECTED: {run['rejected_because']}"
         else:
             verdict = "no dataset produced"
+        if structure and _parsing_failed(run):
+            verdict += f" — {PARSING_BUG_DIAGNOSIS}"
         lines = [
             "Your private working notes (only you see these) from your LAST scraper run — "
             f"scraper_v{run['version']}.py ({len(self.scraper_runs)}/{MAX_SCRAPER_RUNS} runs used):",
