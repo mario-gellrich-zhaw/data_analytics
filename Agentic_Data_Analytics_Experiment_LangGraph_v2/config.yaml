@@ -14,7 +14,7 @@ models:
 roles:
   objective: strong
   data_requirements: worker
-  data_collector: worker
+  data_collector: strong        # sourcing is the hardest judgement step
   data_engineer: worker
   eda: worker
   modeling: worker

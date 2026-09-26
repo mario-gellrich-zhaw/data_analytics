@@ -95,3 +95,17 @@ def test_resume_after_crash_continues_from_checkpoint(monkeypatch):
     assert mgr.events.get_run("crash-test-1")["status"] == "completed"
     final = mgr.final_state("crash-test-1")
     assert final["visits"]["collect_data"] == 1          # earlier phases were not repeated
+
+
+def test_delete_run_removes_everything():
+    from ada.paths import vault_root
+    from ada.store import RunStore
+    mgr = RunManager()
+    run_id = mgr.start("delete me", None, {"mode": "stub", "stub_delay": 0}, background=False)
+    (vault_root() / run_id).mkdir(parents=True, exist_ok=True)
+    assert RunStore(run_id).root.exists()
+    mgr.delete(run_id)
+    assert mgr.events.get_run(run_id) is None
+    assert mgr.events.events(run_id) == []
+    assert not RunStore(run_id).root.exists() and not (vault_root() / run_id).exists()
+    assert not mgr.final_state(run_id)       # checkpoints gone

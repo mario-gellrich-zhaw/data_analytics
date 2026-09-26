@@ -109,6 +109,12 @@ class EventStore:
             rows = self._conn.execute("SELECT * FROM runs ORDER BY created_at DESC LIMIT ?", (limit,)).fetchall()
         return [_run_row(r) for r in rows]
 
+    def delete_run(self, run_id: str) -> None:
+        with self._lock:
+            self._conn.execute("DELETE FROM events WHERE run_id=?", (run_id,))
+            self._conn.execute("DELETE FROM runs WHERE id=?", (run_id,))
+            self._conn.commit()
+
     def mark_orphans_interrupted(self) -> list[str]:
         """Called at server start: runs still 'running' whose owning process is gone were
         killed with it (crash / restart) and can be resumed."""

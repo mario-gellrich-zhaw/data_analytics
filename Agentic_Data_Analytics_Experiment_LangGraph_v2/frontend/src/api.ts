@@ -54,6 +54,7 @@ export const api = {
     fetch(`/api/runs/${id}/approve`, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ next_node, note }),
     }).then((r) => json<any>(r)),
+  remove: (id: string) => fetch(`/api/runs/${id}`, { method: "DELETE" }).then((r) => json<any>(r)),
   artifacts: (id: string) => fetch(`/api/runs/${id}/artifacts`).then((r) => json<ArtifactFile[]>(r)),
   fileUrl: (id: string, path: string) => `/api/runs/${id}/file?path=${encodeURIComponent(path)}`,
   fileText: (id: string, path: string) => fetch(`/api/runs/${id}/file?path=${encodeURIComponent(path)}`).then((r) => r.text()),

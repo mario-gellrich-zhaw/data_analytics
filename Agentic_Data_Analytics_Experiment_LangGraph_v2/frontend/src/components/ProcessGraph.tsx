@@ -1,6 +1,6 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import {
-  Background, BaseEdge, EdgeLabelRenderer, Handle, Position, ReactFlow, getBezierPath,
+  Background, BaseEdge, Controls, type ReactFlowInstance, EdgeLabelRenderer, Handle, Position, ReactFlow, getBezierPath,
   type Edge, type EdgeProps, type Node, type NodeProps,
 } from "@xyflow/react";
 import type { GraphSpec } from "../api";
@@ -85,7 +85,10 @@ function handles(src: { x: number; y: number }, dst: { x: number; y: number }, k
   return { sourceHandle: "ts", targetHandle: "tt" };
 }
 
-export default function ProcessGraph({ spec, view }: { spec: GraphSpec; view: RunView }) {
+export default function ProcessGraph({ spec, view, height = 380 }: { spec: GraphSpec; view: RunView; height?: number }) {
+  const flow = useRef<ReactFlowInstance<Node<PhaseData>, Edge<FlowEdgeData>> | null>(null);
+  // refit so the whole process model stays visible when the panel is resized
+  useEffect(() => { const t = setTimeout(() => flow.current?.fitView({ padding: 0.12 }), 30); return () => clearTimeout(t); }, [height]);
   const nodes: Node<PhaseData>[] = useMemo(() => spec.nodes.map((n) => ({
     id: n.id, type: "phase", position: { x: n.x, y: n.y }, draggable: false,
     data: { label: n.label, agent: n.agent, status: view.status[n.id] ?? "idle", visits: view.visits[n.id] ?? 0,
@@ -103,11 +106,12 @@ export default function ProcessGraph({ spec, view }: { spec: GraphSpec; view: Ru
   }), [spec, view, pos]);
 
   return (
-    <div className="h-[380px] w-full">
-      <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} edgeTypes={edgeTypes} fitView
+    <div className="w-full" style={{ height }}>
+      <ReactFlow onInit={(inst) => { flow.current = inst; }} nodes={nodes} edges={edges} nodeTypes={nodeTypes} edgeTypes={edgeTypes} fitView
         fitViewOptions={{ padding: 0.12 }} nodesConnectable={false} elementsSelectable={false}
-        panOnScroll zoomOnScroll={false} proOptions={{ hideAttribution: true }}>
+        panOnScroll zoomOnScroll={false} zoomOnPinch minZoom={0.3} maxZoom={2.5} proOptions={{ hideAttribution: true }}>
         <Background gap={24} size={1} />
+        <Controls showInteractive={false} position="bottom-right" />
       </ReactFlow>
     </div>
   );

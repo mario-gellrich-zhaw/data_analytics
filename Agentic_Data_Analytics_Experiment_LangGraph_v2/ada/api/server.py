@@ -127,6 +127,16 @@ def stop_run(run_id: str) -> dict[str, Any]:
     return {"stopping": manager.stop(run_id)}
 
 
+@app.delete("/api/runs/{run_id}")
+def delete_run(run_id: str) -> dict[str, Any]:
+    _run_or_404(run_id)
+    try:
+        manager.delete(run_id)
+    except RuntimeError as exc:
+        raise HTTPException(409, str(exc))
+    return {"deleted": run_id}
+
+
 @app.get("/api/runs/{run_id}/events")
 def run_events(run_id: str, after: int = 0, limit: int = Query(2000, le=10000)) -> list[dict[str, Any]]:
     _run_or_404(run_id)

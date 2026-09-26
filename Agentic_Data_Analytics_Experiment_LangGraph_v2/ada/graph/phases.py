@@ -120,9 +120,23 @@ def collect_data(ctx: RunContext, state: dict[str, Any], node: str) -> PhaseOutc
     ctx.store.write_json("collection_report.json", out)
     sources = ctx.store.read_json("raw/sources.json", default=[]) or []
     evidence = "raw/sources.json:\n" + json.dumps(sources, indent=1)[:5000]
-    return PhaseOutcome(out, CHECKS[node](out, store=ctx.store), f"{len(sources)} files with provenance; "
+    attempts = _source_attempts(ctx)
+    return PhaseOutcome(out, CHECKS[node](out, store=ctx.store, attempts=attempts),
+                        f"{len(sources)} files with provenance ({attempts} source attempts); "
                                                                   f"primary {out.get('primary_file')}",
                         evidence=evidence, updates={"artifacts": {"sources": "raw/sources.json"}})
+
+
+SOURCE_TOOLS = {"download_file", "download_zip_member", "list_remote_zip", "fetch_url", "import_local_dataset"}
+
+
+def _source_attempts(ctx: RunContext) -> int:
+    """Concrete source attempts in the collector's latest visit (web searches don't count)."""
+    events = ctx.events.events(ctx.run_id, limit=100000)
+    starts = [e["id"] for e in events if e["agent"] == "DataCollectorAgent" and e["payload"].get("kind") == "agent_start"]
+    since = starts[-1] if starts else 0
+    return sum(1 for e in events if e["id"] > since and e["type"] == "tool_call"
+               and e["agent"] == "DataCollectorAgent" and e["payload"].get("tool") in SOURCE_TOOLS)
 
 
 def prepare_store(ctx: RunContext, state: dict[str, Any], node: str) -> PhaseOutcome:

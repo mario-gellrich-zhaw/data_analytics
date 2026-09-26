@@ -6,8 +6,10 @@ around, and every downloaded file gets a provenance record in raw/sources.json.
 """
 from __future__ import annotations
 
+import io
 import re
 import threading
+import zipfile
 import time
 from datetime import datetime, timezone
 from typing import Any
@@ -152,7 +154,9 @@ def download_file(tc: ToolContext, a: DownloadArgs) -> Any:
             for chunk in resp.iter_bytes(1 << 16):
                 size += len(chunk)
                 if size > limit:
-                    raise ValueError(f"file exceeds {limit // (1024 * 1024)} MB limit")
+                    hint = (" — it looks like a ZIP archive: use list_remote_zip + download_zip_member to fetch only "
+                            "the data files inside it") if a.url.lower().split("?")[0].endswith(".zip") else ""
+                    raise ValueError(f"file exceeds {limit // (1024 * 1024)} MB limit{hint}")
                 fh.write(chunk)
     except Exception:
         path.unlink(missing_ok=True)
@@ -169,3 +173,99 @@ def download_file(tc: ToolContext, a: DownloadArgs) -> Any:
     tc.ctx.emit("artifact", f"downloaded {rel} ({size / 1024:.0f} KB) from {urlparse(a.url).netloc}",
                 node=tc.node, agent=tc.agent, payload={"path": rel, "url": a.url, "license": a.license})
     return {"saved": rel, "bytes": size, "content_type": resp.headers.get("content-type", "")}
+
+
+# ---------------------------------------------------------------------------- remote ZIP archives
+class _RangeReader(io.RawIOBase):
+    """Seekable read-only view of a remote file via HTTP range requests (zip central directory is at the end)."""
+
+    def __init__(self, tc: ToolContext, url: str):
+        self.client = httpx.Client(headers={"User-Agent": _ua(tc)}, timeout=httpx.Timeout(120, connect=15),
+                                   follow_redirects=True)
+        head = self.client.head(url)
+        head.raise_for_status()
+        if head.headers.get("accept-ranges") != "bytes":
+            raise ValueError("server does not support range requests — download the whole file instead")
+        self.url, self.size, self.pos = str(head.url), int(head.headers["content-length"]), 0
+
+    def seekable(self) -> bool:
+        return True
+
+    def readable(self) -> bool:
+        return True
+
+    def tell(self) -> int:
+        return self.pos
+
+    def seek(self, offset: int, whence: int = 0) -> int:
+        self.pos = offset if whence == 0 else self.pos + offset if whence == 1 else self.size + offset
+        return self.pos
+
+    def readinto(self, buf: Any) -> int:
+        if self.pos >= self.size:
+            return 0
+        end = min(self.size, self.pos + len(buf)) - 1
+        data = self.client.get(self.url, headers={"Range": f"bytes={self.pos}-{end}"}).content
+        buf[:len(data)] = data
+        self.pos += len(data)
+        return len(data)
+
+
+def _open_remote_zip(tc: ToolContext, url: str) -> zipfile.ZipFile:
+    if not _robots_allowed(tc, url):
+        raise PermissionError(f"robots.txt disallows fetching {url}")
+    return zipfile.ZipFile(io.BufferedReader(_RangeReader(tc, url), buffer_size=1 << 20))
+
+
+class ZipListArgs(BaseModel):
+    url: str = Field(description="URL of a .zip archive (e.g. a GitHub release asset or Zenodo file)")
+    pattern: str = Field("", description="optional substring filter on member names, e.g. '.csv'")
+
+
+@tool("list_remote_zip", "List the files inside a remote ZIP archive without downloading it (works for archives "
+      "larger than the download limit). Media files are summarised, data files listed with sizes.", ZipListArgs,
+      network=True)
+def list_remote_zip(tc: ToolContext, a: ZipListArgs) -> Any:
+    with _open_remote_zip(tc, a.url) as z:
+        infos = [i for i in z.infolist() if not i.is_dir() and a.pattern.lower() in i.filename.lower()]
+    media = (".jpg", ".jpeg", ".png", ".gif", ".tif", ".tiff", ".webp", ".npy")
+    data = [{"member": i.filename, "mb": round(i.file_size / 1e6, 2)} for i in infos if not i.filename.lower().endswith(media)]
+    n_media = sum(1 for i in infos if i.filename.lower().endswith(media))
+    return {"members": data[:200], "data_files": len(data), "media_files_not_listed": n_media}
+
+
+class ZipMemberArgs(BaseModel):
+    url: str
+    member: str = Field(description="exact member path from list_remote_zip")
+    filename: str = Field(description="target file name inside raw/")
+    source_name: str
+    license: str = Field(description="license as stated by the publisher; 'unknown' if not found")
+    license_url: str = ""
+    description: str = ""
+
+
+@tool("download_zip_member", "Extract one file from a remote ZIP archive into raw/ (only that file is transferred) "
+      "and record its provenance.", ZipMemberArgs, network=True)
+def download_zip_member(tc: ToolContext, a: ZipMemberArgs) -> Any:
+    store = tc.ctx.store
+    limit = int(tc.ctx.cfg.get("web.max_download_mb", 300)) * 1024 * 1024
+    name = re.sub(r"[^A-Za-z0-9._-]+", "_", a.filename).strip("._") or "member.bin"
+    rel = f"raw/{name}"
+    with _open_remote_zip(tc, a.url) as z:
+        info = z.getinfo(a.member)
+        if info.file_size > limit:
+            raise ValueError(f"member is {info.file_size / 1e6:.0f} MB, above the {limit // (1024 * 1024)} MB limit")
+        store.ensure_dir("raw")
+        path = store.resolve(rel)
+        with z.open(info) as src, open(path, "wb") as dst:
+            while chunk := src.read(1 << 20):
+                dst.write(chunk)
+    path.chmod(0o666)
+    _record_source(tc, rel, {
+        "url": f"{a.url}#{a.member}", "archive_url": a.url, "archive_member": a.member, "source_name": a.source_name,
+        "license": a.license, "license_url": a.license_url, "description": a.description, "bytes": info.file_size,
+        "retrieved_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+    })
+    tc.ctx.emit("artifact", f"extracted {a.member} -> {rel} ({info.file_size / 1024:.0f} KB)", node=tc.node,
+                agent=tc.agent, payload={"path": rel, "url": a.url, "license": a.license})
+    return {"saved": rel, "bytes": info.file_size}

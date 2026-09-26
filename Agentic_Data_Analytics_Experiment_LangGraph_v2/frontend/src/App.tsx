@@ -97,7 +97,9 @@ function StartPanel({ onStarted, defaults }: { onStarted: (id: string) => void; 
   );
 }
 
-function RunList({ runs, selected, onSelect, onResume }: { runs: Run[]; selected: string | null; onSelect: (id: string) => void; onResume: (id: string) => void }) {
+function RunList({ runs, selected, onSelect, onResume, onDelete }: {
+  runs: Run[]; selected: string | null; onSelect: (id: string) => void; onResume: (id: string) => void; onDelete: (r: Run) => void;
+}) {
   return (
     <ul className="space-y-1">
       {runs.map((r) => (
@@ -113,6 +115,13 @@ function RunList({ runs, selected, onSelect, onResume }: { runs: Run[]; selected
               {r.summary?.budget?.usd != null && <span>${Number(r.summary.budget.usd).toFixed(2)}</span>}
               {["interrupted", "failed"].includes(r.status) && !r.active && (
                 <span role="button" onClick={(e) => { e.stopPropagation(); onResume(r.id); }} className="ml-auto rounded bg-orange-600 px-1.5 text-white">resume</span>
+              )}
+              {!r.active && r.status !== "running" && (
+                <span role="button" title="delete this run" aria-label="delete run"
+                  onClick={(e) => { e.stopPropagation(); onDelete(r); }}
+                  className={`${["interrupted", "failed"].includes(r.status) ? "" : "ml-auto"} rounded px-1 text-stone-400 hover:bg-rose-100 hover:text-rose-700 dark:hover:bg-rose-950`}>
+                  🗑
+                </span>
               )}
             </div>
           </button>
@@ -133,6 +142,20 @@ export default function App() {
   const { events, status } = useRunEvents(selected);
   const view = useMemo(() => deriveRunView(events), [events]);
   const firstLoad = useRef(true);
+  const [graphHeight, setGraphHeight] = useState<number>(() => {
+    try { return Number(localStorage.getItem("ada.graphHeight")) || 380; } catch { return 380; }
+  });
+  const startDrag = (e: React.PointerEvent) => {
+    e.preventDefault();
+    const y0 = e.clientY, h0 = graphHeight;
+    let h = h0;
+    const move = (ev: PointerEvent) => { h = Math.max(200, Math.min(1200, h0 + ev.clientY - y0)); setGraphHeight(h); };
+    const up = () => {
+      window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up);
+      try { localStorage.setItem("ada.graphHeight", String(h)); } catch { /* ignore */ }
+    };
+    window.addEventListener("pointermove", move); window.addEventListener("pointerup", up);
+  };
 
   const refreshRuns = useCallback(() => api.runs().then((rs) => {
     setRuns(rs);
@@ -162,7 +185,12 @@ export default function App() {
             <StartPanel defaults={defaults} onStarted={(id) => { setSelected(id); refreshRuns(); }} />
             <div>
               <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-stone-500">Runs</div>
-              <RunList runs={runs} selected={selected} onSelect={setSelected} onResume={(id) => api.resume(id).then(refreshRuns)} />
+              <RunList runs={runs} selected={selected} onSelect={setSelected} onResume={(id) => api.resume(id).then(refreshRuns)}
+                onDelete={(r) => {
+                  if (!confirm(`Delete run ${r.id}?\n\n${r.objective}\n\nThis removes its events, files, model and report.`)) return;
+                  api.remove(r.id).then(() => { if (selected === r.id) setSelected(null); refreshRuns(); })
+                    .catch((e) => alert(`Could not delete: ${e}`));
+                }} />
             </div>
           </aside>
           <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
@@ -186,7 +214,12 @@ export default function App() {
                       </div>
                     </div>
                   )}
-                  <ProcessGraph spec={spec} view={view} />
+                  <ProcessGraph spec={spec} view={view} height={graphHeight} />
+                  <div role="separator" aria-orientation="horizontal" title="drag to resize the process graph"
+                    onPointerDown={startDrag} onDoubleClick={() => setGraphHeight(380)}
+                    className="group -mx-4 flex h-3 cursor-row-resize items-center justify-center hover:bg-stone-100 dark:hover:bg-stone-900">
+                    <div className="h-1 w-12 rounded-full bg-stone-300 group-hover:bg-blue-500 dark:bg-stone-700" />
+                  </div>
                   <div className="pb-3"><BudgetMeters view={view} /></div>
                 </section>
                 <section className="grid min-h-[560px] flex-1 grid-cols-1 xl:grid-cols-12">

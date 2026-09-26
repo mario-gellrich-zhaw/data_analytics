@@ -92,16 +92,27 @@ def check_define_data(output: dict | None, **_: Any) -> list[CheckResult]:
     return res
 
 
-def check_collect_data(output: dict | None, *, store: RunStore, **_: Any) -> list[CheckResult]:
+MIN_SOURCE_ATTEMPTS = 3
+
+
+def check_collect_data(output: dict | None, *, store: RunStore, attempts: int = MIN_SOURCE_ATTEMPTS,
+                       **_: Any) -> list[CheckResult]:
     from ada.schemas import CollectionReport
     res = [_schema("collection_schema", output, CollectionReport)]
     report = output or {}
     if report and not report.get("obtainable", True):
-        res.append(fail("data_obtainable", "; ".join(report.get("missing_requirements") or []) or
-                        "collector reports the required data is not obtainable", route_hint="define_data"))
+        reason = "; ".join(report.get("missing_requirements") or []) or "collector reports the required data is not obtainable"
+        if attempts < MIN_SOURCE_ATTEMPTS:
+            # giving up without real attempts is not evidence: redo collection instead of redefining requirements
+            res.append(fail("collection_effort", f"declared unobtainable after only {attempts} concrete source attempts "
+                                                 f"(download/fetch/zip); try at least {MIN_SOURCE_ATTEMPTS} candidates, "
+                                                 "including public APIs of listing portals and dataset archives"))
+        else:
+            res.append(fail("data_obtainable", reason, route_hint="define_data"))
     raw = [f for f in store.list_files("raw") if not f["path"].endswith("sources.json")]
     if not raw:
-        res.append(fail("raw_files_exist", "no files in raw/", route_hint="define_data"))
+        res.append(fail("raw_files_exist", "no files in raw/",
+                        route_hint="define_data" if attempts >= MIN_SOURCE_ATTEMPTS else None))
         return res
     res.append(ok("raw_files_exist", f"{len(raw)} files"))
     sources = store.read_json("raw/sources.json", default=[]) or []

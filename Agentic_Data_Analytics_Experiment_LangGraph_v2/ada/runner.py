@@ -3,6 +3,7 @@ a background thread; state is checkpointed to SQLite after every node, so a run
 interrupted by a crash or restart resumes from its last completed phase."""
 from __future__ import annotations
 
+import shutil
 import sqlite3
 import subprocess
 import threading
@@ -19,7 +20,8 @@ from ada.context import RunContext
 from ada.events import EventStore, default_store
 from ada.graph.build import build_graph
 from ada.graph.state import initial_state
-from ada.paths import checkpoint_db_path
+from ada.events import _alive as _owner_alive
+from ada.paths import checkpoint_db_path, vault_root
 from ada.store import RunStore
 from ada.vault import HoldoutVault
 
@@ -118,6 +120,21 @@ class RunManager:
         ctx.emit("message", "stop requested — finishing the current step, then presenting results",
                  agent="orchestrator")
         return True
+
+    def delete(self, run_id: str) -> None:
+        """Remove a finished run everywhere: events, workspace, holdout vault, checkpoints."""
+        if self.is_active(run_id):
+            raise RuntimeError("run is active — stop it first")
+        run = self.events.get_run(run_id)
+        if run and run["status"] in ("running", "queued") and _owner_alive(run.get("owner_pid")):
+            raise RuntimeError("run is still executing in another process — stop it first")
+        shutil.rmtree(RunStore(run_id).root, ignore_errors=True)
+        shutil.rmtree(vault_root() / run_id, ignore_errors=True)
+        try:
+            checkpointer().delete_thread(run_id)
+        except Exception:
+            pass
+        self.events.delete_run(run_id)
 
     def is_active(self, run_id: str) -> bool:
         with self._lock:

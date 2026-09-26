@@ -75,3 +75,16 @@ def test_evaluation_claim_must_match_numbers():
                               state=st, validation=val)
     failed = {c.name for c in checks if not c.passed and c.severity == "error"}
     assert {"claim_consistent", "threshold_met"} <= failed
+
+
+def test_giving_up_without_attempts_forces_collection_retry(tmp_path):
+    from ada.gates.checks import check_collect_data
+    from ada.store import RunStore
+    store = RunStore("x", root=tmp_path).init()
+    report = {"files": [], "primary_file": "", "license_assessment": "n/a", "obtainable": False,
+              "missing_requirements": ["no open data"]}
+    lazy = check_collect_data(report, store=store, attempts=0)
+    assert any(c.name == "collection_effort" and not c.passed and c.route_hint is None for c in lazy)
+    assert all(c.route_hint is None for c in lazy)       # nothing may send it upstream yet
+    tried = check_collect_data(report, store=store, attempts=4)
+    assert any(c.name == "data_obtainable" and c.route_hint == "define_data" for c in tried)
