@@ -83,7 +83,7 @@ def run_scraper_code(
             df = pd.read_csv(out_path)
             rows_saved = len(df)
             columns = list(df.columns)
-            sample_rows = json.loads(df.head(5).to_json(orient="values"))
+            sample_rows = json.loads(df.head(10).to_json(orient="values"))
         except (pd.errors.EmptyDataError, pd.errors.ParserError):
             pass
 

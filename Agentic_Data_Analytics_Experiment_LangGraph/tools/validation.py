@@ -8,6 +8,8 @@ model sometimes skipped its own verification step and declared success on
 an obviously aggregated file).
 """
 
+import unicodedata
+from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
@@ -128,6 +130,17 @@ PLAUSIBLE_RANGES = {
 }
 MAX_M2_PER_ROOM = 100
 MAX_EXAMPLE_IDS = 3
+# Building years: a live run kept year_built = 0, which enrichment turned
+# into a "property age" of 2026 years. Listings are published ahead of
+# completion, so a few years ahead is still fine.
+EARLIEST_BUILDING_YEAR = 1500
+YEARS_AHEAD = 3
+YEAR_COLUMNS = ("year_built", "year_renovated")
+# The same flat posted several times under different listing ids — a live
+# run had one address three times with the same rent and room count.
+DUPLICATE_KEYS = ("street", "rooms", "rent_gross_chf")
+# Free-text columns whose spellings should agree ("Zürich" vs "Zurich").
+SPELLING_COLUMNS = ("city",)
 
 
 def _examples(df: pd.DataFrame, mask: pd.Series) -> str:
@@ -151,6 +164,23 @@ def implausible_values(df: pd.DataFrame) -> list[str]:
             problems.append(
                 f"{col}: {int(mask.sum())} value(s) outside {low}–{high}{_examples(df, mask)}"
             )
+    latest = datetime.now().year + YEARS_AHEAD
+    for col in (c for c in YEAR_COLUMNS if c in df.columns):
+        years = pd.to_numeric(df[col], errors="coerce")
+        mask = (years < EARLIEST_BUILDING_YEAR) | (years > latest)
+        if mask.any():
+            problems.append(
+                f"{col}: {int(mask.sum())} value(s) outside {EARLIEST_BUILDING_YEAR}–{latest}"
+                f"{_examples(df, mask)}"
+            )
+    if all(c in df.columns for c in YEAR_COLUMNS):
+        built, renovated = (pd.to_numeric(df[c], errors="coerce") for c in YEAR_COLUMNS)
+        mask = renovated < built
+        if mask.any():
+            problems.append(
+                f"year_renovated before year_built in {int(mask.sum())} listing(s)"
+                f"{_examples(df, mask)}"
+            )
     if "living_space_m2" in numeric and "rooms" in numeric:
         per_room = numeric["living_space_m2"] / numeric["rooms"].where(numeric["rooms"] > 0)
         mask = per_room > MAX_M2_PER_ROOM
@@ -161,3 +191,54 @@ def implausible_values(df: pd.DataFrame) -> list[str]:
                 "(check the listing's own text)"
             )
     return problems
+
+
+def likely_duplicates(df: pd.DataFrame) -> list[str]:
+    """The same flat listed more than once under different listing ids:
+    same street, room count and rent."""
+    if not all(c in df.columns for c in (*DUPLICATE_KEYS, "listing_id")):
+        return []
+    keyed = df.dropna(subset=list(DUPLICATE_KEYS))
+    keyed = keyed.assign(_street=keyed["street"].astype(str).str.lower().str.strip())
+    groups = keyed.groupby(["_street", "rooms", "rent_gross_chf"])["listing_id"].nunique()
+    repeated = groups[groups > 1]
+    if repeated.empty:
+        return []
+    first = repeated.index[0]
+    ids = keyed.loc[
+        (keyed["_street"] == first[0]) & (keyed["rooms"] == first[1])
+        & (keyed["rent_gross_chf"] == first[2]), "listing_id",
+    ].head(MAX_EXAMPLE_IDS)
+    extra = int(repeated.sum() - len(repeated))
+    return [
+        f"likely duplicates: {len(repeated)} flat(s) listed more than once under different "
+        f"listing ids ({extra} extra row(s)) — same street, rooms and rent, e.g. listings "
+        f"{', '.join(map(str, ids))}"
+    ]
+
+
+def _spelling_key(text: str) -> str:
+    plain = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode()
+    return " ".join(plain.lower().split())
+
+
+def inconsistent_spellings(df: pd.DataFrame) -> list[str]:
+    """Names that differ only in accents, case or spacing ("Zürich" /
+    "Zurich") — one place counted as two."""
+    problems = []
+    for col in (c for c in SPELLING_COLUMNS if c in df.columns):
+        values = df[col].dropna().astype(str)
+        variants = values.groupby(values.map(_spelling_key)).unique()
+        mixed = [sorted(v) for v in variants if len(v) > 1]
+        if mixed:
+            shown = "; ".join(" / ".join(f"'{s}'" for s in v) for v in mixed[:MAX_EXAMPLE_IDS])
+            problems.append(f"{col}: the same name spelled differently — {shown}")
+    return problems
+
+
+def data_quality_issues(df: pd.DataFrame) -> list[str]:
+    """Everything worth a look before this data trains a model: implausible
+    values, likely duplicate listings and inconsistent spellings — one
+    short line each. Only reported, never rejected: what to do about them
+    is the cleaning agent's call."""
+    return implausible_values(df) + likely_duplicates(df) + inconsistent_spellings(df)

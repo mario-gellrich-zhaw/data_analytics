@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import NamedTuple
 
 from reporting import teaching_cards
+from reporting.html_parts import code_card_html as _code_card_html
 from reporting.html_parts import data_table_html as _data_table_html
 from reporting.html_parts import esc as _esc
 
@@ -448,13 +449,11 @@ def _scraper_code_card_html(data: dict) -> str:
         if data.get("check_passed")
         else "Code check failed: " + "; ".join(data.get("problems") or [])
     ) + (f" {NEVER_RUN_NOTE.capitalize()}." if data.get("never_run") else "")
-    return (
-        '<article class="phase-card">'
-        f"<h2>🧑‍💻 scraper_v{_esc(data['version'])}.py — written by the Data Analyst "
-        f"({_esc(data.get('lines'))} lines)</h2>"
-        f'<p class="result-meta">{_esc(check)}</p>'
-        f'<pre class="sketch-ascii code-block">{_esc(data.get("code"))}</pre>'
-        "</article>"
+    return _code_card_html(
+        f"🧑‍💻 scraper_v{data['version']}.py — written by the Data Analyst "
+        f"({data.get('lines')} lines)",
+        check,
+        data.get("code"),
     )
 
 
@@ -503,13 +502,7 @@ def _prep_code_card_html(data: dict) -> str:
         if data.get("check_passed")
         else "Code check failed: " + "; ".join(data.get("problems") or [])
     ) + (f" {NEVER_RUN_NOTE.capitalize()}." if data.get("never_run") else "")
-    return (
-        '<article class="phase-card">'
-        f"<h2>🧑‍💻 {_esc(_prep_code_heading(data))}</h2>"
-        f'<p class="result-meta">{_esc(check)}</p>'
-        f'<pre class="sketch-ascii code-block">{_esc(data.get("code"))}</pre>'
-        "</article>"
-    )
+    return _code_card_html(f"🧑‍💻 {_prep_code_heading(data)}", check, data.get("code"))
 
 
 def _prep_run_card_html(data: dict) -> str:

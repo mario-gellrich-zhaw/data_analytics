@@ -506,19 +506,71 @@ h1 {
   font-weight: 600;
 }
 
-/* A wide sample turned on its side: fits the card, long values
-   (URLs, attribute lists) break inside their own cell. */
-.phase-card .turned-table {
-  table-layout: fixed;
-  width: 100%;
+/* A data sample (see app.js's dataTable): columns across, up to 10
+   records down, one line per record. The box scrolls both ways with the
+   header row pinned; a cut-off value shows in full on hover. */
+.phase-card .table-scroll.data-scroll {
+  overflow: auto;
+  max-height: 340px;
 }
 
-.phase-card .turned-table th:first-child {
-  width: 24%;
+.phase-card .data-table {
+  width: max-content;
+  min-width: 100%;
 }
 
-.phase-card .turned-table td {
-  max-width: none;
+.phase-card .data-table td {
+  white-space: nowrap;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.phase-card .data-table th {
+  z-index: 1;
+}
+
+/* A real missing value: visibly "none", not a blank that looks broken. */
+.phase-card .data-table td.missing {
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+/* A script an agent wrote: just its name until clicked open. */
+.phase-card.code-card > summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.phase-card.code-card > summary::-webkit-details-marker {
+  display: none;
+}
+
+.phase-card.code-card > summary h2 {
+  display: inline;
+}
+
+.phase-card.code-card > summary h2::before {
+  content: "\25B8  ";
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.phase-card.code-card[open] > summary h2::before {
+  content: "\25BE  ";
+}
+
+.phase-card.code-card > summary .result-meta {
+  display: block;
+  margin: 4px 0 0;
+}
+
+.phase-card.code-card[open] > summary .result-meta {
+  margin-bottom: 14px;
+}
+
+.phase-card.code-card > summary:hover h2 {
+  color: var(--accent);
 }
 
 /* One listing up close: always fits the card, long text wraps. */

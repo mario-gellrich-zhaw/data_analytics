@@ -31,6 +31,8 @@ from tools.validation import check_scraped_fields, filled_share, looks_like_list
 
 MAX_SCRAPER_RUNS = 6  # per demo run — each scraper run may make up to 15 requests
 MAX_PREP_RUNS = 6  # per preparation stage (cleaning, enrichment)
+# The UI shows 10 sample rows; the model needs fewer (they're long).
+AGENT_SAMPLE_ROWS = 5
 PREP_STAGE_LABELS = {"clean": "cleaning", "enrich": "enrichment"}
 STUCK_HINT = (
     "- You seem stuck (your last runs in this step all failed). Only now you may call "
@@ -88,22 +90,32 @@ def _sparse_columns_diagnosis(result: dict) -> str:
     if not sparse:
         return ""
     detail = ", ".join(f"{c} ({share:.0%} filled)" for c, share in sparse.items())
+    rows = result["rows_after"] or 1
+    before = result.get("input_missing_values") or {}
+    thin_inputs = ", ".join(
+        f"{c} ({1 - n / rows:.0%} filled)" for c, n in before.items() if n / rows > 0.5
+    )
+    hint = (
+        f" The input's own sparse columns — {thin_inputs} — cap any feature computed "
+        "from them; derive it from a better-filled source (e.g. the listing text) or "
+        "say plainly how full it is." if thin_inputs else ""
+    )
     return (
         f"New column(s) mostly empty: {detail}. If that was a test on a few rows, run it "
-        "on all rows now; if the source really has no value, say why."
+        f"on all rows now; if the source really has no value, say why.{hint}"
     )
 
 
-def _implausible_diagnosis(result: dict) -> str:
-    """For a cleaning run whose output still has implausible values (see
-    validation.implausible_values): name them, so the cleaner and its
+def _quality_diagnosis(result: dict) -> str:
+    """For a cleaning run whose output still has data-quality issues (see
+    validation.data_quality_issues): name them, so the cleaner and its
     reviewer look at them instead of declaring the data clean."""
-    if result.get("stage") != "clean" or not result.get("implausible"):
+    if result.get("stage") != "clean" or not result.get("quality_issues"):
         return ""
     return (
-        "Still implausible after this run: " + "; ".join(result["implausible"])
+        "Still in the data after this run: " + "; ".join(result["quality_issues"])
         + ". Look at those listings (their text often has the right value) and fix, "
-        "null or drop them — or say why they're genuine."
+        "null, merge or drop them — or say why they're genuine."
     )
 
 
@@ -187,6 +199,7 @@ def _prep_agent_view(result: dict) -> dict:
     of any lookup, a diagnosis of failed lookups, and the team note."""
     view = {k: v for k, v in result.items() if k not in ("requests", "dtypes")}
     view["dtypes_after"] = result["dtypes"]
+    view["sample_rows"] = result["sample_rows"][:AGENT_SAMPLE_ROWS]
     structure = [{"url": e["url"], **e["shape"]} for e in result["requests"] if e.get("shape")]
     if structure:
         view["response_structure"] = structure
@@ -195,7 +208,7 @@ def _prep_agent_view(result: dict) -> dict:
         d for d in (_failed_requests_diagnosis(result["requests"]),
                     _sparse_columns_diagnosis(result),
                     _lost_columns_diagnosis(result),
-                    _implausible_diagnosis(result)) if d
+                    _quality_diagnosis(result)) if d
     )
     if diagnosis:
         view["diagnosis"] = diagnosis
@@ -217,8 +230,8 @@ def _prep_agent_view(result: dict) -> dict:
             f" ⚠ It no longer contains {', '.join(result['lost_columns'])} from the "
             "earlier accepted run — the last accepted script is the whole step."
         )
-    if _implausible_diagnosis(result):
-        view[TEAM_NOTE_KEY] += f" ⚠ {_implausible_diagnosis(result)}"
+    if _quality_diagnosis(result):
+        view[TEAM_NOTE_KEY] += f" ⚠ {_quality_diagnosis(result)}"
     if result.get("walkthrough_note"):
         view[TEAM_NOTE_KEY] += (
             " The app showed the class how this step derived its columns, e.g. "
@@ -402,6 +415,7 @@ class RunTools:
         elif _small_sample_hint(result):
             agent_view["diagnosis"] = _small_sample_hint(result)
         agent_view.update({k: v for k, v in result.items() if k != "requests"})
+        agent_view["sample_rows"] = result["sample_rows"][:AGENT_SAMPLE_ROWS]
         agent_view["requests"] = _compact_requests(result["requests"])
         hosts = _page_hosts(result)
         source = f" from {', '.join(hosts)}" if hosts else ""
@@ -800,7 +814,7 @@ class RunTools:
         for diagnosis in (_failed_requests_diagnosis(run["requests"]),
                           _sparse_columns_diagnosis(run),
                           _lost_columns_diagnosis(run),
-                          _implausible_diagnosis(run)):
+                          _quality_diagnosis(run)):
             if diagnosis:
                 lines.append(f"- {diagnosis}")
         if run["saved"]:

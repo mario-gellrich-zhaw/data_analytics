@@ -79,22 +79,18 @@ function statTile(label, value) {
   return tile;
 }
 
-const MAX_CELL_CHARS = 300; // cells wrap (see style.css); only very long text is cut
+const MAX_CELL_CHARS = 300; // only very long text is cut; the full value is on hover
 
-// A wide sample (many columns, few rows) is shown turned on its side —
-// one line per column, one column per row — so every column is visible
-// without scrolling sideways.
-const TRANSPOSE_MIN_COLUMNS = 8;
-const TRANSPOSE_MAX_ROWS = 5;
+// Every data sample is one plain grid — columns across, records down, at
+// most MAX_TABLE_ROWS of them — in a box that scrolls both ways (see
+// .data-table in style.css), so wide or sparse data never breaks the card.
+const MAX_TABLE_ROWS = 10;
 
 function dataTable(columns, rows) {
   if (!Array.isArray(columns) || !Array.isArray(rows) || rows.length === 0) return null;
-  if (columns.length > TRANSPOSE_MIN_COLUMNS && rows.length <= TRANSPOSE_MAX_ROWS) {
-    const header = ["column", ...rows.map((_, i) => `row ${i + 1}`)];
-    const turned = columns.map((col, c) => [col, ...rows.map((row) => row[c])]);
-    return plainTable(header, turned, "turned-table");
-  }
-  return plainTable(columns, rows);
+  const wrap = plainTable(columns, rows.slice(0, MAX_TABLE_ROWS), "data-table");
+  wrap.classList.add("data-scroll");
+  return wrap;
 }
 
 function plainTable(columns, rows, extraClass = "") {
@@ -116,8 +112,15 @@ function plainTable(columns, rows, extraClass = "") {
     const tr = document.createElement("tr");
     row.forEach((value) => {
       const td = document.createElement("td");
-      const text = value === null || value === undefined ? "" : String(value);
-      td.textContent = text.length > MAX_CELL_CHARS ? `${text.slice(0, MAX_CELL_CHARS)}…` : text;
+      if (value === null || value === undefined || value === "") {
+        // a real missing value, marked as such rather than left blank
+        td.textContent = "—";
+        td.className = "missing";
+      } else {
+        const text = String(value);
+        td.textContent = text.length > MAX_CELL_CHARS ? `${text.slice(0, MAX_CELL_CHARS)}…` : text;
+        td.title = text;
+      }
       tr.appendChild(td);
     });
     table.appendChild(tr);
@@ -187,25 +190,34 @@ function describeRequest(entry) {
   return `✔ GET ${entry.url} → HTTP ${entry.status} (${entry.elapsed_ms} ms)`;
 }
 
-// One scraper version the Data Analyst just wrote — shown inline, in full,
-// so the class can read the code the agent came up with.
-function buildScraperCodeCard(data) {
-  const card = document.createElement("article");
-  card.className = "phase-card";
+// A script an agent just wrote: only its name and code-check result show
+// at first — a click on the name opens the full code, so a run with many
+// versions doesn't bury the conversation in Python.
+function codeCard(title, checkText, code) {
+  const card = document.createElement("details");
+  card.className = "phase-card code-card";
 
+  const summary = document.createElement("summary");
   const heading = document.createElement("h2");
-  heading.textContent = `🧑‍💻 scraper_v${data.version}.py — written by the Data Analyst (${data.lines} lines)`;
-  card.appendChild(heading);
-
-  const check = document.createElement("p");
+  heading.textContent = title;
+  const check = document.createElement("span");
   check.className = "result-meta";
-  check.textContent = data.check_passed
-    ? "Code check passed (only allowed imports; web access only via scraper_kit)."
-    : `Code check failed: ${data.problems.join("; ")}`;
-  card.appendChild(check);
+  check.textContent = checkText;
+  summary.append(heading, check);
 
-  card.appendChild(preBlock(data.code, "code-block"));
+  card.append(summary, preBlock(code, "code-block"));
   return card;
+}
+
+// One scraper version the Data Analyst just wrote.
+function buildScraperCodeCard(data) {
+  return codeCard(
+    `🧑‍💻 scraper_v${data.version}.py — written by the Data Analyst (${data.lines} lines)`,
+    data.check_passed
+      ? "Code check passed (only allowed imports; web access only via scraper_kit)."
+      : `Code check failed: ${data.problems.join("; ")}`,
+    data.code,
+  );
 }
 
 // What really happened when a scraper version ran: every request with its
@@ -276,25 +288,16 @@ function prepFileName(data) {
   return `${data.stage}_v${data.version}.py`;
 }
 
-// One cleaning/enrichment script version just written — shown in full.
+// One cleaning/enrichment script version just written.
 function buildPrepCodeCard(data) {
-  const card = document.createElement("article");
-  card.className = "phase-card";
-
   const stage = PREP_STAGES[data.stage] || { label: data.stage, author: "an agent" };
-  const heading = document.createElement("h2");
-  heading.textContent = `🧑‍💻 ${prepFileName(data)} — ${stage.label} code written by the ${stage.author} (${data.lines} lines)`;
-  card.appendChild(heading);
-
-  const check = document.createElement("p");
-  check.className = "result-meta";
-  check.textContent = data.check_passed
-    ? "Code check passed (data only via prep_kit; web access only via scraper_kit)."
-    : `Code check failed: ${data.problems.join("; ")}`;
-  card.appendChild(check);
-
-  card.appendChild(preBlock(data.code, "code-block"));
-  return card;
+  return codeCard(
+    `🧑‍💻 ${prepFileName(data)} — ${stage.label} code written by the ${stage.author} (${data.lines} lines)`,
+    data.check_passed
+      ? "Code check passed (data only via prep_kit; web access only via scraper_kit)."
+      : `Code check failed: ${data.problems.join("; ")}`,
+    data.code,
+  );
 }
 
 function columnList(label, columns) {

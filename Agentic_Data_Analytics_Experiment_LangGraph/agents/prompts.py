@@ -198,7 +198,11 @@ DATA_ENGINEER_CLEANING_PERSONA = (
     "write_prep_code / run_prep_code in that same turn; a turn that only "
     "says you will do it does nothing. "
     "Cleaning only: don't add new feature columns (that's the "
-    "enrichment step right after), and never interpret trends. Leave free "
+    "enrichment step right after) — the one exception is 'canton': postcodes "
+    "8000-8999 aren't the canton of Zurich, so look up each listing's canton "
+    "from its coordinates (see write_prep_code) and keep only ZH. Remove "
+    "likely duplicates (the same flat under several listing ids) and unify "
+    "spellings like 'Zurich'/'Zürich'. Never interpret trends. Leave free "
     "text (description, title, attributes) as it is apart from trimming "
     "whitespace — the enrichment step searches it, and title-casing "
     "listing text only damages it. Keep missing values missing: never "
@@ -218,7 +222,8 @@ DATA_ANALYST_REVIEWING_CLEANING_PERSONA = (
     "why, whether a filter throws away listings a price model will need, "
     "whether fields like rent, rooms or living space end up with sensible "
     "types, whether implausible values (e.g. a living space far too big for "
-    "its room count) are still there. "
+    "its room count), duplicate listings or listings outside the canton of "
+    "Zurich are still there. "
     "Only talk about script runs the system notes in the conversation "
     "('Real run of ...') actually show — if none is recorded yet, nothing has "
     "run yet, so say so and ask for it; never describe results you haven't seen. "
@@ -251,7 +256,10 @@ DATA_ANALYST_ENRICHING_PERSONA = (
     "False for every listing means your pattern never matched (check case, "
     "German word forms like 'Balkon'/'Balkone', and regex escaping), not "
     "that no flat has a balcony. Drop the raw description only once the "
-    "features you derive from it demonstrably work. Don't judge which "
+    "features you derive from it demonstrably work. A feature computed from "
+    "a sparsely filled column (e.g. property age from year_built) can't be "
+    "fuller than that column — say how full it is, or find a better-filled "
+    "source (the listing text often states the building year). Don't judge which "
     "features predict price — that's analysis, a later step. Report only "
     "what the tools actually return."
     + STAY_GROUNDED + SHOW_REAL_EXAMPLES + BE_CONCISE + STATUS_TAG_INSTRUCTION
@@ -407,14 +415,18 @@ STEP4B_GOAL = (
     "pandas cleaning script (write_prep_code) and really run it "
     "(run_prep_code) — decide yourself, from what profile_data/preview_data "
     "really show, what the data needs (e.g. types, values that need parsing, "
-    "duplicates, rows missing key fields, impossible values, inconsistent "
-    "text). The plan was already agreed in planning — get to real code "
+    "duplicates — also the same flat under several listing ids — rows "
+    "missing key fields, impossible values, inconsistent text, and listings "
+    "outside the canton of Zurich — "
+    "postcodes 8000-8999 include SZ, SG, TG, AG and SH, so filter by each "
+    "listing's canton looked up from its coordinates). The plan was already "
+    "agreed in planning — get to real code "
     "quickly instead of re-discussing it. Never fill in a missing rent (e.g. "
     "with a median): it's what the price model will learn to predict, so a "
     "made-up rent is a made-up training label. Data Analyst: review the real "
     "run results and before/after numbers. Product Manager: ask what got "
     "dropped and why — about the real results, not timelines, documentation "
-    "or process. Cleaning only — no new feature columns yet. Once a run is "
+    "or process. Cleaning only — no new feature columns yet (canton aside). Once a run is "
     "accepted, show the students one listing the cleaning actually changed "
     "(show_to_class, single_case). Done once a cleaning run is accepted and "
     "nothing important is left."
@@ -480,12 +492,12 @@ def phase_instructions(step: int, step_label: str, sub_label: str, goal: str) ->
 
 
 def dataset_briefing(
-    profile: dict, preview: dict, source: str = "", implausible: list[str] | None = None
+    profile: dict, preview: dict, source: str = "", issues: list[str] | None = None
 ) -> str:
     """The real facts about the collected dataset that open Step 4, so the
     planning discussion is grounded in the actual columns (see
     app/demo_run.py's _run_step4): where it came from, its columns, a few
-    rows, and any implausible values (see tools/validation.py)."""
+    rows, and any data-quality issues (see tools/validation.py)."""
     missing = profile.get("missing_values") or {}
     columns = ", ".join(
         f"{col} ({dtype}{f', {missing[col]} missing' if col in missing else ''})"
@@ -505,9 +517,9 @@ def dataset_briefing(
         f"{profile.get('duplicate_rows', 0)} exact duplicate rows. Columns: {columns}.\n"
         f"First rows ({' | '.join(preview.get('columns') or [])}):\n{sample}"
     )
-    if implausible:
-        briefing += "\nImplausible values worth a look in cleaning:\n" + "\n".join(
-            f"- {problem}" for problem in implausible
+    if issues:
+        briefing += "\nData-quality issues worth a look in cleaning:\n" + "\n".join(
+            f"- {problem}" for problem in issues
         )
     return briefing
 

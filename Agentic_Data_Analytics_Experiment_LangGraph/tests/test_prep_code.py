@@ -142,7 +142,7 @@ class RunPrepCodeTest(unittest.TestCase):
         odd = LISTINGS.assign(living_space_m2=[80, 523, 523, 95, 110])
         with tempfile.TemporaryDirectory() as tmp:
             result = _run(tmp, CLEAN_SCRIPT, odd)
-        self.assertTrue(any("m² per room" in p for p in result["implausible"]))
+        self.assertTrue(any("m² per room" in p for p in result["quality_issues"]))
 
     def test_crash_shows_traceback(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -191,6 +191,18 @@ class JudgePrepOutputTest(unittest.TestCase):
         self.assertTrue(
             self.judge("enrich", rows_before=5, rows_after=5, added_column_values={"new": 1})[0]
         )
+
+    def test_cleaning_listings_with_coordinates_must_keep_only_zurich(self):
+        with_coords = {"columns_before": ["listing_id", "lat", "lon"]}
+        ok, reason = self.judge("clean", **with_coords)
+        self.assertFalse(ok)
+        self.assertIn("no 'canton' column", reason)
+        ok, reason = self.judge("clean", **with_coords, canton_counts={"ZH": 90, "SG": 3})
+        self.assertFalse(ok)
+        self.assertIn("SG: 3", reason)
+        self.assertTrue(self.judge("clean", **with_coords, canton_counts={"ZH": 93})[0])
+        # no coordinates (e.g. an open-data table): nothing to look up
+        self.assertTrue(self.judge("clean")[0])
 
     def test_listing_id_must_stay_unique(self):
         self.assertFalse(self.judge("clean", listing_id_unique=False)[0])
@@ -292,6 +304,31 @@ class StatusTagParsingTest(unittest.TestCase):
         self.assertEqual(self.status("Let's move on to the next."),
                          (None, "Let's move on to the next."))
         self.assertEqual(self.status("on to the NEXT step"), (None, "on to the NEXT step"))
+
+
+class DataQualityIssuesTest(unittest.TestCase):
+    """What the briefing and every cleaning run point out, from the data."""
+
+    def issues(self, **columns):
+        from tools.validation import data_quality_issues  # pylint: disable=import-outside-toplevel
+
+        base = {"listing_id": [1, 2, 3, 4]}
+        return data_quality_issues(pd.DataFrame({**base, **columns}))
+
+    def test_impossible_building_years(self):
+        found = self.issues(year_built=[0, 1990, 2010, None],
+                            year_renovated=[None, 1980, 2020, None])
+        self.assertTrue(any(i.startswith("year_built: 1 value") for i in found))
+        self.assertTrue(any("year_renovated before year_built" in i for i in found))
+
+    def test_same_flat_under_several_ids(self):
+        found = self.issues(street=["Weg 1", "weg 1 ", "Gasse 2", None],
+                            rooms=[3.5, 3.5, 2.0, 3.5], rent_gross_chf=[2000, 2000, 1500, 2000])
+        self.assertTrue(any("likely duplicates: 1 flat" in i and "1, 2" in i for i in found))
+
+    def test_one_place_spelled_two_ways(self):
+        found = self.issues(city=["Zürich", "Zurich", "Uster", "Uster"])
+        self.assertEqual(found, ["city: the same name spelled differently — 'Zurich' / 'Zürich'"])
 
 
 class CirclingGuardTest(unittest.TestCase):

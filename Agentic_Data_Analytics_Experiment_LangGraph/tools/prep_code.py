@@ -23,7 +23,7 @@ from pathlib import Path
 import pandas as pd
 
 from tools.sandbox import SAFE_STDLIB_MODULES, base_env, check_code, run_script, save_script
-from tools.validation import implausible_values
+from tools.validation import data_quality_issues
 
 RUN_TIMEOUT_SECONDS = 240
 MAX_REQUESTS_PER_RUN = 300  # enough for one geodata lookup per apartment
@@ -35,6 +35,14 @@ MAX_DROPPED_SHARE = 0.5
 # row is a bug (a live run accepted seven amenity flags that were all False
 # because the regex could never match), not a fact about the data.
 MIN_ROWS_FOR_CONSTANT_CHECK = 10
+# Postcodes 8000-8999 are not the canton of Zurich (they cover places in
+# SZ, SG, TG, AG and SH too — a live run kept Mels, Siebnen and
+# Schaffhausen), so cleaning looks up each listing's real canton from its
+# coordinates and keeps only this one, in a column called CANTON_COLUMN.
+TARGET_CANTON = "ZH"
+CANTON_COLUMN = "canton"
+LAT_COLUMNS = ("lat", "latitude")
+LON_COLUMNS = ("lon", "lng", "longitude")
 # The rent is what the later model learns to predict: a missing rent may be
 # left missing or the listing dropped, but never filled in (e.g. with a
 # median) — that would invent training labels. Live runs did exactly that.
@@ -182,6 +190,7 @@ def run_prep_code(
         {
             "rows_before": before["rows"],
             "columns_before": before["columns"],
+            "input_missing_values": before["missing_values"],
             "saved": False,
             "rows_after": 0,
             "columns": [],
@@ -208,7 +217,7 @@ def run_prep_code(
                     "removed_columns": [c for c in before["columns"] if c not in after["columns"]],
                     "dtypes": after["dtypes"],
                     "missing_values": after["missing_values"],
-                    "sample_rows": json.loads(df.head(5).to_json(orient="values")),
+                    "sample_rows": json.loads(df.head(10).to_json(orient="values")),
                     "listing_id_unique": (
                         bool(df["listing_id"].is_unique) if "listing_id" in df.columns else None
                     ),
@@ -217,7 +226,10 @@ def run_prep_code(
                 }
             )
             result["added_column_values"] = _distinct_values(df, result["added_columns"])
-            result["implausible"] = implausible_values(df)
+            result["quality_issues"] = data_quality_issues(df)
+            if CANTON_COLUMN in df.columns:
+                cantons = df[CANTON_COLUMN].astype("string").fillna("missing").str.strip()
+                result["canton_counts"] = {str(k): int(n) for k, n in cantons.value_counts().items()}
 
     if on_progress:
         outcome = "timed out" if result["timed_out"] else f"exit code {result['exit_code']}"
@@ -269,10 +281,44 @@ def _listing_problem(run: dict) -> str:
     return ""
 
 
+def has_coordinates(columns: list[str]) -> bool:
+    """Whether a table has per-listing coordinates to look a canton up by."""
+    lowered = {str(c).lower() for c in columns}
+    return bool(lowered & set(LAT_COLUMNS)) and bool(lowered & set(LON_COLUMNS))
+
+
+def _canton_problem(run: dict) -> str:
+    """Cleaning of listings with coordinates must keep only the target
+    canton, looked up per listing (see TARGET_CANTON)."""
+    if not has_coordinates(run["columns_before"]):
+        return ""
+    counts = run.get("canton_counts")
+    if counts is None:
+        return (
+            f"there's no '{CANTON_COLUMN}' column — postcodes 8000-8999 are not the canton "
+            "of Zurich (they include places in SZ, SG, TG, AG and SH), so look up each "
+            "listing's canton from its lat/lon (the geodata API's canton layer "
+            "ch.swisstopo.swissboundaries3d-kanton-flaeche.fill, attribute 'ak'), save it as "
+            f"'{CANTON_COLUMN}' and keep only '{TARGET_CANTON}'"
+        )
+    other = {k: n for k, n in counts.items() if k != TARGET_CANTON}
+    if other:
+        detail = ", ".join(f"{k}: {n}" for k, n in other.items())
+        return (
+            f"'{CANTON_COLUMN}' still has listings outside {TARGET_CANTON} ({detail}) — keep "
+            f"only '{TARGET_CANTON}'; a listing whose lookup failed ('missing') can't be "
+            "confirmed as Zurich either, so retry it or drop it"
+        )
+    return ""
+
+
 def _stage_problem(stage: str, run: dict) -> str:
-    """The stage's own rule: cleaning keeps most rows, enrichment keeps
-    every row and adds a column."""
+    """The stage's own rule: cleaning keeps most rows and only the target
+    canton, enrichment keeps every row and adds a column."""
     if stage == "clean":
+        canton = _canton_problem(run)
+        if canton:
+            return canton
         dropped = 1 - run["rows_after"] / run["rows_before"] if run["rows_before"] else 0
         if dropped > MAX_DROPPED_SHARE:
             return (

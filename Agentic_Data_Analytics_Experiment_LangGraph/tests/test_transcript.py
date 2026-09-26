@@ -70,6 +70,22 @@ class HtmlTest(unittest.TestCase):
         self.assertNotIn("start-btn", self.page)
         self.assertIn("legend", self.page)
 
+    def test_scripts_are_collapsed_until_clicked(self):
+        self.assertIn('<details class="phase-card code-card"><summary><h2>🧑‍💻 scraper_v1.py',
+                      self.page)
+        self.assertNotIn("<details open", self.page)
+
+    def test_data_tables_are_plain_scrollable_grids(self):
+        from reporting.html_parts import data_table_html  # pylint: disable=import-outside-toplevel
+
+        columns = [f"c{i}" for i in range(20)]
+        rows = [[None if i % 3 else f"v{r}" for i in range(20)] for r in range(15)]
+        table = data_table_html(columns, rows)
+        self.assertIn('class="table-scroll data-scroll"', table)
+        self.assertNotIn("turned", table)
+        self.assertEqual(table.count("<tr>"), 11)  # header + the first 10 records
+        self.assertIn('<td class="missing">—</td>', table)
+
     def test_bubble_names_its_tools(self):
         self.assertIn('<span class="tool-tag">🔧 run_scraper · preview_data</span>', self.page)
 

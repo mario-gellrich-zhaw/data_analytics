@@ -71,7 +71,7 @@ from reporting import transcript
 from tools.opendata import download_dataset
 from tools.preparation import preview_data, profile_data, read_table
 from tools.run_tools import DataPaths, RunTools
-from tools.validation import implausible_values
+from tools.validation import data_quality_issues
 
 
 def _sse(event: str, data: dict) -> str:
@@ -505,13 +505,13 @@ class DemoRun:
         download = self.tools.results["download"]
         source = download.get("dataset_organization") or download.get("dataset_title") or ""
         try:
-            implausible = implausible_values(read_table(path, fmt))
+            issues = data_quality_issues(read_table(path, fmt))
         except (OSError, ValueError):
-            implausible = []
+            issues = []
         self.transcript.append(
             {
                 "speaker": "system",
-                "text": prompts.dataset_briefing(profile, preview, source, implausible),
+                "text": prompts.dataset_briefing(profile, preview, source, issues),
             }
         )
 

@@ -11,35 +11,40 @@ def esc(value) -> str:
 
 
 
-MAX_CELL_CHARS = 300  # cells wrap (see style.css); only very long text is cut
-
-
-TRANSPOSE_MIN_COLUMNS = 8  # same as static/app.js's dataTable
-
-
-TRANSPOSE_MAX_ROWS = 5
+MAX_CELL_CHARS = 300  # only very long text is cut; the full value is on hover
+MAX_TABLE_ROWS = 10  # same as static/app.js's dataTable
 
 
 def data_table_html(columns: list, rows: list) -> str:
-    """A data table; a wide sample (many columns, few rows) turned on its
-    side so every column is visible without scrolling sideways."""
+    """A data sample as one plain grid — columns across, at most
+    MAX_TABLE_ROWS records down — in a box that scrolls both ways, missing
+    values marked "—" (same as static/app.js's dataTable)."""
     if not columns or not rows:
         return ""
-    table_class = "preview-table"
-    if len(columns) > TRANSPOSE_MIN_COLUMNS and len(rows) <= TRANSPOSE_MAX_ROWS:
-        header = ["column", *(f"row {i + 1}" for i in range(len(rows)))]
-        turned = [[col, *(row[c] for row in rows)] for c, col in enumerate(columns)]
-        columns, rows, table_class = header, turned, "preview-table turned-table"
 
     def cell(value) -> str:
-        text = "" if value is None else str(value)
-        return esc(text[:MAX_CELL_CHARS] + "…" if len(text) > MAX_CELL_CHARS else text)
+        if value is None or value == "":
+            return '<td class="missing">—</td>'
+        text = str(value)
+        shown = text[:MAX_CELL_CHARS] + "…" if len(text) > MAX_CELL_CHARS else text
+        return f'<td title="{esc(text)}">{esc(shown)}</td>'
 
     head = "".join(f"<th>{esc(col)}</th>" for col in columns)
     body = "".join(
-        "<tr>" + "".join(f"<td>{cell(v)}</td>" for v in row) + "</tr>" for row in rows
+        "<tr>" + "".join(cell(v) for v in row) + "</tr>" for row in rows[:MAX_TABLE_ROWS]
     )
     return (
-        f'<div class="table-scroll"><table class="{table_class}">'
+        '<div class="table-scroll data-scroll"><table class="preview-table data-table">'
         f"<tr>{head}</tr>{body}</table></div>"
+    )
+
+
+def code_card_html(title: str, check: str, code: str) -> str:
+    """A script an agent wrote: only its name and code-check result, the
+    full code one click away (same as static/app.js's codeCard)."""
+    return (
+        '<details class="phase-card code-card">'
+        f'<summary><h2>{esc(title)}</h2><span class="result-meta">{esc(check)}</span></summary>'
+        f'<pre class="sketch-ascii code-block">{esc(code)}</pre>'
+        "</details>"
     )
