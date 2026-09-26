@@ -257,7 +257,9 @@ WRITE_PREP_CODE_SCHEMA = {
             "many lookups succeeded) — you'll see the output. Rules checked on "
             "every run: keep listing_id and one row per listing; cleaning may not "
             f"drop more than {prep_code.MAX_DROPPED_SHARE:.0%} of the rows; "
-            "enrichment must keep every row and add at least one column. Time "
+            "enrichment must keep every row and add at least one column. Every run "
+            "starts again from this stage's input, so each new version replaces the "
+            "last one: keep all features you still want in the script. Time "
             f"limit {prep_code.RUN_TIMEOUT_SECONDS} s per run."
         ),
         "parameters": {

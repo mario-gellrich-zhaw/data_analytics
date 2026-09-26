@@ -13,8 +13,20 @@ from pathlib import Path
 from agents.graph import TEAM_NOTE_KEY
 from tools.exhibits import code_exhibit, rows_exhibit, single_case_exhibit
 from tools.history import look_up_past_runs
+from tools.preparation import read_table
+from tools.walkthrough import step_walkthrough
 
 MAX_EXHIBITS_PER_PHASE = 4  # a few concrete examples, not a slideshow
+
+
+def _teaser(feature: dict) -> str:
+    """One feature of a walkthrough in a few words, for the team note."""
+    if not feature["rows"]:
+        return feature["column"]
+    listing, value = feature["rows"][0][0], feature["rows"][0][-1]
+    if feature["evidence"]:
+        return f"{feature['column']} (listing {listing}: '{feature['evidence'][0]}' → {value})"
+    return f"{feature['column']} (listing {listing} → {value})"
 
 
 class TeachingAids:
@@ -87,6 +99,27 @@ class TeachingAids:
             "code": f"lines {exhibit.get('start_line')}+ of {exhibit.get('file')}",
         }[kind]
         return {"shown": True, TEAM_NOTE_KEY: f"Shown to the class: {what} — {caption}"}
+
+    def show_step_example(self, stage: str, script: str, before: dict, after_path: str) -> str:
+        """After every accepted cleaning/enrichment run, the app itself
+        shows how the step derived each new/changed column — selected
+        records, the agents' own code lines, counts (see walkthrough.py).
+        Guaranteed, whatever the agents decide to show. Returns a short
+        note for the team ("" if there's nothing to show)."""
+        # Best effort: a teaching aid must never break the run it illustrates
+        # (a numpy value that JSON can't encode once did exactly that).
+        try:
+            code = Path(self._script_path(script)).read_text(encoding="utf-8")
+            walkthrough = step_walkthrough(
+                stage, read_table(before["path"], before["format"]),
+                read_table(after_path, "CSV"), code, script,
+            )
+            if not walkthrough:
+                return ""
+            self.tools.on_artifact("walkthrough", walkthrough)
+        except Exception:  # pylint: disable=broad-exception-caught
+            return ""
+        return "; ".join(_teaser(f) for f in walkthrough["features"][:3])
 
     def is_stuck(self, stage: str) -> bool:
         """Whether the coder of `stage` can't get further on its own: its

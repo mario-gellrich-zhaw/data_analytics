@@ -117,6 +117,22 @@ def _run_note(script: str, run: dict, facts: str, verdict: str) -> str:
     return f"{note} Last printed output:\n{printed}" if printed else note
 
 
+def _lost_columns_diagnosis(result: dict) -> str:
+    """For an accepted run that no longer produces columns an earlier
+    accepted run of the same stage added: every run starts again from the
+    stage's input, so those are gone. A live run lost nine amenity flags
+    this way when the agent rewrote its script for one lookup."""
+    lost = result.get("lost_columns") or []
+    if not lost:
+        return ""
+    return (
+        f"This run no longer produces {', '.join(lost)}, which an earlier accepted run "
+        "added — every run starts again from the stage's input, so the LAST accepted "
+        "script is the whole step. Put the earlier features back into this script "
+        "(unless dropping them is intended) and run again."
+    )
+
+
 def _prep_agent_view(result: dict) -> dict:
     """What the model gets back from run_prep_code: the result without the
     full request log (a compact one instead), the real response structure
@@ -129,7 +145,8 @@ def _prep_agent_view(result: dict) -> dict:
     view["requests"] = _compact_requests(result["requests"])
     diagnosis = " ".join(
         d for d in (_failed_requests_diagnosis(result["requests"]),
-                    _sparse_columns_diagnosis(result)) if d
+                    _sparse_columns_diagnosis(result),
+                    _lost_columns_diagnosis(result)) if d
     )
     if diagnosis:
         view["diagnosis"] = diagnosis
@@ -146,6 +163,16 @@ def _prep_agent_view(result: dict) -> dict:
         if result["accepted"]
         else f"REJECTED ({result['rejected_because']})",
     )
+    if result.get("lost_columns"):
+        view[TEAM_NOTE_KEY] += (
+            f" ⚠ It no longer contains {', '.join(result['lost_columns'])} from the "
+            "earlier accepted run — the last accepted script is the whole step."
+        )
+    if result.get("walkthrough_note"):
+        view[TEAM_NOTE_KEY] += (
+            " The app showed the class how this step derived its columns, e.g. "
+            f"{result['walkthrough_note']}."
+        )
     return view
 
 
@@ -656,11 +683,22 @@ class RunTools:
         result["version"] = version
         result["accepted"], reason = judge_prep_output(stage, result)
         if result["accepted"]:
+            earlier = [r for r in self.prep.runs[stage] if r["accepted"]]
+            if earlier:
+                result["lost_columns"] = [
+                    c for c in earlier[-1]["columns"] if c not in result["columns"]
+                    and c not in result["columns_before"]
+                ]
             self._accept_prep_output(stage, result, work_dir / "output.csv")
         else:
             result["rejected_because"] = reason
         self.prep.runs[stage].append(result)
         self.on_artifact("prep_run", result)
+        if result["accepted"]:
+            # Right below the run card: how this step derived its columns.
+            result["walkthrough_note"] = self.teaching.show_step_example(
+                stage, f"{stage}_v{version}.py", self.prep.input, self.current_file["path"]
+            )
         return _prep_agent_view(result)
 
     def _accept_prep_output(self, stage: str, result: dict, out_path: Path):
@@ -709,7 +747,8 @@ class RunTools:
             f"- input columns: {', '.join(run['columns_before'])}",
         ]
         for diagnosis in (_failed_requests_diagnosis(run["requests"]),
-                          _sparse_columns_diagnosis(run)):
+                          _sparse_columns_diagnosis(run),
+                          _lost_columns_diagnosis(run)):
             if diagnosis:
                 lines.append(f"- {diagnosis}")
         if run["saved"]:

@@ -408,6 +408,10 @@ h1 {
   border-collapse: collapse;
   width: 100%;
   font-size: 0.8rem;
+}
+
+/* Column names stay on one line; values wrap (see the cell rule below). */
+.phase-card .preview-table th {
   white-space: nowrap;
 }
 
@@ -416,6 +420,9 @@ h1 {
   text-align: left;
   padding: 6px 10px;
   border-bottom: 1px solid var(--border);
+  vertical-align: top;
+  max-width: 280px;
+  overflow-wrap: anywhere;
 }
 
 .phase-card .preview-table th {
@@ -482,9 +489,12 @@ h1 {
   }
 }
 
-.phase-card .code-block {
-  max-height: 360px;
-  overflow: auto;
+/* Code and request logs are shown in full: wrapped, never cut off at the
+   right edge or hidden behind an inner scrollbar — students read them. */
+.phase-card .code-block,
+.phase-card .log-block {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 /* Real examples an agent put in front of the class (show_to_class). */
@@ -497,9 +507,55 @@ h1 {
   font-weight: 600;
 }
 
+/* A wide sample turned on its side: fits the card, long values
+   (URLs, attribute lists) break inside their own cell. */
+.phase-card .turned-table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.phase-card .turned-table th:first-child {
+  width: 24%;
+}
+
+.phase-card .turned-table td {
+  max-width: none;
+}
+
+/* One listing up close: always fits the card, long text wraps. */
+.phase-card .case-table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.phase-card .case-table th:nth-child(1) { width: 22%; }
+.phase-card .case-table th:nth-child(2),
+.phase-card .case-table th:nth-child(3) { width: 33%; }
+.phase-card .case-table th:nth-child(4) { width: 12%; }
+
+.phase-card .case-table td {
+  max-width: none;
+}
+
 .phase-card .case-table td.case-value {
   white-space: pre-wrap;
-  max-width: 420px;
+}
+
+.phase-card .case-table .unchanged {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.phase-card .case-table mark {
+  background: var(--changed-bg);
+  color: inherit;
+  font-weight: 600;
+  border-radius: 3px;
+  padding: 0 2px;
+}
+
+.phase-card.exhibit.auto {
+  border-left-color: var(--pm-border);
 }
 
 .phase-card .case-table tr.status-new td {
@@ -514,4 +570,52 @@ h1 {
   margin: 6px 0 0;
   font-size: 0.8rem;
   color: var(--text-muted);
+}
+
+/* How a step derived its columns: one feature at a time. */
+.phase-card .feature-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 4px 0 12px;
+}
+
+.phase-card .feature-chip {
+  font: inherit;
+  font-size: 0.8rem;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.phase-card .feature-chip.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.phase-card .walkthrough-table tr.status-new td {
+  background: var(--new-bg);
+}
+
+.phase-card .walkthrough-table mark,
+.phase-card .code-block mark {
+  background: var(--changed-bg);
+  color: inherit;
+  font-weight: 600;
+  border-radius: 3px;
+  padding: 0 2px;
+}
+
+.phase-card details.walkthrough-section {
+  margin: 8px 0;
+}
+
+.phase-card details.walkthrough-section > summary {
+  cursor: pointer;
+  font-weight: 600;
+  margin-bottom: 6px;
 }

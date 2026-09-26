@@ -42,13 +42,14 @@ tools/
   teaching.py            show_to_class + look_up_past_runs (only when stuck)
   exhibits.py            real rows / one listing before-after / code excerpts
   history.py             what earlier runs did at a step, from saved transcripts
+  walkthrough.py         how each new/changed column was derived (code, records, counts)
   sandbox.py             the code check + separate-process runner both share
   validation.py          "is this really listing-level data?" checks
   schemas.py             every tool schema the models see
   run_tools.py           RunTools: per-run state + tool dispatch
 sandbox/scraper_kit.py   agent-written code's only way to the web
 sandbox/prep_kit.py      agent-written prep code's only way to the data
-reporting/transcript.py  saves each run as Markdown + HTML
+reporting/transcript.py  saves each run as Markdown + HTML (+ teaching_cards.py, html_parts.py)
 static/                  plain HTML/CSS/JS frontend (no build step)
 tests/                   offline tests for the scraper and prep-code tools
 ```
@@ -249,6 +250,30 @@ talk about results — they can put real examples in the chat with
 Everything shown is read from the real files; the agent only picks what
 to show and writes a one-sentence caption on what to notice. At most four
 examples per phase.
+
+**How each column was derived.** Whatever the agents choose to show, the
+app itself adds a 📌 walkthrough right after every accepted cleaning and
+enrichment run (tools/walkthrough.py). One feature at a time — chips switch
+between `has_balcony`, `has_lift`, `municipality`, … — it shows:
+
+- the count, e.g. "True for 41 of 54 listings (25 of them say so in the
+  description) — decided by the words: balcony, balkon";
+- the agents' own code, only the lines that produced that column (e.g.
+  `'balcony': (['balkon', 'balcony'], …)` and the loop applying it), with
+  one step of data flow (`muni_df = df.apply(… x['lat'], x['lon'] …)` for
+  `municipality`);
+- selected records: listings whose description really contains the word
+  (marked), next to the new value, plus one without it for contrast — for
+  a lookup, the inputs (lat/lon) next to the value it returned; for
+  cleaning, before → after of rows that changed;
+- a few listings with their inputs next to all new columns.
+
+The evidence words come from the literals in the agents' script, on the
+line that names the column, and are kept only if the data confirms them —
+so it works for German text as well. Because it shows the real rule on
+real records, it also exposes the rule's mistakes (e.g. "ohne Lift" → has_lift
+= True). Code and data in the cards are shown in full (wrapped, never cut
+off); a wide sample of a few rows is turned on its side.
 
 **Help when stuck.** Only once a coding agent can't get further on its own
 — its last two runs in a step failed, or its run budget is nearly used up

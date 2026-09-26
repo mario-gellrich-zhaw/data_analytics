@@ -6,11 +6,14 @@ cards), so a saved run can be opened and read later exactly as it looked
 live, offline, with no server running.
 """
 
-import html
 import re
 from datetime import datetime
 from pathlib import Path
 from typing import NamedTuple
+
+from reporting import teaching_cards
+from reporting.html_parts import data_table_html as _data_table_html
+from reporting.html_parts import esc as _esc
 
 
 class PageAssets(NamedTuple):
@@ -254,68 +257,6 @@ def _render_prep_run_lines(data: dict) -> list[str]:
     return lines
 
 
-def _exhibit_heading(data: dict) -> str:
-    """The heading of a show_to_class exhibit card."""
-    kind = data.get("kind")
-    if kind == "single_case":
-        dropped = " (dropped by the cleaning)" if data.get("dropped") else ""
-        return f"One listing up close — {data.get('listing_id')}{dropped}"
-    if kind == "rows":
-        shown = len(data.get("rows") or [])
-        return f"Real rows from {data.get('file')} ({shown} of {data.get('total_rows')})"
-    lines = data.get("lines") or []
-    start = data.get("start_line", 1)
-    end = start + len(lines) - 1
-    return f"{data.get('file')}, lines {start}–{end} of {data.get('total_lines')}"
-
-
-def _numbered_code(data: dict) -> str:
-    """A code exhibit's lines, numbered as in the script."""
-    lines = data.get("lines") or []
-    start = data.get("start_line", 1)
-    width = len(str(start + len(lines) - 1))
-    return "\n".join(f"{str(start + i).rjust(width)}  {line}" for i, line in enumerate(lines))
-
-
-def _md_cell(value) -> str:
-    text = "—" if value is None else str(value)
-    return text.replace("|", "\\|").replace("\n", " ")
-
-
-def _render_exhibit_lines(data: dict) -> list[str]:
-    lines = [f"**🔎 Shown to the class: {_exhibit_heading(data)}**"]
-    if data.get("caption"):
-        lines.append(f"*{data['caption']}*")
-    lines.append("")
-    if data.get("kind") == "single_case":
-        lines += ["| column | as collected | now | |", "|---|---|---|---|"]
-        for field in data.get("fields") or []:
-            status = "" if field["status"] == "same" else field["status"]
-            lines.append(
-                f"| {field['column']} | {_md_cell(field['before'])} | "
-                f"{_md_cell(field['after'])} | {status} |"
-            )
-    elif data.get("kind") == "rows":
-        columns = data.get("columns") or []
-        lines += ["| " + " | ".join(columns) + " |", "|" + "---|" * len(columns)]
-        lines += [
-            "| " + " | ".join(_md_cell(v) for v in row) + " |" for row in data.get("rows") or []
-        ]
-    else:
-        lines += ["```python", _numbered_code(data), "```"]
-    return lines
-
-
-def _render_history_lookup_lines(data: dict) -> list[str]:
-    found = ", ".join(data.get("found") or []) or "no working script"
-    lines = [
-        f"**📚 Stuck at the {data.get('stage')} step — looked at "
-        f"{data.get('runs_searched')} earlier run(s):** found {found}."
-    ]
-    lines += [f"- {problem}" for problem in data.get("problems") or []]
-    return lines
-
-
 def _render_phase_result_lines(step: int, data: dict) -> list[str]:
     if step == 3:
         return _render_step3_result_lines(data)
@@ -330,8 +271,9 @@ _ARTIFACT_MARKDOWN = {
     "scraper_run": _render_scraper_run_lines,
     "prep_code": _render_prep_code_lines,
     "prep_run": _render_prep_run_lines,
-    "exhibit": _render_exhibit_lines,
-    "history_lookup": _render_history_lookup_lines,
+    "exhibit": teaching_cards.exhibit_lines,
+    "history_lookup": teaching_cards.history_lookup_lines,
+    "walkthrough": teaching_cards.walkthrough_lines,
 }
 
 
@@ -415,10 +357,6 @@ _DOT_VIEWER_SCRIPT = """
 """
 
 
-def _esc(value) -> str:
-    return html.escape("" if value is None else str(value), quote=True)
-
-
 def _speaker_class(speaker: str) -> str:
     if speaker == "Product Manager":
         return "pm"
@@ -442,24 +380,6 @@ def _phase_divider_html(step: int, step_label: str, sub_label: str) -> str:
     if sub_label:
         text += f" — {sub_label}"
     return f'<div class="phase-divider">{_esc(text)}</div>'
-
-
-def _data_table_html(columns: list, rows: list) -> str:
-    if not columns or not rows:
-        return ""
-
-    def cell(value) -> str:
-        text = "" if value is None else str(value)
-        return _esc(text[:40] + "…" if len(text) > 40 else text)
-
-    head = "".join(f"<th>{_esc(col)}</th>" for col in columns)
-    body = "".join(
-        "<tr>" + "".join(f"<td>{cell(v)}</td>" for v in row) + "</tr>" for row in rows
-    )
-    return (
-        '<div class="table-scroll"><table class="preview-table">'
-        f"<tr>{head}</tr>{body}</table></div>"
-    )
 
 
 def _stat_tile_html(label: str, value) -> str:
@@ -532,7 +452,7 @@ def _scraper_run_card_html(data: dict) -> str:
     if requests_log:
         parts.append(f'<h3 class="preview-heading">Requests ({len(requests_log)})</h3>')
         text = "\n".join(_describe_request(e) for e in requests_log)
-        parts.append(f'<pre class="sketch-ascii">{_esc(text)}</pre>')
+        parts.append(f'<pre class="sketch-ascii log-block">{_esc(text)}</pre>')
     if data.get("output_tail"):
         parts.append('<h3 class="preview-heading">Printed output</h3>')
         parts.append(f'<pre class="sketch-ascii code-block">{_esc(data["output_tail"])}</pre>')
@@ -592,7 +512,7 @@ def _prep_run_card_html(data: dict) -> str:
         )
         parts.append(f'<h3 class="preview-heading">Requests ({count})</h3>')
         text = "\n".join(_describe_request(e) for e in shown)
-        parts.append(f'<pre class="sketch-ascii">{_esc(text)}</pre>')
+        parts.append(f'<pre class="sketch-ascii log-block">{_esc(text)}</pre>')
     if data.get("output_tail"):
         parts.append('<h3 class="preview-heading">Printed output</h3>')
         parts.append(f'<pre class="sketch-ascii code-block">{_esc(data["output_tail"])}</pre>')
@@ -602,60 +522,6 @@ def _prep_run_card_html(data: dict) -> str:
             f'<h3 class="preview-heading">First {len(sample_rows)} rows of the output</h3>'
         )
         parts.append(_data_table_html(data.get("columns") or [], sample_rows))
-    parts.append("</article>")
-    return "".join(parts)
-
-
-def _case_table_html(data: dict) -> str:
-    rows = [
-        "<tr><th>column</th><th>as collected</th><th>now</th><th></th></tr>"
-    ]
-    for field in data.get("fields") or []:
-        status = "" if field["status"] == "same" else field["status"]
-        before = "—" if field["before"] is None else field["before"]
-        after = "—" if field["after"] is None else field["after"]
-        rows.append(
-            f'<tr class="status-{_esc(field["status"])}"><td>{_esc(field["column"])}</td>'
-            f'<td class="case-value">{_esc(before)}</td>'
-            f'<td class="case-value">{_esc(after)}</td><td>{_esc(status)}</td></tr>'
-        )
-    return (
-        '<div class="table-scroll"><table class="preview-table case-table">'
-        + "".join(rows)
-        + "</table></div>"
-        + '<p class="case-legend">Green: added by the preparation · yellow: changed by it.</p>'
-    )
-
-
-def _exhibit_card_html(data: dict) -> str:
-    parts = ['<article class="phase-card exhibit">', f"<h2>🔎 {_esc(_exhibit_heading(data))}</h2>"]
-    if data.get("caption"):
-        parts.append(f'<p class="exhibit-caption">{_esc(data["caption"])}</p>')
-    if data.get("kind") == "single_case":
-        parts.append(_case_table_html(data))
-    elif data.get("kind") == "rows":
-        parts.append(_data_table_html(data.get("columns") or [], data.get("rows") or []))
-    else:
-        parts.append(f'<pre class="sketch-ascii code-block">{_esc(_numbered_code(data))}</pre>')
-    parts.append("</article>")
-    return "".join(parts)
-
-
-def _history_lookup_card_html(data: dict) -> str:
-    found = data.get("found") or []
-    parts = [
-        '<article class="phase-card">',
-        f"<h2>📚 Stuck at the {_esc(data.get('stage'))} step — looked at "
-        f"{_esc(data.get('runs_searched'))} earlier run(s)</h2>",
-        '<p class="result-meta">'
-        + (_esc("Working script(s) found: " + ", ".join(found)) if found
-           else "No earlier run had a working script for this step.")
-        + "</p>",
-    ]
-    problems = data.get("problems") or []
-    if problems:
-        parts.append('<h3 class="preview-heading">Problems earlier runs hit</h3>')
-        parts.append(f'<pre class="sketch-ascii">{_esc(chr(10).join(problems))}</pre>')
     parts.append("</article>")
     return "".join(parts)
 
@@ -790,6 +656,19 @@ def _preparing_card_html(data: dict) -> str:
     return "".join(parts)
 
 
+# How each inline artifact (see app/demo_run.py's _on_artifact) renders as HTML.
+_ARTIFACT_HTML = {
+    "scraper_code": _scraper_code_card_html,
+    "scraper_run": _scraper_run_card_html,
+    "prep_code": _prep_code_card_html,
+    "prep_run": _prep_run_card_html,
+    "exhibit": teaching_cards.exhibit_card_html,
+    "history_lookup": teaching_cards.history_lookup_card_html,
+    "walkthrough": teaching_cards.walkthrough_card_html,
+}
+_PHASE_RESULT_HTML = {3: _collecting_card_html, 4: _preparing_card_html}
+
+
 def _render_body_html(history: list[dict]) -> str:
     parts: list[str] = []
     for entry in history:
@@ -799,23 +678,10 @@ def _render_body_html(history: list[dict]) -> str:
             )
         elif entry["kind"] == "turn":
             parts.append(_bubble_html(entry["speaker"], entry["text"], entry["action"]))
-        elif entry["kind"] == "scraper_code":
-            parts.append(_scraper_code_card_html(entry["data"]))
-        elif entry["kind"] == "scraper_run":
-            parts.append(_scraper_run_card_html(entry["data"]))
-        elif entry["kind"] == "prep_code":
-            parts.append(_prep_code_card_html(entry["data"]))
-        elif entry["kind"] == "prep_run":
-            parts.append(_prep_run_card_html(entry["data"]))
-        elif entry["kind"] == "exhibit":
-            parts.append(_exhibit_card_html(entry["data"]))
-        elif entry["kind"] == "history_lookup":
-            parts.append(_history_lookup_card_html(entry["data"]))
-        elif entry["kind"] == "phase_result":
-            if entry["step"] == 3:
-                parts.append(_collecting_card_html(entry["data"]))
-            elif entry["step"] == 4:
-                parts.append(_preparing_card_html(entry["data"]))
+        elif entry["kind"] in _ARTIFACT_HTML:
+            parts.append(_ARTIFACT_HTML[entry["kind"]](entry["data"]))
+        elif entry["kind"] == "phase_result" and entry["step"] in _PHASE_RESULT_HTML:
+            parts.append(_PHASE_RESULT_HTML[entry["step"]](entry["data"]))
     return "".join(parts)
 
 

@@ -10,10 +10,10 @@ from pathlib import Path
 # The one knob for how long a full run should take, wall-clock — everything
 # below is derived from it, scaled relative to the tuned 20-minute baseline
 # (set this to 20 to get exactly the original, hand-tuned numbers back).
-DEMO_LENGTH_MINUTES = 60
+DEMO_LENGTH_MINUTES = 20
 _SCALE = DEMO_LENGTH_MINUTES / 20
 
-TURN_DELAY_SECONDS = 4  # pace the conversation so a class can read along;
+TURN_DELAY_SECONDS = 2  # pace the conversation so a class can read along;
 # NOT scaled — a longer run should mean more real turns, not more waiting.
 
 # No-tool discussion phases have nothing real to anchor to yet, so kept
