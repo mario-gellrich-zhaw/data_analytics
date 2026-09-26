@@ -152,7 +152,10 @@ def get_file(run_id: str, path: str) -> FileResponse:
     media = mimetypes.guess_type(target.name)[0] or "text/plain"
     if target.suffix in (".md", ".py", ".jsonl", ".txt", ".csv"):
         media = "text/plain; charset=utf-8"
-    return FileResponse(target, media_type=media)
+    headers = {"X-Content-Type-Options": "nosniff"}
+    if target.suffix in (".html", ".htm", ".svg"):
+        headers["Content-Security-Policy"] = "sandbox; default-src 'none'; img-src data:; style-src 'unsafe-inline'"
+    return FileResponse(target, media_type=media, headers=headers)
 
 
 @app.get("/api/improvements")

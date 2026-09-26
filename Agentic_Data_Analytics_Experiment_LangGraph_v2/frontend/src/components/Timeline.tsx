@@ -20,7 +20,7 @@ function Badge({ agent }: { agent: string | null }) {
 }
 
 function time(ts: number) {
-  return new Date(ts * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  return new Date(ts * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" });
 }
 
 function GateCard({ e }: { e: RunEvent }) {

@@ -98,6 +98,9 @@ def stub_phase(ctx: RunContext, state: dict[str, Any], node: str) -> PhaseOutcom
     md = f"# Demo report\n\nStub run for objective: {state.get('objective')}\n"
     ctx.store.write_text("report/final_report.md", md)
     path = report.render(ctx.store, state, ctx.budget.snapshot(), md)
+    ctx.emit("metric", "FINAL locked-holdout mae = 318 (baseline 701, n=960)", node=node, agent="orchestrator",
+             payload={"kind": "holdout", "metric": "mae", "metrics": {"mae": 318.0}, "baseline": {"mae": 701.0},
+                      "n_holdout": 960, "threshold": 350.0})
     _talk(ctx, node, [("artifact", "final report ready", {"path": path})])
     return PhaseOutcome({"headline": "demo"}, [ok("report_html")], "report written",
                         updates={"final": {"holdout": {"metrics": {"mae": 318.0}, "baseline": {"mae": 701.0},
