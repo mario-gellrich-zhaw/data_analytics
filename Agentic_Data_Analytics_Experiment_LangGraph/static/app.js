@@ -20,13 +20,26 @@ function speakerClass(speaker) {
   return "analyst";
 }
 
-function addBubble(speaker, text, isAction) {
+// Which real tool(s) a turn called, e.g. "🔧 run_scraper · preview_data"
+// (older saved runs only know that some tool was used).
+function toolLabel(tools) {
+  const names = [...new Set(tools || [])];
+  return ` \u{1F527} ${names.length ? names.join(" · ") : "real action"}`;
+}
+
+function addBubble(speaker, text, isAction, tools) {
   const bubble = document.createElement("div");
   bubble.className = `bubble ${speakerClass(speaker)}${isAction ? " action" : ""}`;
 
   const label = document.createElement("span");
   label.className = "speaker";
   label.textContent = speaker;
+  if (isAction) {
+    const tag = document.createElement("span");
+    tag.className = "tool-tag";
+    tag.textContent = toolLabel(tools);
+    label.appendChild(tag);
+  }
 
   const body = document.createElement("p");
   body.textContent = text;
@@ -818,9 +831,9 @@ function startDemo() {
   });
 
   eventSource.addEventListener("turn", (event) => {
-    const { speaker, text, action } = JSON.parse(event.data);
+    const { speaker, text, action, tools } = JSON.parse(event.data);
     turnsInPhase += 1;
-    addBubble(speaker, text, action);
+    addBubble(speaker, text, action, tools);
   });
 
   eventSource.addEventListener("scraper_code", (event) => {

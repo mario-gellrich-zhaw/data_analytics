@@ -25,7 +25,7 @@ from tools.preparation import (
     run_sql_query,
     store_to_database,
 )
-from tools.scraper import run_scraper_code, save_scraper_code
+from tools.scraper import MAX_REQUESTS_PER_RUN, MAX_ROWS, run_scraper_code, save_scraper_code
 from tools.teaching import TeachingAids
 from tools.validation import check_scraped_fields, filled_share, looks_like_listing_data
 
@@ -94,6 +94,54 @@ def _sparse_columns_diagnosis(result: dict) -> str:
     )
 
 
+def _implausible_diagnosis(result: dict) -> str:
+    """For a cleaning run whose output still has implausible values (see
+    validation.implausible_values): name them, so the cleaner and its
+    reviewer look at them instead of declaring the data clean."""
+    if result.get("stage") != "clean" or not result.get("implausible"):
+        return ""
+    return (
+        "Still implausible after this run: " + "; ".join(result["implausible"])
+        + ". Look at those listings (their text often has the right value) and fix, "
+        "null or drop them — or say why they're genuine."
+    )
+
+
+# An accepted scrape below this share of the row cap is a thin basis for a
+# price model — a live run stopped at 52 listings with two thirds of its
+# request budget unused.
+SMALL_SAMPLE_SHARE = 0.6
+
+
+def _small_sample_hint(run: dict) -> str:
+    """For an accepted scrape with few rows and request budget left: say
+    that more pages are there for the taking."""
+    left = MAX_REQUESTS_PER_RUN - sum(1 for e in run["requests"] if e.get("kind") == "page")
+    if not run.get("accepted_as_dataset") or run["rows_saved"] >= SMALL_SAMPLE_SHARE * MAX_ROWS:
+        return ""
+    if left <= 0:
+        return ""
+    return (
+        f"Accepted, but only {run['rows_saved']} listings while {left} of this run's "
+        f"{MAX_REQUESTS_PER_RUN} requests were left unused — a price model learns far more "
+        f"from a bigger sample (up to {MAX_ROWS} rows are kept): fetch more pages in one "
+        "improved scraper version and run it once more."
+    )
+
+
+def _page_hosts(run: dict) -> list[str]:
+    """The sites a scraper run really got pages from (e.g. flatfox.ch) —
+    named in the team note, since a live run's agents called Flatfox data
+    "the Homegate dataset"."""
+    return sorted(
+        {
+            e["url"].split("/")[2]
+            for e in run["requests"]
+            if e.get("kind") == "page" and e.get("status") == 200
+        }
+    )
+
+
 def _compact_requests(requests_log: list[dict]) -> list[dict]:
     """A request log small enough for the model: each URL with its status
     or block reason. A long run of lookups is cut to its first 10 plus any
@@ -146,7 +194,8 @@ def _prep_agent_view(result: dict) -> dict:
     diagnosis = " ".join(
         d for d in (_failed_requests_diagnosis(result["requests"]),
                     _sparse_columns_diagnosis(result),
-                    _lost_columns_diagnosis(result)) if d
+                    _lost_columns_diagnosis(result),
+                    _implausible_diagnosis(result)) if d
     )
     if diagnosis:
         view["diagnosis"] = diagnosis
@@ -168,6 +217,8 @@ def _prep_agent_view(result: dict) -> dict:
             f" ⚠ It no longer contains {', '.join(result['lost_columns'])} from the "
             "earlier accepted run — the last accepted script is the whole step."
         )
+    if _implausible_diagnosis(result):
+        view[TEAM_NOTE_KEY] += f" ⚠ {_implausible_diagnosis(result)}"
     if result.get("walkthrough_note"):
         view[TEAM_NOTE_KEY] += (
             " The app showed the class how this step derived its columns, e.g. "
@@ -348,10 +399,14 @@ class RunTools:
         agent_view = {"response_structure": structure}
         if structure and _parsing_failed(result):
             agent_view["diagnosis"] = PARSING_BUG_DIAGNOSIS
+        elif _small_sample_hint(result):
+            agent_view["diagnosis"] = _small_sample_hint(result)
         agent_view.update({k: v for k, v in result.items() if k != "requests"})
         agent_view["requests"] = _compact_requests(result["requests"])
+        hosts = _page_hosts(result)
+        source = f" from {', '.join(hosts)}" if hosts else ""
         agent_view[TEAM_NOTE_KEY] = _run_note(
-            f"scraper_v{version}.py", result, f"{result['rows_saved']} rows saved",
+            f"scraper_v{version}.py", result, f"{result['rows_saved']} rows saved{source}",
             "ACCEPTED as the dataset" if result.get("accepted_as_dataset")
             else f"not accepted ({result.get('rejected_because') or 'no rows'})",
         )
@@ -375,6 +430,8 @@ class RunTools:
             verdict = "no dataset produced"
         if structure and _parsing_failed(run):
             verdict += f" — {PARSING_BUG_DIAGNOSIS}"
+        elif _small_sample_hint(run):
+            verdict += f" — {_small_sample_hint(run)}"
         lines = [
             "Your private working notes (only you see these) from your LAST scraper run — "
             f"scraper_v{run['version']}.py "
@@ -400,13 +457,7 @@ class RunTools:
     def _scraped_download_result(self, run: dict) -> dict:
         """Shape an accepted scraper run like a download result, so the
         Step 3 card and Step 4's tools treat it the same way."""
-        hosts = sorted(
-            {
-                e["url"].split("/")[2]
-                for e in run["requests"]
-                if e.get("kind") == "page" and e.get("status") == 200
-            }
-        )
+        hosts = _page_hosts(run)
         return {
             "success": True,
             "scraped": True,
@@ -748,7 +799,8 @@ class RunTools:
         ]
         for diagnosis in (_failed_requests_diagnosis(run["requests"]),
                           _sparse_columns_diagnosis(run),
-                          _lost_columns_diagnosis(run)):
+                          _lost_columns_diagnosis(run),
+                          _implausible_diagnosis(run)):
             if diagnosis:
                 lines.append(f"- {diagnosis}")
         if run["saved"]:

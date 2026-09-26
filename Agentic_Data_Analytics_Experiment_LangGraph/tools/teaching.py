@@ -17,6 +17,9 @@ from tools.preparation import read_table
 from tools.walkthrough import step_walkthrough
 
 MAX_EXHIBITS_PER_PHASE = 4  # a few concrete examples, not a slideshow
+# Listing platforms a caption might name. A live run captioned Flatfox rows
+# "the Homegate dataset", and the rest of the team repeated it.
+LISTING_SITES = ("flatfox", "homegate", "immoscout", "comparis", "newhome", "immostreet")
 
 
 def _teaser(feature: dict) -> str:
@@ -75,6 +78,22 @@ class TeachingAids:
             return {"error": "No dataset exists yet, so there's nothing to show."}
         return self._data_exhibit(kind, args)
 
+    def _wrong_source(self, kind: str, caption: str) -> str:
+        """The listing site a data caption names although the data came
+        from another one ("" if it's fine)."""
+        download = self.tools.results.get("download") or {}
+        if kind == "code" or not download.get("scraped"):
+            return ""
+        source = (download.get("dataset_organization") or "").lower()
+        named = [site for site in LISTING_SITES if site in caption.lower()]
+        wrong = [site for site in named if site not in source]
+        if not wrong:
+            return ""
+        return (
+            f"The caption names {', '.join(wrong)}, but this data was scraped from "
+            f"{download.get('dataset_organization')} — fix the caption."
+        )
+
     def call_show_to_class(self, kind: str, caption: str = "", **args):
         """Tool: put a real example in front of the class — a few rows, one
         listing before/after preparation, or a few lines of a script."""
@@ -84,6 +103,9 @@ class TeachingAids:
             # An example without a word on what to notice teaches little —
             # live runs showed code with an empty caption.
             return {"shown": False, "error": "Add a caption: one sentence on what to notice."}
+        wrong_source = self._wrong_source(kind, caption)
+        if wrong_source:
+            return {"shown": False, "error": wrong_source}
         try:
             exhibit = self._build_exhibit(kind, args)
         except (OSError, ValueError, KeyError) as exc:

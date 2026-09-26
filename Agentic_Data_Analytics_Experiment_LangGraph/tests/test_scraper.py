@@ -277,7 +277,7 @@ class ParsingDiagnosisTest(unittest.TestCase):
         self.assertIn("bug in YOUR code", agent_view.get("diagnosis", ""))
         self.assertIn("bug in YOUR code", notes)
 
-    def test_accepted_rows_get_no_diagnosis(self):
+    def accepted_run(self, rows_saved: int):
         from tools import run_tools  # pylint: disable=import-outside-toplevel
 
         with mock.patch.object(run_tools, "check_scraped_fields", return_value=(True, "")), \
@@ -285,9 +285,22 @@ class ParsingDiagnosisTest(unittest.TestCase):
                 mock.patch.object(run_tools.shutil, "copyfile"), \
                 mock.patch.object(run_tools.RunTools, "capture_preview"), \
                 mock.patch.object(run_tools.RunTools, "_scraped_download_result", return_value={}):
-            agent_view, notes = self.run_tool(rows_saved=40)
+            return self.run_tool(rows_saved=rows_saved)
+
+    def test_accepted_rows_get_no_diagnosis(self):
+        agent_view, notes = self.accepted_run(rows_saved=140)
         self.assertNotIn("diagnosis", agent_view)
         self.assertNotIn("bug in YOUR code", notes)
+
+    def test_small_accepted_sample_with_budget_left_gets_hint(self):
+        agent_view, notes = self.accepted_run(rows_saved=40)
+        self.assertIn("only 40 listings", agent_view.get("diagnosis", ""))
+        self.assertNotIn("bug in YOUR code", agent_view["diagnosis"])
+        self.assertIn("only 40 listings", notes)
+
+    def test_team_note_names_the_scraped_site(self):
+        agent_view, _ = self.accepted_run(rows_saved=140)
+        self.assertIn("from flatfox.ch", agent_view["team_note"])
 
 
 if __name__ == "__main__":

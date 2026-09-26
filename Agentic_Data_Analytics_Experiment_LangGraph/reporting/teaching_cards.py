@@ -42,9 +42,14 @@ def _words_re(words) -> re.Pattern | None:
     return re.compile("|".join(map(re.escape, words)), re.IGNORECASE) if words else None
 
 
+MD_CELL_CHARS = 160  # a whole listing description would swamp a Markdown table row
+
+
 def _md_cell(value, highlights=()) -> str:
-    text = "—" if value is None else str(value)
-    text = text.replace("|", "\\|").replace("\n", " ")
+    text = "—" if value is None else " ".join(str(value).split())
+    if len(text) > MD_CELL_CHARS:
+        text = text[:MD_CELL_CHARS].rstrip() + "…"
+    text = text.replace("|", "\\|")
     pattern = _words_re(highlights)
     return pattern.sub(lambda m: f"**{m.group(0)}**", text) if pattern else text
 

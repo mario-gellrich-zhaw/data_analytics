@@ -75,7 +75,7 @@ def _render_step3_result_lines(data: dict) -> list[str]:
     if download.get("scraped"):
         lines.append(
             f"- Scraped: {download.get('rows', 0):,} listings from "
-            f"{download.get('dataset_organization')} by {download.get('dataset_title')}."
+            f"{download.get('dataset_organization')} — {download.get('dataset_title')}."
         )
     elif download.get("success"):
         title = download.get("dataset_title")
@@ -152,6 +152,29 @@ def _enrich_summary(enrich: dict) -> str:
 PREP_STAGES = {"clean": ("cleaning", "Data Engineer"), "enrich": ("enrichment", "Data Analyst")}
 
 
+NEVER_RUN_NOTE = "never run — a later version replaced it"
+
+
+def _mark_never_run(history: list[dict]) -> list[dict]:
+    """The history with every scraper/prep script version that was written
+    but never run flagged `never_run`, so a reader isn't left wondering
+    what became of it (a live run wrote scraper_v2.py, then went straight
+    on to v3)."""
+    ran = {
+        (e["data"].get("stage", "scraper"), e["data"].get("version"))
+        for e in history
+        if e["kind"] in ("scraper_run", "prep_run")
+    }
+    marked = []
+    for entry in history:
+        if entry["kind"] in ("scraper_code", "prep_code"):
+            key = (entry["data"].get("stage", "scraper"), entry["data"].get("version"))
+            if key not in ran:
+                entry = {**entry, "data": {**entry["data"], "never_run": True}}
+        marked.append(entry)
+    return marked
+
+
 def _prep_file(data: dict) -> str:
     return f"{data.get('stage')}_v{data.get('version')}.py"
 
@@ -194,7 +217,7 @@ def _render_scraper_code_lines(data: dict) -> list[str]:
         "check passed"
         if data.get("check_passed")
         else "check failed: " + "; ".join(data.get("problems") or [])
-    )
+    ) + (f"; {NEVER_RUN_NOTE}" if data.get("never_run") else "")
     return [
         f"**Data Analyst wrote `scraper_v{data['version']}.py`** "
         f"({data.get('lines')} lines, {check}):",
@@ -226,7 +249,7 @@ def _render_prep_code_lines(data: dict) -> list[str]:
         "check passed"
         if data.get("check_passed")
         else "check failed: " + "; ".join(data.get("problems") or [])
-    )
+    ) + (f"; {NEVER_RUN_NOTE}" if data.get("never_run") else "")
     return [
         f"**{_prep_code_heading(data)}**, {check}:",
         "```python",
@@ -295,7 +318,7 @@ def render_markdown(
         lines.append(f"**Objective:** {_objective_headline(objective)}")
     lines.append("")
 
-    for entry in history:
+    for entry in _mark_never_run(history):
         if entry["kind"] == "phase":
             header = f"## Step {entry['step']}/4 · {entry['step_label']}"
             if entry["sub_label"]:
@@ -304,7 +327,7 @@ def render_markdown(
             lines.append(f"*Goal: {entry['goal']}*")
             lines.append("")
         elif entry["kind"] == "turn":
-            suffix = " _(used a real tool)_" if entry["action"] else ""
+            suffix = f" _({_tool_label(entry)})_" if entry["action"] else ""
             lines.append(f"**{entry['speaker']}:** {entry['text']}{suffix}")
             lines.append("")
         elif entry["kind"] in _ARTIFACT_MARKDOWN:
@@ -365,12 +388,22 @@ def _speaker_class(speaker: str) -> str:
     return "analyst"
 
 
-def _bubble_html(speaker: str, text: str, used_tool: bool) -> str:
-    css_class = f"bubble {_speaker_class(speaker)}" + (" action" if used_tool else "")
+def _tool_label(turn: dict) -> str:
+    """Which real tool(s) a turn called, e.g. "🔧 run_scraper · preview_data"
+    — same as static/app.js's toolLabel (older saved runs only know that
+    some tool was used)."""
+    names = list(dict.fromkeys(turn.get("tools") or []))
+    return "🔧 " + (" · ".join(names) if names else "real action")
+
+
+def _bubble_html(turn: dict) -> str:
+    speaker = turn["speaker"]
+    css_class = f"bubble {_speaker_class(speaker)}" + (" action" if turn["action"] else "")
+    tag = f' <span class="tool-tag">{_esc(_tool_label(turn))}</span>' if turn["action"] else ""
     return (
         f'<div class="{css_class}">'
-        f'<span class="speaker">{_esc(speaker)}</span>'
-        f"<p>{_esc(text)}</p>"
+        f'<span class="speaker">{_esc(speaker)}{tag}</span>'
+        f"<p>{_esc(turn['text'])}</p>"
         "</div>"
     )
 
@@ -414,7 +447,7 @@ def _scraper_code_card_html(data: dict) -> str:
         "Code check passed (only allowed imports; web access only via scraper_kit)."
         if data.get("check_passed")
         else "Code check failed: " + "; ".join(data.get("problems") or [])
-    )
+    ) + (f" {NEVER_RUN_NOTE.capitalize()}." if data.get("never_run") else "")
     return (
         '<article class="phase-card">'
         f"<h2>🧑‍💻 scraper_v{_esc(data['version'])}.py — written by the Data Analyst "
@@ -469,7 +502,7 @@ def _prep_code_card_html(data: dict) -> str:
         "Code check passed (data only via prep_kit; web access only via scraper_kit)."
         if data.get("check_passed")
         else "Code check failed: " + "; ".join(data.get("problems") or [])
-    )
+    ) + (f" {NEVER_RUN_NOTE.capitalize()}." if data.get("never_run") else "")
     return (
         '<article class="phase-card">'
         f"<h2>🧑‍💻 {_esc(_prep_code_heading(data))}</h2>"
@@ -671,13 +704,13 @@ _PHASE_RESULT_HTML = {3: _collecting_card_html, 4: _preparing_card_html}
 
 def _render_body_html(history: list[dict]) -> str:
     parts: list[str] = []
-    for entry in history:
+    for entry in _mark_never_run(history):
         if entry["kind"] == "phase":
             parts.append(
                 _phase_divider_html(entry["step"], entry["step_label"], entry["sub_label"])
             )
         elif entry["kind"] == "turn":
-            parts.append(_bubble_html(entry["speaker"], entry["text"], entry["action"]))
+            parts.append(_bubble_html(entry))
         elif entry["kind"] in _ARTIFACT_HTML:
             parts.append(_ARTIFACT_HTML[entry["kind"]](entry["data"]))
         elif entry["kind"] == "phase_result" and entry["step"] in _PHASE_RESULT_HTML:
@@ -687,9 +720,11 @@ def _render_body_html(history: list[dict]) -> str:
 
 def _landing_header_html(index_html: str, svg_markup: str) -> str:
     """Pull the `<header class="hero">` block out of static/index.html
-    (the eyebrow, title, tagline, speaker legend, process diagram) so a
-    saved run opens with the same framing the live page has. The
-    interactive Start button is dropped (meaningless on a static page),
+    (the speaker legend, process diagram) so a saved run opens with the
+    same framing the live page has. The live page's own eyebrow, title and
+    "watch them work… live" tagline are dropped — the saved page has its
+    own headline (the run's outcome), and two titles read as a glitch —
+    as is the interactive Start button (meaningless on a static page),
     and the diagram's `<img src="...">` is replaced with the SVG's own
     markup inlined, so the page stays viewable with no server running —
     the whole point of saving it as a self-contained file."""
@@ -703,6 +738,12 @@ def _landing_header_html(index_html: str, svg_markup: str) -> str:
         return ""
     inner = index_html[start:end]
     inner = re.sub(r'\s*<button id="start-btn">.*?</button>\s*', "\n", inner, flags=re.DOTALL)
+    inner = re.sub(
+        r'\s*(?:<span class="eyebrow">.*?</span>|<h1>.*?</h1>|<p class="tagline">.*?</p>)',
+        "",
+        inner,
+        flags=re.DOTALL,
+    )
     inner = re.sub(
         r'<img\s+src="/static/data_analytics_process_model\.svg"[^>]*>',
         svg_markup,
@@ -749,11 +790,11 @@ def render_html(
 <body>
 <main>
   <header class="hero">
-    {landing_header}
-    <span class="eyebrow">Saved conversation</span>
+    <span class="eyebrow">Saved conversation &middot; Agentic demo powered by LangGraph</span>
     <h1>{_esc(headline)}</h1>
     <p class="tagline">{_esc(meta_line)}</p>
     {objective_html}
+    {landing_header}
   </header>
   <div id="chat">
     {_render_body_html(history)}

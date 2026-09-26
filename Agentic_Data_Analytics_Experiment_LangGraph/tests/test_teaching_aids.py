@@ -105,6 +105,16 @@ class ShowToClassTest(unittest.TestCase):
         self.assertFalse(refused["shown"])
         self.assertIn("caption", refused["error"])
 
+    def test_caption_must_name_the_real_source(self):
+        self.tools.results["download"] = {"scraped": True, "dataset_organization": "flatfox.ch"}
+        refused = self.tools.teaching.call_show_to_class(
+            "rows", "These are the columns from the Homegate dataset", n=2
+        )
+        self.assertFalse(refused["shown"])
+        self.assertIn("flatfox.ch", refused["error"])
+        shown = self.tools.teaching.call_show_to_class("rows", "Real Flatfox listings", n=2)
+        self.assertTrue(shown["shown"])
+
     def test_unknown_listing_and_cap_per_phase(self):
         self.assertIn("no listing", self.tools.teaching.call_show_to_class(
             "single_case", "x", listing_id="999")["error"])

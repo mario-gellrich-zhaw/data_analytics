@@ -23,6 +23,7 @@ from pathlib import Path
 import pandas as pd
 
 from tools.sandbox import SAFE_STDLIB_MODULES, base_env, check_code, run_script, save_script
+from tools.validation import implausible_values
 
 RUN_TIMEOUT_SECONDS = 240
 MAX_REQUESTS_PER_RUN = 300  # enough for one geodata lookup per apartment
@@ -30,10 +31,17 @@ PREP_DOMAINS = ("flatfox.ch", "api3.geo.admin.ch")
 # Cleaning that drops more than this share of the listings is almost
 # always a filter bug, not real dirt in the data.
 MAX_DROPPED_SHARE = 0.5
+# With this many listings, a new column that has the same value in every
+# row is a bug (a live run accepted seven amenity flags that were all False
+# because the regex could never match), not a fact about the data.
+MIN_ROWS_FOR_CONSTANT_CHECK = 10
 # The rent is what the later model learns to predict: a missing rent may be
 # left missing or the listing dropped, but never filled in (e.g. with a
 # median) — that would invent training labels. Live runs did exactly that.
 TARGET_COLUMNS = ("rent_gross_chf", "rent_net_chf")
+# What a missing value turns into when a script calls .astype(str) before
+# a text fix (.str.title() etc.) — a live run stored the street "Nan".
+STRINGIFIED_MISSING = {"nan", "none", "null", "<na>", "nat"}
 
 ALLOWED_MODULES = {"prep_kit", "scraper_kit", "pandas", "numpy", *SAFE_STDLIB_MODULES}
 PREP_KIT_PUBLIC = {"load_data", "save_data"}
@@ -133,6 +141,25 @@ def _filled_target_values(before: pd.DataFrame, after: pd.DataFrame) -> dict[str
     return filled
 
 
+def _stringified_missing(before: pd.DataFrame, after: pd.DataFrame) -> dict[str, int]:
+    """Per text column: how many more cells the output has than the input
+    whose value is the text 'nan'/'None'/… — a real missing value turned
+    into a string that looks like data."""
+    def count(df: pd.DataFrame, col) -> int:
+        if col not in df.columns or pd.api.types.is_numeric_dtype(df[col]):
+            return 0
+        return int(df[col].dropna().astype(str).str.strip().str.lower()
+                   .isin(STRINGIFIED_MISSING).sum())
+
+    grown = {str(c): count(after, c) - count(before, c) for c in after.columns}
+    return {c: n for c, n in grown.items() if n > 0}
+
+
+def _distinct_values(df: pd.DataFrame, columns: list[str]) -> dict[str, int]:
+    """How many different (non-missing) values each of `columns` has."""
+    return {c: int(df[c].nunique(dropna=True)) for c in columns if c in df.columns}
+
+
 def run_prep_code(
     script_path: Path,
     work_dir: Path,
@@ -186,8 +213,11 @@ def run_prep_code(
                         bool(df["listing_id"].is_unique) if "listing_id" in df.columns else None
                     ),
                     "filled_target_values": _filled_target_values(before_df, df),
+                    "stringified_missing": _stringified_missing(before_df, df),
                 }
             )
+            result["added_column_values"] = _distinct_values(df, result["added_columns"])
+            result["implausible"] = implausible_values(df)
 
     if on_progress:
         outcome = "timed out" if result["timed_out"] else f"exit code {result['exit_code']}"
@@ -227,6 +257,15 @@ def _listing_problem(run: dict) -> str:
             "what the price model will learn to predict, so a made-up rent is a made-up "
             "training label; leave it missing or drop listings with no rent at all"
         )
+    stringified = run.get("stringified_missing") or {}
+    if stringified:
+        detail = ", ".join(f"{col}: {n}" for col, n in stringified.items())
+        return (
+            f"missing values were turned into the text 'nan'/'None' ({detail}) — that "
+            "happens when .astype(str) runs before a text fix; apply string methods only "
+            "to the non-missing values (e.g. df[col].str.strip() on an object column "
+            "keeps NaN as NaN) so a missing value stays missing"
+        )
     return ""
 
 
@@ -250,6 +289,15 @@ def _stage_problem(stage: str, run: dict) -> str:
             )
         if not run["added_columns"]:
             return "no new column was added, so nothing was enriched"
+        constant = [c for c, n in (run.get("added_column_values") or {}).items() if n <= 1]
+        if constant and run["rows_after"] >= MIN_ROWS_FOR_CONSTANT_CHECK:
+            return (
+                f"new column(s) {', '.join(constant)} have the same value (or none) for every "
+                f"one of the {run['rows_after']} listings, so they carry no information — "
+                "almost always a pattern that never matches: print how many rows each "
+                "keyword/regex hits, check the case of the text you search, and in a raw "
+                "string write r'\\bword', not r'\\\\bword' (that looks for a literal backslash)"
+            )
     return ""
 
 

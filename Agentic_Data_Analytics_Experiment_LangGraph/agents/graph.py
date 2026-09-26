@@ -29,10 +29,14 @@ from langgraph.graph import END, StateGraph
 from typing_extensions import TypedDict
 
 # The status tag ends every reply — normally "[STATUS: NEXT]", but models
-# sometimes drop the brackets and write a bare "NEXT" on its own last line.
+# sometimes drop the brackets and write a bare "NEXT", either on its own last
+# line or straight after the last sentence ("Let's proceed. NEXT"). A live
+# run missed the latter, so the Product Manager's vote never counted and
+# phases looped for rounds. The bare form must be upper case, so a sentence
+# ending "...on to the next." isn't mistaken for a tag.
 STATUS_TAG_RE = re.compile(
-    r"\s*(?:\[STATUS:\s*(CONTINUE|NEXT)\]|^\s*(?:STATUS:\s*)?(CONTINUE|NEXT)\.?)\s*\Z",
-    re.IGNORECASE | re.MULTILINE,
+    r"\s*(?:(?i:\[STATUS:\s*(CONTINUE|NEXT)\])"
+    r"|(?<![\w'-])\**(?:(?i:STATUS):\s*)?(CONTINUE|NEXT)\.?\**)\s*\Z"
 )
 # Guardrail: strip a name the model sometimes mimics onto the front of its
 # own reply before it lands in the shared transcript and the pattern
@@ -56,7 +60,9 @@ MAX_TOOL_ROUNDS = 3
 REACT_PROMPT = (
     "If this result means you should immediately use another tool (e.g. run "
     "the scraper you just wrote, or fix and rewrite it), call it now. "
-    "Otherwise react to that real result in ONE short sentence (max ~15 words). Do not "
+    "Otherwise react to that real result in ONE short sentence (max ~15 words), "
+    "calling it what it really is — a scraper run of a named site is not an "
+    "open-data search, and data from one site isn't another site's. Do not "
     "list individual items or repeat numbers already in the result — they're "
     "shown separately in the UI."
 )
@@ -110,6 +116,7 @@ class PhaseState(TypedDict):
     pending_ai_message: Any
     final_text: str
     used_tool: bool
+    tools_used: list[str]  # names of the tools this turn really called
     team_notes: list[str]
     # every recorded turn's shape ({"empty", "used_tool"}), for the stall guard
     recent_turns: list[dict]
@@ -141,19 +148,21 @@ def route_after_agent_turn(state: PhaseState) -> str:
 
 def _tools_then_react(
     cfg: AgentConfig, messages: list, ai_message: AIMessage, tool_impls: dict[str, Callable]
-) -> tuple[str, list[str]]:
+) -> tuple[str, list[str], list[str]]:
     """Really call the tool(s) the agent asked for and ask it to react to
     the real result. If its reaction is another tool call (e.g. running
     the scraper it just wrote), that runs too — up to MAX_TOOL_ROUNDS —
     and the last reaction is forced to be plain text. Kept ephemeral: only
     the returned text and any team notes (see TEAM_NOTE_KEY) land in the
-    shared transcript."""
+    shared transcript. Also returns the names of the tools really called."""
     messages = list(messages)
     team_notes: list[str] = []
+    tools_used: list[str] = []
     for tool_round in range(1, MAX_TOOL_ROUNDS + 1):
         messages.append(ai_message)
         for call in ai_message.tool_calls:
             fn = tool_impls[call["name"]]
+            tools_used.append(call["name"])
             result = fn(**call["args"])
             if isinstance(result, dict) and TEAM_NOTE_KEY in result:
                 team_notes.append(result.pop(TEAM_NOTE_KEY))
@@ -161,24 +170,34 @@ def _tools_then_react(
         messages.append(HumanMessage(content=REACT_PROMPT))
         ai_message = cfg.model.invoke(messages)
         if not ai_message.tool_calls:
-            return ai_message.content, team_notes
+            return ai_message.content, team_notes, tools_used
         if tool_round == MAX_TOOL_ROUNDS:
             break
-    return cfg.model.invoke(messages, tool_choice="none").content, team_notes
+    return cfg.model.invoke(messages, tool_choice="none").content, team_notes, tools_used
 
 
 def run_tools(state: PhaseState) -> dict:
     """Really call whichever tool(s) the agent asked for, then let it react."""
     cfg = _current_agent(state)
-    final_text, team_notes = _tools_then_react(
+    final_text, team_notes, tools_used = _tools_then_react(
         cfg, state["pending_messages"], state["pending_ai_message"], state["tool_impls"]
     )
-    return {"final_text": final_text, "used_tool": True, "team_notes": team_notes}
+    return {
+        "final_text": final_text,
+        "used_tool": True,
+        "tools_used": tools_used,
+        "team_notes": team_notes,
+    }
 
 
 def finish_turn(state: PhaseState) -> dict:
     """No tool was requested — the agent's own reply is the final text."""
-    return {"final_text": state["pending_ai_message"].content, "used_tool": False, "team_notes": []}
+    return {
+        "final_text": state["pending_ai_message"].content,
+        "used_tool": False,
+        "tools_used": [],
+        "team_notes": [],
+    }
 
 
 def record_turn(state: PhaseState) -> dict:
@@ -214,7 +233,12 @@ def record_turn(state: PhaseState) -> dict:
         "recent_turns": recent,
         "turns_in_phase": state["turns_in_phase"] + 1,
         "turn_idx": state["turn_idx"] + 1,
-        "last_turn": {"speaker": speaker, "text": clean, "used_tool": state["used_tool"]},
+        "last_turn": {
+            "speaker": speaker,
+            "text": clean,
+            "used_tool": state["used_tool"],
+            "tools": state.get("tools_used") or [],
+        },
     }
 
 
@@ -231,13 +255,28 @@ def _stalled(state: PhaseState) -> bool:
     return sum(t["empty"] for t in recent) * 2 >= window
 
 
+def _circling(state: PhaseState) -> bool:
+    """Whether the phase is just going round in circles: most agents already
+    said it's done, and over the last two full rounds nobody used a tool.
+    A live run spent five rounds per step on "cleaning is done, ready for
+    enrichment!" because one agent never tagged NEXT."""
+    agents = state["phase_agents"]
+    window = 2 * len(agents)
+    recent = (state.get("recent_turns") or [])[-window:]
+    if len(recent) < window or any(t["used_tool"] for t in recent):
+        return False
+    return sum(state["ready"].values()) * 2 > len(agents)
+
+
 def route_after_record_turn(state: PhaseState) -> str:
     """Loop back for the next agent's turn, or end the phase: either the
-    phase's own turn cap was hit, the conversation has stalled (see
-    `_stalled`), or every participating agent has said, via its status
-    tag, that it's genuinely done (and the minimum has already been met, so
-    nobody can end a phase on turn one)."""
+    phase's own turn cap was hit, the conversation has stalled or is
+    circling (see `_stalled` / `_circling`), or every participating agent
+    has said, via its status tag, that it's genuinely done (and the minimum
+    has already been met, so nobody can end a phase on turn one)."""
     if state["turns_in_phase"] >= state["max_turns"] or _stalled(state):
+        return END
+    if state["turns_in_phase"] >= state["min_turns"] and _circling(state):
         return END
     if state["turns_in_phase"] >= state["min_turns"] and all(state["ready"].values()):
         return END
@@ -278,5 +317,5 @@ def speak_once(
     ai_message = cfg.model.invoke(messages)
     if not ai_message.tool_calls:
         return ai_message.content, False
-    text, _team_notes = _tools_then_react(cfg, messages, ai_message, tool_impls)
+    text, _team_notes, _tools_used = _tools_then_react(cfg, messages, ai_message, tool_impls)
     return text, True

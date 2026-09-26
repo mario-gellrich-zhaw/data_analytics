@@ -69,8 +69,9 @@ from app.config import (
 )
 from reporting import transcript
 from tools.opendata import download_dataset
-from tools.preparation import preview_data, profile_data
+from tools.preparation import preview_data, profile_data, read_table
 from tools.run_tools import DataPaths, RunTools
+from tools.validation import implausible_values
 
 
 def _sse(event: str, data: dict) -> str:
@@ -170,7 +171,17 @@ class DemoRun:
     def _should_stop(self) -> bool:
         return self.turn_count >= MAX_TURNS or not self._time_left() or self.stop_event.is_set()
 
-    def _stream_turn(self, speaker: str, text: str, used_tool: bool, step: int, step_label: str):
+    def _stream_turn(
+        self,
+        speaker: str,
+        text: str,
+        used_tool: bool,
+        step: int,
+        step_label: str,
+        tools: list[str] | None = None,
+    ):
+        """Show one turn; `tools` names the real tools it called, so the
+        bubble can say which one instead of a generic "used a tool"."""
         self.turn_count += 1
         self.q.put(
             _sse(
@@ -178,10 +189,9 @@ class DemoRun:
                 {"stage": f"Turn {self.turn_count}", "step": step, "step_label": step_label},
             )
         )
-        self.q.put(_sse("turn", {"speaker": speaker, "text": text, "action": used_tool}))
-        self.history.append(
-            {"kind": "turn", "speaker": speaker, "text": text, "action": used_tool}
-        )
+        turn = {"speaker": speaker, "text": text, "action": used_tool, "tools": tools or []}
+        self.q.put(_sse("turn", turn))
+        self.history.append({"kind": "turn", **turn})
         time.sleep(TURN_DELAY_SECONDS)
 
     def _speak_once(self, agent: AgentConfig, step: int, step_label: str):
@@ -263,6 +273,7 @@ class DemoRun:
             "pending_ai_message": None,
             "final_text": "",
             "used_tool": False,
+            "tools_used": [],
             "team_notes": [],
             "recent_turns": [],
             "last_turn": None,
@@ -276,7 +287,12 @@ class DemoRun:
                 turn = state["last_turn"]
                 if turn["text"]:  # a bare status tag isn't worth a bubble
                     self._stream_turn(
-                        turn["speaker"], turn["text"], turn["used_tool"], spec.step, spec.step_label
+                        turn["speaker"],
+                        turn["text"],
+                        turn["used_tool"],
+                        spec.step,
+                        spec.step_label,
+                        turn.get("tools"),
                     )
                 emitted = state["turns_in_phase"]
             if self._should_stop():
@@ -363,14 +379,22 @@ class DemoRun:
     # --- Step 2: Defining appropriate data — discussion only ------------
 
     def _run_step2(self):
+        # The Data Engineer joins too: which sources can realistically be
+        # collected is an engineering call (a live run without it turned
+        # into a PM <-> Analyst "any other fields?" loop).
         self.run_phase(
-            [self.agents.product_manager, self.agents.data_analyst_notools],
+            [
+                self.agents.product_manager,
+                self.agents.data_analyst_notools,
+                self.agents.data_engineer_notools,
+            ],
             PhaseSpec(
                 step=2,
                 step_label="Defining appropriate data",
                 sub_label="discussion",
                 goal=prompts.STEP2_GOAL,
                 has_tools=False,
+                min_turns_override=MIN_TURNS_ROUND_ROBIN,
             ),
         )
 
@@ -478,8 +502,17 @@ class DemoRun:
         if profile.get("error") or preview.get("error"):
             return
         self.tools.results["profile"] = profile
+        download = self.tools.results["download"]
+        source = download.get("dataset_organization") or download.get("dataset_title") or ""
+        try:
+            implausible = implausible_values(read_table(path, fmt))
+        except (OSError, ValueError):
+            implausible = []
         self.transcript.append(
-            {"speaker": "system", "text": prompts.dataset_briefing(profile, preview)}
+            {
+                "speaker": "system",
+                "text": prompts.dataset_briefing(profile, preview, source, implausible),
+            }
         )
 
     def _run_step4(self):

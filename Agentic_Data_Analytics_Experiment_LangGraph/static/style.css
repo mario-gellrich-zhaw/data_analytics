@@ -284,9 +284,8 @@ h1 {
 }
 
 /* A tool-call action keeps its agent's own bubble color (only 3 colors
-   total on the page) — just a small label marks it as a real action. */
-.bubble.action .speaker::after {
-  content: " \1F527 real action";
+   total on the page) — just a small label names the real tool(s) it used. */
+.bubble .tool-tag {
   font-weight: 400;
   opacity: 0.8;
 }

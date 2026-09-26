@@ -124,6 +124,26 @@ class RunPrepCodeTest(unittest.TestCase):
         self.assertFalse(ok)
         self.assertIn("training label", reason)
 
+    def test_missing_values_turned_into_text_are_rejected(self):
+        title_casing = (
+            "import prep_kit\ndf = prep_kit.load_data().drop_duplicates(subset=['listing_id'])\n"
+            "df['street'] = df['street'].astype(str).str.title()\n"
+            "prep_kit.save_data(df)\n"
+        )
+        with_street = LISTINGS.assign(street=["a", None, None, "b", None])
+        with tempfile.TemporaryDirectory() as tmp:
+            result = _run(tmp, title_casing, with_street)
+        self.assertEqual(result["stringified_missing"], {"street": 2})
+        ok, reason = prep_code.judge_prep_output("clean", result)
+        self.assertFalse(ok)
+        self.assertIn("'nan'", reason)
+
+    def test_implausible_values_are_reported(self):
+        odd = LISTINGS.assign(living_space_m2=[80, 523, 523, 95, 110])
+        with tempfile.TemporaryDirectory() as tmp:
+            result = _run(tmp, CLEAN_SCRIPT, odd)
+        self.assertTrue(any("m² per room" in p for p in result["implausible"]))
+
     def test_crash_shows_traceback(self):
         with tempfile.TemporaryDirectory() as tmp:
             crashing = "import prep_kit\nprep_kit.load_data()['nope']\nprep_kit.save_data(None)"
@@ -161,6 +181,16 @@ class JudgePrepOutputTest(unittest.TestCase):
     def test_enrichment_must_keep_every_row_and_add_a_column(self):
         self.assertFalse(self.judge("enrich", rows_after=130)[0])
         self.assertFalse(self.judge("enrich", added_columns=[])[0])
+
+    def test_enrichment_column_with_one_value_everywhere_is_rejected(self):
+        ok, reason = self.judge("enrich", added_column_values={"new": 1})
+        self.assertFalse(ok)
+        self.assertIn("same value", reason)
+        self.assertTrue(self.judge("enrich", added_column_values={"new": 2})[0])
+        # too few listings to tell a bug from a fact
+        self.assertTrue(
+            self.judge("enrich", rows_before=5, rows_after=5, added_column_values={"new": 1})[0]
+        )
 
     def test_listing_id_must_stay_unique(self):
         self.assertFalse(self.judge("clean", listing_id_unique=False)[0])
@@ -236,6 +266,56 @@ class StatusTagTest(unittest.TestCase):
         self.assertTrue(record_turn(state)["ready"]["Data Engineer"])
         state["final_text"] = "One more fix needed.\n[STATUS: CONTINUE]"
         self.assertFalse(record_turn(state)["ready"]["Data Engineer"])
+
+
+class StatusTagParsingTest(unittest.TestCase):
+    """The ways models really end a reply with their status."""
+
+    def status(self, text):
+        from agents.graph import STATUS_TAG_RE  # pylint: disable=import-outside-toplevel
+
+        match = STATUS_TAG_RE.search(text)
+        tag = (match.group(1) or match.group(2)).upper() if match else None
+        return tag, STATUS_TAG_RE.sub("", text).strip()
+
+    def test_tag_forms_are_recognised_and_stripped(self):
+        self.assertEqual(self.status("Done.\n[STATUS: NEXT]"), ("NEXT", "Done."))
+        self.assertEqual(self.status("One more fix. [status: continue]"),
+                         ("CONTINUE", "One more fix."))
+        self.assertEqual(self.status("All good.\nNEXT"), ("NEXT", "All good."))
+        # a live run's Product Manager wrote it straight after the sentence
+        self.assertEqual(self.status("Let's proceed to implement them. NEXT"),
+                         ("NEXT", "Let's proceed to implement them."))
+        self.assertEqual(self.status("Ship it. **NEXT**"), ("NEXT", "Ship it."))
+
+    def test_ordinary_words_are_not_a_tag(self):
+        self.assertEqual(self.status("Let's move on to the next."),
+                         (None, "Let's move on to the next."))
+        self.assertEqual(self.status("on to the NEXT step"), (None, "on to the NEXT step"))
+
+
+class CirclingGuardTest(unittest.TestCase):
+    """A phase ends once most agents are done and nobody does anything real."""
+
+    def state(self, ready, turns):
+        return {"phase_agents": [object()] * 3, "ready": ready, "recent_turns": turns}
+
+    def test_majority_done_and_two_talk_only_rounds_end_the_phase(self):
+        from agents.graph import _circling  # pylint: disable=import-outside-toplevel
+
+        talk = [{"empty": False, "used_tool": False}] * 6
+        ready = {"Product Manager": False, "Data Analyst": True, "Data Engineer": True}
+        self.assertTrue(_circling(self.state(ready, talk)))
+
+    def test_minority_done_or_tool_use_keeps_it_going(self):
+        from agents.graph import _circling  # pylint: disable=import-outside-toplevel
+
+        talk = [{"empty": False, "used_tool": False}] * 6
+        one_ready = {"Product Manager": True, "Data Analyst": False, "Data Engineer": False}
+        self.assertFalse(_circling(self.state(one_ready, talk)))
+        two_ready = {"Product Manager": True, "Data Analyst": True, "Data Engineer": False}
+        with_tool = talk[:5] + [{"empty": False, "used_tool": True}]
+        self.assertFalse(_circling(self.state(two_ready, with_tool)))
 
 
 class StallGuardTest(unittest.TestCase):
