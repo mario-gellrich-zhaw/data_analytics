@@ -51,11 +51,30 @@ def train_val(df=None):
     return df[ids.isin(train_ids)].copy(), df[ids.isin(val_ids)].copy()
 
 
-def stable_row_id(*values: Any) -> str:
-    """Deterministic id from source identity fields (e.g. source name + listing id)."""
+def stable_row_id(*values: Any):
+    """Deterministic id from source identity fields (e.g. source name + listing id).
+
+    Scalars -> one id (str). If any argument is a pandas Series / array / list, ids are
+    computed row by row and a pandas Series is returned:
+        df["_row_id"] = ada_kit.stable_row_id("my_source", df["listing_id"])
+    """
     import hashlib
-    raw = "|".join("" if v is None else str(v) for v in values)
-    return hashlib.sha1(raw.encode("utf-8")).hexdigest()[:16]
+
+    def one(parts) -> str:
+        raw = "|".join("" if v is None else str(v) for v in parts)
+        return hashlib.sha1(raw.encode("utf-8")).hexdigest()[:16]
+
+    vector = [v for v in values if hasattr(v, "__len__") and not isinstance(v, (str, bytes))]
+    if not vector:
+        return one(values)
+    import pandas as pd
+    n = len(vector[0])
+    if any(len(v) != n for v in vector):
+        raise ValueError("stable_row_id: all column arguments must have the same length")
+    index = vector[0].index if isinstance(vector[0], pd.Series) else None
+    cols = [list(v) if (hasattr(v, "__len__") and not isinstance(v, (str, bytes))) else [v] * n for v in values]
+    ids = [one(parts) for parts in zip(*cols)]
+    return pd.Series(ids, index=index, dtype="object")
 
 
 def regression_metrics(y_true, y_pred) -> dict[str, float]:

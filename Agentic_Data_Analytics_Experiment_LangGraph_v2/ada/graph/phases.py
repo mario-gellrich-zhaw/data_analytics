@@ -139,7 +139,7 @@ def prepare_store(ctx: RunContext, state: dict[str, Any], node: str) -> PhaseOut
         "never impute or transform the target; leave statistics-based imputation/encoding to the modeling pipeline "
         "(missing values in features are fine);\n"
         "- drop columns that leak the target (e.g. price per m² when predicting price) or are pure identifiers/URLs;\n"
-        "- write data_card.md with write_file: sources + licenses, row counts before/after each step, every column "
+        "- write the data card to the workspace ROOT as `data_card.md` (use write_file): sources + licenses, row counts before/after each step, every column "
         "(meaning, unit, type, missing %), cleaning decisions, known issues.\n"
         + ("- A locked holdout (~20% of rows) is removed automatically from clean/ after each script; you only ever "
            "see development rows. Rebuild from raw/ as usual.\n" if locked else "")
@@ -148,6 +148,10 @@ def prepare_store(ctx: RunContext, state: dict[str, Any], node: str) -> PhaseOut
     out = _run_agent(ctx, state, node, contract)
     if ctx.vault.locked:
         ctx.vault.strip_workspace(ctx.store)
+    # agents often write the card next to the data; the canonical location is the workspace root
+    for alt in ("clean/data_card.md", "data/data_card.md"):
+        if ctx.store.exists(alt) and not ctx.store.exists("data_card.md"):
+            ctx.store.write_text("data_card.md", ctx.store.read_text(alt))
     checks = CHECKS[node](out, store=ctx.store, cfg=ctx.cfg, state=state)
     evidence = _code_evidence(ctx, node) + "\n\n" + _file_excerpt(ctx, "data_card.md", 3000)
     return PhaseOutcome(out, checks, f"{out.get('row_count')} rows, {len(out.get('feature_columns', []))} features, "
@@ -322,6 +326,7 @@ def present_results(ctx: RunContext, state: dict[str, Any], node: str) -> PhaseO
         final = {"holdout_error": "no model was produced"}
     state = {**state, "final": final}
     ctx.store.write_json("evaluation/final_holdout.json", final)
+    facts = _run_facts(ctx, state)
     contract = (
         "Write the final report as Markdown to report/final_report.md with write_file. Audience: business "
         "stakeholders plus a technical appendix. Sections: Objective; Data sources and licenses; Method (cleaning, "
@@ -329,20 +334,30 @@ def present_results(ctx: RunContext, state: dict[str, Any], node: str) -> PhaseO
         "threshold); Key insights (embed 2–4 charts from eda/charts or evaluation/ as ![caption](path)); "
         "Limitations and risks; Model card (intended use, training data, metrics, caveats, ethical considerations). "
         "Be honest: if the threshold was not met, say so and explain why.\n"
-        f"Locked-holdout result (computed once by the orchestrator): {json.dumps(final, default=str)}\n"
-        + (f"NOTE: the run stopped early — {state.get('stop_reason')}. Present the best result so far.\n"
-           if state.get("stop_reason") else "")
+        "STRICT: describe only work that the recorded facts below show. Never describe models, experiments or "
+        "analyses for phases that did not run, and quote numbers only from these facts or from files you read.\n"
+        f"# Recorded facts (from the orchestrator)\n{json.dumps(facts, indent=1, default=str)[:6000]}\n"
+        + (f"NOTE: the run stopped early — {state.get('stop_reason')}. Present the best result so far and say "
+           "clearly what was not done.\n" if state.get("stop_reason") else "")
     )
     headline, md = "", None
     try:
         if ctx.budget.exhausted_reason(use_reserve=True):
             raise BudgetExceeded("no budget left for the presenter")
-        agent = PHASE_AGENTS[node](ctx, node)
-        agent.use_reserve = True
-        out = agent.run(_brief(ctx, state, node) + "\n\n# Your task\n" + contract).model_dump()
-        headline = out.get("headline", "")
-        if ctx.store.exists("report/final_report.md"):
-            md = ctx.store.read_text("report/final_report.md")
+        brief = _brief(ctx, state, node) + "\n\n# Your task\n" + contract
+        for attempt in range(2):
+            agent = PHASE_AGENTS[node](ctx, node)
+            agent.use_reserve = True
+            out = agent.run(brief).model_dump()
+            headline = out.get("headline", "")
+            md = ctx.store.read_text("report/final_report.md") if ctx.store.exists("report/final_report.md") else None
+            if not md or attempt == 1 or ctx.budget.exhausted_reason(use_reserve=True):
+                break
+            critique = _review_report(ctx, node, md, facts)
+            if critique is None or critique.get("verdict") == "accept":
+                break
+            brief += ("\n\n# Fact-check feedback — revise the report\n" + critique.get("feedback_for_agent", "") +
+                      "\nIssues: " + "; ".join(critique.get("issues", [])))
     except (BudgetExceeded, AgentFailed, RunStopped) as exc:
         ctx.emit("message", f"Presenter fallback (template report): {exc}", node=node, agent="orchestrator")
     if not md:
@@ -352,6 +367,55 @@ def present_results(ctx: RunContext, state: dict[str, Any], node: str) -> PhaseO
     ctx.emit("artifact", "final report ready", node=node, agent="PresenterAgent", payload={"path": path})
     return PhaseOutcome({"headline": headline, "report": path}, CHECKS[node](None, store=ctx.store), headline or "report written",
                         updates={"final": final, "artifacts": {"final_report": path}})
+
+
+def _run_facts(ctx: RunContext, state: dict[str, Any]) -> dict[str, Any]:
+    visits = state.get("visits") or {}
+    ran = [n for n in PHASE_AGENTS if visits.get(n) and n != "present_results"]
+    exps = []
+    if ctx.store.exists("experiments.jsonl"):
+        for line in ctx.store.read_text("experiments.jsonl").splitlines()[-25:]:
+            try:
+                rec = json.loads(line)
+                exps.append({"name": rec.get("name"), "model_type": rec.get("model_type"), "metrics": rec.get("metrics")})
+            except json.JSONDecodeError:
+                pass
+    return {
+        "phases_that_ran": ran,
+        "phases_that_never_ran": [n for n in PHASE_AGENTS if n not in ran and n != "present_results"],
+        "gate_history": [{k: h.get(k) for k in ("node", "visit", "decision", "next", "summary")}
+                         for h in state.get("phase_history") or []],
+        "experiments_logged": exps,
+        "validation_of_best_model": state.get("validation"),
+        "locked_holdout": state.get("final"),
+        "stop_reason": state.get("stop_reason"),
+        "clean_rows": _count_rows(ctx, "clean/clean.parquet"),
+    }
+
+
+def _count_rows(ctx: RunContext, rel: str) -> int | None:
+    if not ctx.store.exists(rel):
+        return None
+    try:
+        return int(len(pd.read_parquet(ctx.store.resolve(rel), columns=["_row_id"])))
+    except Exception:
+        return None
+
+
+def _review_report(ctx: RunContext, node: str, md: str, facts: dict[str, Any]) -> dict[str, Any] | None:
+    from agents.control import CriticAgent
+    try:
+        critique = CriticAgent(ctx, node).review(
+            phase="present_results (fact-check the final report against the recorded facts)",
+            output={"report_markdown": md[:9000]}, checks=[], evidence=json.dumps(facts, default=str)[:9000],
+            allowed_routes=[])
+    except (AgentFailed, BudgetExceeded):
+        return None
+    data = critique.model_dump()
+    ctx.emit("message", f"Critic {data['score']:.1f}/10 on the report ({data['verdict']}): " +
+             ("; ".join(data["issues"][:3]) or "no issues"), node=node, agent="CriticAgent",
+             payload={"kind": "critique", **data})
+    return data
 
 
 PHASES: dict[str, Callable[[RunContext, dict[str, Any], str], PhaseOutcome]] = {

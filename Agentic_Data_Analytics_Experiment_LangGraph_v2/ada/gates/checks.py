@@ -165,6 +165,26 @@ def leakage_suspects(df: pd.DataFrame, target: str, threshold: float) -> dict[st
     return suspects
 
 
+def _raw_rows(store: RunStore, state: dict) -> int | None:
+    primary = ((state.get("phase_outputs") or {}).get("collect_data") or {}).get("primary_file")
+    if not primary or not store.exists(primary):
+        return None
+    path = store.resolve(primary)
+    try:
+        if path.suffix == ".parquet":
+            return len(pd.read_parquet(path))
+        if path.suffix in (".csv", ".tsv", ".txt"):
+            with open(path, "rb") as fh:
+                return max(0, sum(1 for _ in fh) - 1)
+        if path.suffix in (".xlsx", ".xls"):
+            return len(pd.read_excel(path))
+        if path.suffix == ".json":
+            return len(pd.read_json(path))
+    except Exception:
+        return None
+    return None
+
+
 def check_prepare_store(output: dict | None, *, store: RunStore, cfg: Config, state: dict,
                         **_: Any) -> list[CheckResult]:
     from ada.schemas import PrepOutput
@@ -190,6 +210,8 @@ def check_prepare_store(output: dict | None, *, store: RunStore, cfg: Config, st
     n_total = len(df) + (state.get("holdout_info") or {}).get("n_holdout", 0)
     if "_row_id" not in df.columns:
         res.append(fail("row_id_present", "column _row_id missing"))
+    elif df["_row_id"].astype(str).nunique() == 1 and len(df) > 1:
+        res.append(fail("row_id_unique", "_row_id is identical for all rows (pass columns, not a DataFrame, to stable_row_id)"))
     elif df["_row_id"].astype(str).duplicated().any():
         res.append(fail("row_id_unique", f"{int(df['_row_id'].astype(str).duplicated().sum())} duplicate _row_id values"))
     else:
@@ -198,8 +220,20 @@ def check_prepare_store(output: dict | None, *, store: RunStore, cfg: Config, st
         res.append(fail("target_present", f"target column {target!r} not in clean data"))
         return res
     res.append(ok("target_present", target))
-    res.append(ok("min_rows", f"{n_total} >= {min_rows}") if n_total >= min_rows else
-               fail("min_rows", f"only {n_total} rows, requirement is {min_rows}", route_hint="collect_data"))
+    raw_rows = _raw_rows(store, state)
+    if raw_rows and n_total < 0.5 * raw_rows:
+        res.append(fail("row_retention", f"clean data keeps {n_total} of {raw_rows} raw rows ({n_total / raw_rows:.0%}) — "
+                                         "justify every filter in the data card", severity="warning"))
+    if n_total >= min_rows:
+        res.append(ok("min_rows", f"{n_total} >= {min_rows}"))
+    else:
+        if raw_rows is not None and raw_rows >= min_rows:
+            # the raw data was big enough: cleaning lost the rows — fix preparation, not collection
+            res.append(fail("min_rows", f"cleaning kept only {n_total} of {raw_rows} raw rows (requirement {min_rows}); "
+                                        "check filters, dedupe keys and that _row_id differs per row"))
+        else:
+            res.append(fail("min_rows", f"only {n_total} rows (raw: {raw_rows}), requirement is {min_rows}",
+                            route_hint="collect_data"))
     y = df[target]
     t_null = float(y.isna().mean())
     res.append(ok("target_nulls", f"{t_null:.1%}") if t_null <= cfg.get("gates.max_target_null_rate", 0.0)
@@ -232,7 +266,7 @@ def check_prepare_store(output: dict | None, *, store: RunStore, cfg: Config, st
     res.append(ok("leakage_scan", "no suspects") if not suspects else
                fail("leakage_scan", "suspects (must not be used as features): " +
                     "; ".join(f"{k}: {v}" for k, v in list(suspects.items())[:8]), severity="warning"))
-    res.append(ok("data_card") if store.exists("data_card.md") else fail("data_card", "data_card.md missing"))
+    res.append(ok("data_card") if store.exists("data_card.md") else fail("data_card", "no data card at path 'data_card.md' (workspace root)"))
     return res
 
 

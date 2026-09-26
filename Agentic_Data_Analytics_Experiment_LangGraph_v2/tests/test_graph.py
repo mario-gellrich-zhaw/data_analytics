@@ -54,3 +54,44 @@ def test_stub_run_traverses_feedback_edges():
     gates = mgr.events.events(run_id, types=["gate"])
     assert all("decision" in g["payload"] for g in gates)
     assert mgr.final_state(run_id)["loopbacks"] == 2
+
+
+def test_human_approval_pauses_and_resumes():
+    mgr = RunManager()
+    run_id = mgr.start("approval test", None, {"mode": "stub", "stub_delay": 0, "human_approval": True},
+                       background=False)
+    assert mgr.events.get_run(run_id)["status"] == "awaiting_approval"
+    pending = mgr.pending_interrupt(run_id)
+    assert pending["node"] == "business_objectives" and pending["proposed"] == "define_data"
+    started = len(mgr.events.events(run_id, types=["message"]))
+    mgr.resume(run_id, background=False, resume_value={"next_node": "define_data", "note": "ok"})
+    # the approved phase was not re-run (its work is cached per visit)
+    assert mgr.final_state(run_id)["visits"]["business_objectives"] == 1
+    assert mgr.events.get_run(run_id)["status"] == "awaiting_approval"
+    assert mgr.pending_interrupt(run_id)["node"] == "define_data"
+    assert len(mgr.events.events(run_id, types=["message"])) > started
+
+
+def test_resume_after_crash_continues_from_checkpoint(monkeypatch):
+    import ada.graph.stub as stub
+    original = stub.stub_phase
+    calls = {"n": 0}
+
+    def flaky(ctx, state, node):
+        if node == "eda" and calls["n"] == 0:
+            calls["n"] += 1
+            raise KeyboardInterrupt("simulated crash")   # not caught by the node wrapper
+        return original(ctx, state, node)
+
+    monkeypatch.setattr("ada.graph.build.stub_phase", flaky)
+    mgr = RunManager()
+    try:
+        mgr.start("crash test", None, {"mode": "stub", "stub_delay": 0}, background=False, run_id="crash-test-1")
+    except KeyboardInterrupt:
+        pass
+    state = mgr.final_state("crash-test-1")
+    assert state["next"] == "eda" and state["visits"]["prepare_store"] == 1
+    mgr.resume("crash-test-1", background=False)
+    assert mgr.events.get_run("crash-test-1")["status"] == "completed"
+    final = mgr.final_state("crash-test-1")
+    assert final["visits"]["collect_data"] == 1          # earlier phases were not repeated

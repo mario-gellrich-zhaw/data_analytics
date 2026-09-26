@@ -1,0 +1,33 @@
+# Benchmark suite (protected: the improver cannot edit benchmarks/).
+# score_metric is fixed per task and computed on the task run's locked holdout,
+# independent of the metric the agents choose.
+tasks:
+  diabetes_regression:
+    objective: >-
+      Predict disease progression one year after baseline for diabetes patients from their baseline
+      measurements, so clinicians can prioritise follow-ups.
+    offline: true
+    score_metric: mae
+    expected: "holdout MAE ~42-48 (naive median ~62-66); linear models are competitive"
+
+  breast_cancer_classification:
+    objective: >-
+      Classify breast masses as benign or malignant from digitized fine-needle-aspirate image features to
+      support screening triage.
+    offline: true
+    score_metric: f1_macro
+    expected: "f1_macro ~0.95-0.98 (majority class ~0.39)"
+
+  synthetic_rentals:
+    objective: Build a price prediction model for rental apartments.
+    region: Lakeside (synthetic city, offline benchmark)
+    offline: true
+    score_metric: mae
+    expected: "holdout MAE ~150-200 CHF after cleaning (naive ~600); requires unit parsing and outlier removal"
+
+  rental_web:
+    objective: Build a price prediction model for rental apartments.
+    region: null
+    offline: false
+    score_metric: mape
+    expected: "depends on the sourced data; must beat the naive median and document sources/licences"

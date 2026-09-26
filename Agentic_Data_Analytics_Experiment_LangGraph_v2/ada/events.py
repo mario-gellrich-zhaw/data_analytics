@@ -7,6 +7,7 @@ Event shape: {run_id, ts, node, agent, type, summary, payload}.
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 import threading
 import time
@@ -31,7 +32,8 @@ CREATE TABLE IF NOT EXISTS runs (
     updated_at REAL NOT NULL,
     options TEXT,
     system_version TEXT,
-    summary TEXT
+    summary TEXT,
+    owner_pid INTEGER
 );
 CREATE TABLE IF NOT EXISTS events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -63,6 +65,9 @@ class EventStore:
         with self._lock:
             self._conn.execute("PRAGMA journal_mode=WAL")
             self._conn.executescript(_SCHEMA)
+            cols = {r["name"] for r in self._conn.execute("PRAGMA table_info(runs)")}
+            if "owner_pid" not in cols:
+                self._conn.execute("ALTER TABLE runs ADD COLUMN owner_pid INTEGER")
             self._conn.commit()
 
     # -- runs ------------------------------------------------------------
@@ -71,9 +76,10 @@ class EventStore:
         now = time.time()
         with self._lock:
             self._conn.execute(
-                "INSERT INTO runs (id, objective, region, mode, status, created_at, updated_at, options, system_version, summary)"
-                " VALUES (?,?,?,?,?,?,?,?,?,?)",
-                (run_id, objective, region, mode, "running", now, now, _json(options), system_version, _json({})),
+                "INSERT INTO runs (id, objective, region, mode, status, created_at, updated_at, options, system_version,"
+                " summary, owner_pid) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                (run_id, objective, region, mode, "running", now, now, _json(options), system_version, _json({}),
+                 os.getpid()),
             )
             self._conn.commit()
 
@@ -85,6 +91,9 @@ class EventStore:
         if summary is not None:
             sets.append("summary=?")
             args.append(_json(summary))
+        if status == "running":
+            sets.append("owner_pid=?")
+            args.append(os.getpid())
         args.append(run_id)
         with self._lock:
             self._conn.execute(f"UPDATE runs SET {', '.join(sets)} WHERE id=?", args)
@@ -101,12 +110,15 @@ class EventStore:
         return [_run_row(r) for r in rows]
 
     def mark_orphans_interrupted(self) -> list[str]:
-        """Called at server start: runs still 'running' were killed with the process."""
+        """Called at server start: runs still 'running' whose owning process is gone were
+        killed with it (crash / restart) and can be resumed."""
         with self._lock:
-            rows = self._conn.execute("SELECT id FROM runs WHERE status IN ('running','queued')").fetchall()
-            self._conn.execute("UPDATE runs SET status='interrupted' WHERE status IN ('running','queued')")
+            rows = self._conn.execute("SELECT id, owner_pid FROM runs WHERE status IN ('running','queued')").fetchall()
+            dead = [r["id"] for r in rows if not _alive(r["owner_pid"])]
+            for run_id in dead:
+                self._conn.execute("UPDATE runs SET status='interrupted' WHERE id=?", (run_id,))
             self._conn.commit()
-        return [r["id"] for r in rows]
+        return dead
 
     # -- events ----------------------------------------------------------
     def emit(self, run_id: str, type: str, summary: str, *, node: str | None = None,
@@ -137,6 +149,18 @@ class EventStore:
         with self._lock:
             rows = self._conn.execute(query, args).fetchall()
         return [_event_row(r) for r in rows]
+
+
+def _alive(pid: int | None) -> bool:
+    if not pid or pid == os.getpid():
+        return False
+    try:
+        os.kill(pid, 0)
+        return True
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
 
 
 def _run_row(row: sqlite3.Row) -> dict[str, Any]:
