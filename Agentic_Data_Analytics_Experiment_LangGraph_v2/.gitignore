@@ -1,0 +1,22 @@
+# secrets — the key lives in ../.env (repo root) or ./.env; never commit either
+.env
+.env.*
+!.env.example
+
+# runtime state (runs, vault, databases, mlflow)
+var/
+mlruns/
+mlartifacts/
+*.db
+*.db-wal
+*.db-shm
+
+# python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# frontend
+frontend/node_modules/
+frontend/dist/

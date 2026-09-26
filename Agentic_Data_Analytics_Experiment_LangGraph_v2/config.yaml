@@ -1,0 +1,113 @@
+# Autonomous data analytics system — configuration.
+#
+# Improver-editable (see improve/allowlist.py): models, roles, agents, web.request_delay_seconds.
+# Everything else (budgets, gates, holdout, sandbox, improve, pricing, paths) is protected.
+
+models:
+  strong: gpt-5.1          # supervisor, objective, critic, evaluation, improver
+  worker: gpt-5-mini       # high-volume worker calls
+  reasoning_effort:
+    strong: low
+    worker: low
+
+# agent role -> model tier
+roles:
+  objective: strong
+  data_requirements: worker
+  data_collector: worker
+  data_engineer: worker
+  eda: worker
+  modeling: worker
+  evaluation: strong
+  presenter: worker
+  supervisor: strong
+  critic: strong
+  improver: strong
+  web_search: worker
+
+agents:
+  max_tool_steps:
+    default: 16
+    data_collector: 40
+    data_engineer: 30
+    eda: 20
+    modeling: 30
+    evaluation: 16
+    presenter: 12
+  # older tool outputs are shortened to this many characters to keep prompts small
+  keep_full_tool_outputs: 6
+  truncated_tool_output_chars: 600
+  max_tool_output_chars: 6000
+
+# USD per 1M tokens: [input, cached_input, output] — list prices at time of writing; edit if they change.
+pricing_usd_per_1m:
+  gpt-5.1: [1.25, 0.125, 10.0]
+  gpt-5-mini: [0.25, 0.025, 2.0]
+  gpt-5-nano: [0.05, 0.005, 0.4]
+  gpt-5: [1.25, 0.125, 10.0]
+  gpt-4.1-mini: [0.4, 0.1, 1.6]
+  gpt-4.1: [2.0, 0.5, 8.0]
+pricing_web_search_call_usd: 0.01
+
+budgets:
+  max_usd: 5.0
+  max_tokens: 6000000
+  max_wall_seconds: 5400
+  max_iterations_per_phase: 4
+  max_total_loopbacks: 8
+  max_failed_retries: 2          # after this many failed gates in a row, a *different* strategy is forced
+  presenter_reserve_usd: 0.15    # kept back so the final report can still be written
+
+gates:
+  critic_pass_score: 6           # 0..10
+  max_null_rate: 0.35            # overall share of missing cells in clean data
+  max_target_null_rate: 0.0
+  max_duplicate_rate: 0.05
+  leakage_corr_threshold: 0.97
+  min_rows_default: 200
+  must_beat_baseline_by: 0.0     # relative improvement over the naive baseline required at minimum
+
+holdout:
+  fraction: 0.2
+  val_fraction: 0.2              # of the remaining (non-holdout) rows
+  salt: ada-holdout-v1
+
+sandbox:
+  mode: auto                     # auto | docker | remote | subprocess
+  run_as_user: adasandbox        # subprocess mode: execute agent code as this OS user (via sudo setpriv)
+  require_isolation: true        # refuse to run agent code without a separate user / container
+  timeout_seconds: 300
+  memory_mb: 6144
+  cpu_seconds: 900
+  max_file_mb: 1024
+  docker_image: ada-sandbox:latest
+  remote_url: http://sandbox:8100
+
+web:
+  search_provider: openai        # openai | tavily
+  user_agent: "ADA-research-bot/0.1 (educational, non-commercial; respects robots.txt)"
+  request_delay_seconds: 1.0
+  max_download_mb: 300
+  max_downloads_per_run: 60
+  nominatim_url: https://nominatim.openstreetmap.org/search
+  overpass_url: https://overpass-api.de/api/interpreter
+  max_geocode_rows: 400
+
+human_approval: false            # env HUMAN_APPROVAL=true overrides
+
+paths:
+  var_dir: var                   # env ADA_VAR_DIR overrides
+  vault_dir: ~/.ada_vault        # env ADA_VAULT_DIR overrides; must NOT be readable by the sandbox
+
+tracking:
+  mlflow_uri: sqlite:///var/mlflow.db   # relative to the project dir; env MLFLOW_TRACKING_URI overrides
+
+improve:
+  tasks: [diabetes_regression, synthetic_rentals]
+  repeats: 2
+  parallel: 4
+  min_improvement: 0.02          # accept only if mean score gain > max(this, 2 * standard error)
+  max_changes: 3
+  weights: {metric: 0.55, gates: 0.2, cost: 0.15, time: 0.1}
+  budget_overrides:
+    budgets: {max_usd: 1.5, max_wall_seconds: 1800}
