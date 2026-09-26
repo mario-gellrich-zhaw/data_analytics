@@ -83,7 +83,7 @@ export default function Timeline({ events, agents }: { events: RunEvent[]; agent
   const [filter, setFilter] = useState<string>("all");
   const [showBudget, setShowBudget] = useState(false);
   const [follow, setFollow] = useState(true);
-  const endRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const items: Item[] = useMemo(() => {
     const out: Item[] = [];
@@ -106,7 +106,11 @@ export default function Timeline({ events, agents }: { events: RunEvent[]; agent
     return out;
   }, [events, filter, showBudget]);
 
-  useEffect(() => { if (follow) endRef.current?.scrollIntoView({ block: "end" }); }, [items.length, follow]);
+  useEffect(() => {
+    // scroll only the timeline panel, never the page (keeps the run header visible)
+    const box = scrollRef.current;
+    if (follow && box) box.scrollTop = box.scrollHeight;
+  }, [items.length, follow]);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -120,7 +124,7 @@ export default function Timeline({ events, agents }: { events: RunEvent[]; agent
         <label className="ml-auto flex items-center gap-1"><input type="checkbox" checked={showBudget} onChange={(e) => setShowBudget(e.target.checked)} /> cost events</label>
         <label className="flex items-center gap-1"><input type="checkbox" checked={follow} onChange={(e) => setFollow(e.target.checked)} /> follow</label>
       </div>
-      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-3 py-3">
+      <div ref={scrollRef} className="min-h-0 flex-1 space-y-2 overflow-y-auto px-3 py-3">
         {items.length === 0 && <div className="py-10 text-center text-sm text-stone-400">No events yet.</div>}
         {items.map((it, i) => {
           if (it.kind === "tool") return <div key={i} className="pl-8"><ToolCall call={it.call} result={it.result} /></div>;
@@ -152,7 +156,6 @@ export default function Timeline({ events, agents }: { events: RunEvent[]; agent
             </div>
           );
         })}
-        <div ref={endRef} />
       </div>
     </div>
   );

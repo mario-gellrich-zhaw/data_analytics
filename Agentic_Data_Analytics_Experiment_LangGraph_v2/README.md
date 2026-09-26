@@ -82,7 +82,10 @@ never sees the vault or `.env`.
 
 ### Local (no Docker; used for development here)
 
+Run every `make` command from this project folder (the Makefile lives here), not from the repository root:
+
 ```bash
+cd Agentic_Data_Analytics_Experiment_LangGraph_v2      # or: make -C Agentic_Data_Analytics_Experiment_LangGraph_v2 run
 make setup          # .venv + requirements + npm install
 make sandbox-user   # creates OS user 'adasandbox' that executes agent code (needs sudo); chmod 600 your .env
 make run            # builds the UI, serves it + API on http://localhost:8000, MLflow UI on :5000
@@ -91,6 +94,19 @@ make test           # unit tests, no LLM calls
 make improve        # one self-improvement cycle
 make bench          # benchmark suite once
 ```
+
+Other ports: `make run PORT=8001 MLFLOW_PORT=5001`.
+
+**Stopping**
+- `make run` in a terminal: press `Ctrl+C`. This stops the web app and MLflow.
+- A server running in the background: `kill $(lsof -t -i :8000)` (and `:5000` for MLflow), or `fuser -k 8000/tcp`.
+  Use the same command when `make run` fails with "address already in use".
+- Runs started from the CLI are separate processes and keep going after the server stops. List them with
+  `ps -eo pid,args | grep "[a]da.cli run"` and stop one with `kill <pid>`.
+- A single run, without stopping the app: the **stop** button in the UI. The run finishes its current step and
+  then writes the report with the best result so far.
+- Runs that were running when the server stopped are marked *interrupted*. Continue them with **resume** in the UI
+  or `.venv/bin/python -m ada.cli resume <run_id>`.
 
 CLI: `.venv/bin/python -m ada.cli run --objective "…" [--region Zurich] [--offline] [--max-usd 3]`,
 `… run --task diabetes_regression`, `… resume <run_id>`, `… list`.

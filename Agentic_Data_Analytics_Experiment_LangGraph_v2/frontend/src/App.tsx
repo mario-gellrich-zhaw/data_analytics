@@ -38,9 +38,13 @@ function useRunEvents(runId: string | null) {
   return { events, status };
 }
 
+function remembered(key: string, fallback: string): string {
+  try { return localStorage.getItem(key) ?? fallback; } catch { return fallback; }
+}
+
 function StartPanel({ onStarted, defaults }: { onStarted: (id: string) => void; defaults: any }) {
-  const [objective, setObjective] = useState("Build a price prediction model for rental apartments in Switzerland, trained on apartment-level data (one row per individual rental listing, not aggregated statistics).");
-  const [region, setRegion] = useState("Switzerland");
+  const [objective, setObjective] = useState(() => remembered("ada.objective", "Build a price prediction model for rental apartments in Switzerland, trained on apartment-level data (one row per individual rental listing, not aggregated statistics)."));
+  const [region, setRegion] = useState(() => remembered("ada.region", "Switzerland"));
   const [maxUsd, setMaxUsd] = useState<number>(5);
   const [maxMin, setMaxMin] = useState<number>(90);
   const [maxLoops, setMaxLoops] = useState<number>(8);
@@ -55,6 +59,7 @@ function StartPanel({ onStarted, defaults }: { onStarted: (id: string) => void; 
   }, [defaults]);
   const start = async () => {
     setBusy(true); setErr(null);
+    try { localStorage.setItem("ada.objective", objective); localStorage.setItem("ada.region", region); } catch { /* storage unavailable */ }
     try {
       const { run_id } = await api.start({ objective, region: region || null, mode, offline, max_usd: maxUsd, max_minutes: maxMin, max_loopbacks: maxLoops, human_approval: approval });
       onStarted(run_id);
@@ -101,7 +106,7 @@ function RunList({ runs, selected, onSelect, onResume }: { runs: Run[]; selected
             className={`w-full rounded-md px-2 py-1.5 text-left ${selected === r.id ? "bg-blue-50 ring-1 ring-blue-300 dark:bg-blue-950 dark:ring-blue-800" : "hover:bg-stone-100 dark:hover:bg-stone-900"}`}>
             <div className="flex items-center gap-2">
               <span className={`h-2 w-2 shrink-0 rounded-full ${STATUS_TONE[r.status] ?? "bg-stone-400"} ${r.active ? "animate-pulse" : ""}`} />
-              <span className="truncate text-xs font-medium">{r.objective}</span>
+              <span className="truncate text-xs font-medium" title={r.objective}>{r.region ? `[${r.region}] ` : ""}{r.objective}</span>
             </div>
             <div className="mt-0.5 flex items-center gap-2 pl-4 text-[10px] text-stone-500">
               <span className="font-mono">{r.id.slice(0, 15)}</span><span>{r.mode}</span><span>{r.status}</span>
@@ -185,7 +190,7 @@ export default function App() {
                   <div className="pb-3"><BudgetMeters view={view} /></div>
                 </section>
                 <section className="grid min-h-[560px] flex-1 grid-cols-1 xl:grid-cols-12">
-                  <div className="min-h-[480px] border-b border-stone-200 xl:col-span-7 xl:border-b-0 xl:border-r dark:border-stone-800"><Timeline events={events} agents={view.agents} /></div>
+                  <div className="h-[640px] border-b border-stone-200 xl:col-span-7 xl:border-b-0 xl:border-r dark:border-stone-800"><Timeline events={events} agents={view.agents} /></div>
                   <div className="flex min-h-[480px] flex-col xl:col-span-5">
                     <div className="flex gap-1 border-b border-stone-200 px-3 py-2 text-xs dark:border-stone-800">
                       {(["metrics", "artifacts"] as const).map((s) => (
