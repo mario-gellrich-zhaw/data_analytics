@@ -1,0 +1,32 @@
+Total Flatfox listings: 35059
+Page offset 34959: 100 results, 79 after apartment/rent filter
+Zurich postal filter: 18 listings
+Saving 18 rows for Zurich
+Page offset 34859: 100 results, 58 after apartment/rent filter
+Zurich postal filter: 16 listings
+Saving 16 rows for Zurich
+Page offset 34759: 100 results, 76 after apartment/rent filter
+Zurich postal filter: 14 listings
+Saving 14 rows for Zurich
+Page offset 34659: 100 results, 54 after apartment/rent filter
+Zurich postal filter: 23 listings
+Saving 23 rows for Zurich
+Page offset 34559: 100 results, 65 after apartment/rent filter
+Zurich postal filter: 18 listings
+Saving 18 rows for Zurich
+Page offset 34459: 100 results, 61 after apartment/rent filter
+Zurich postal filter: 11 listings
+Saving 11 rows for Zurich
+Page offset 34359: 100 results, 65 after apartment/rent filter
+Zurich postal filter: 15 listings
+Saving 15 rows for Zurich
+Page offset 34259: 100 results, 42 after apartment/rent filter
+Zurich postal filter: 10 listings
+Saving 10 rows for Zurich
+Page offset 34159: 100 results, 69 after apartment/rent filter
+Zurich postal filter: 20 listings
+Saving 20 rows for Zurich
+Page offset 34059: 100 results, 71 after apartment/rent filter
+Zurich postal filter: 12 listings
+Saving 12 rows for Zurich
+Row cap reached, stopping.
