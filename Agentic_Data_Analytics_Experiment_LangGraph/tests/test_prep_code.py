@@ -1,0 +1,264 @@
+"""Offline tests for the agent-written data-preparation tools: the static
+code check, a real sandboxed run on a small CSV, the acceptance rules, and
+RunTools' stage handling.
+
+Run from the app folder:  python -m unittest discover tests
+"""
+
+# Test method names say what each test checks.
+# pylint: disable=missing-function-docstring
+
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+
+import pandas as pd
+
+APP_DIR = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(APP_DIR))
+
+from tools import prep_code  # noqa: E402  pylint: disable=wrong-import-position
+from tools import run_tools  # noqa: E402  pylint: disable=wrong-import-position
+
+LISTINGS = pd.DataFrame(
+    {
+        "listing_id": [1, 2, 2, 3, 4],
+        "rent_gross_chf": [2000, 1500, 1500, None, 3100],
+        "rooms": ["3.5", "2", "2", "4", "4.5"],
+        "living_space_m2": [80, 50, 50, 95, 110],
+        "description": ["Loft mit Seesicht", "Nett", "Nett", "Ruhig", "Seesicht, Balkon"],
+    }
+)
+
+CLEAN_SCRIPT = """
+import pandas as pd
+import prep_kit
+df = prep_kit.load_data()
+df = df.drop_duplicates(subset=["listing_id"]).dropna(subset=["rent_gross_chf"])
+df["rooms"] = pd.to_numeric(df["rooms"])
+print("rows left:", len(df))
+prep_kit.save_data(df)
+"""
+
+ENRICH_SCRIPT = """
+import prep_kit
+df = prep_kit.load_data()
+df["price_per_m2"] = (df["rent_gross_chf"] / df["living_space_m2"]).round(2)
+df["luxurious"] = df["description"].str.upper().str.contains("LOFT|SEESICHT").astype(int)
+prep_kit.save_data(df.drop(columns=["description"]))
+"""
+
+
+class CheckPrepCodeTest(unittest.TestCase):
+    """The static whitelist check of agent-written preparation code."""
+
+    def test_accepts_typical_scripts(self):
+        self.assertEqual(prep_code.check_prep_code(CLEAN_SCRIPT), [])
+        self.assertEqual(prep_code.check_prep_code(ENRICH_SCRIPT), [])
+        lookup = (
+            "import prep_kit, scraper_kit\ndf = prep_kit.load_data()\n"
+            "try:\n    p = scraper_kit.polite_get('https://api3.geo.admin.ch/x', params={'a': 1})\n"
+            "except scraper_kit.ScrapeBlocked as e:\n    print(e)\nprep_kit.save_data(df)\n"
+        )
+        self.assertEqual(prep_code.check_prep_code(lookup), [])
+
+    def test_rejects_file_and_web_access_of_its_own(self):
+        for code in (
+            "import pandas as pd\ndf = pd.read_csv('x.csv')",
+            "from pandas import read_csv",
+            "import prep_kit\nprep_kit.load_data().to_csv('x.csv')",
+            "import numpy as np\nnp.load('x.npy')",
+            "import pandas as pd\npd.io.common",
+            "import prep_kit\nprep_kit.load_data().query('a > 1')",
+            "import os",
+            "import requests",
+            "import prep_kit\nprep_kit.IN_PATH",
+            "import scraper_kit\nscraper_kit.save_rows([])",
+            "import prep_kit\nprep_kit.load_data()",  # never saves its result
+        ):
+            with self.subTest(code=code):
+                self.assertNotEqual(prep_code.check_prep_code(code), [])
+
+
+def _run(tmp: str, code: str, in_df: pd.DataFrame) -> dict:
+    tmp_path = Path(tmp)
+    in_path = tmp_path / "in.csv"
+    in_df.to_csv(in_path, index=False)
+    script = tmp_path / "s.py"
+    script.write_text(code, encoding="utf-8")
+    work_dir = tmp_path / "w"
+    return prep_code.run_prep_code(script, work_dir, in_path, "CSV", work_dir / "out.csv")
+
+
+class RunPrepCodeTest(unittest.TestCase):
+    """Really running a saved preparation script on a small CSV."""
+
+    def test_cleaning_run_reports_real_before_after(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = _run(tmp, CLEAN_SCRIPT, LISTINGS)
+        self.assertEqual(result["exit_code"], 0, result["output_tail"])
+        self.assertEqual((result["rows_before"], result["rows_after"]), (5, 3))
+        self.assertIn("rows left: 3", result["output_tail"])
+        self.assertEqual(result["dtypes"]["rooms"], "float64")
+        self.assertEqual(prep_code.judge_prep_output("clean", result), (True, ""))
+
+    def test_enrichment_run_lists_new_and_removed_columns(self):
+        cleaned = LISTINGS.drop_duplicates(subset=["listing_id"]).dropna()
+        with tempfile.TemporaryDirectory() as tmp:
+            result = _run(tmp, ENRICH_SCRIPT, cleaned)
+        self.assertEqual(result["added_columns"], ["price_per_m2", "luxurious"])
+        self.assertEqual(result["removed_columns"], ["description"])
+        self.assertEqual(prep_code.judge_prep_output("enrich", result), (True, ""))
+
+    def test_filling_in_missing_rents_is_rejected(self):
+        imputing = (
+            "import prep_kit\ndf = prep_kit.load_data()\n"
+            "df['rent_gross_chf'] = df['rent_gross_chf'].fillna(df['rent_gross_chf'].median())\n"
+            "prep_kit.save_data(df.drop_duplicates(subset=['listing_id']))\n"
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            result = _run(tmp, imputing, LISTINGS)
+        self.assertEqual(result["filled_target_values"], {"rent_gross_chf": 1})
+        ok, reason = prep_code.judge_prep_output("clean", result)
+        self.assertFalse(ok)
+        self.assertIn("training label", reason)
+
+    def test_crash_shows_traceback(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            crashing = "import prep_kit\nprep_kit.load_data()['nope']\nprep_kit.save_data(None)"
+            result = _run(tmp, crashing, LISTINGS)
+        self.assertNotEqual(result["exit_code"], 0)
+        self.assertIn("KeyError", result["output_tail"])
+        ok, reason = prep_code.judge_prep_output("clean", result)
+        self.assertFalse(ok)
+        self.assertIn("crashed", reason)
+
+
+class JudgePrepOutputTest(unittest.TestCase):
+    """The rules every preparation run's output is judged by."""
+
+    BASE = {
+        "timed_out": False,
+        "exit_code": 0,
+        "saved": True,
+        "rows_before": 100,
+        "rows_after": 100,
+        "columns_before": ["listing_id", "rent"],
+        "columns": ["listing_id", "rent", "new"],
+        "added_columns": ["new"],
+        "listing_id_unique": True,
+    }
+
+    def judge(self, stage, **changes):
+        return prep_code.judge_prep_output(stage, {**self.BASE, **changes})
+
+    def test_cleaning_that_drops_most_rows_is_rejected(self):
+        ok, reason = self.judge("clean", rows_after=30)
+        self.assertFalse(ok)
+        self.assertIn("70%", reason)
+
+    def test_enrichment_must_keep_every_row_and_add_a_column(self):
+        self.assertFalse(self.judge("enrich", rows_after=130)[0])
+        self.assertFalse(self.judge("enrich", added_columns=[])[0])
+
+    def test_listing_id_must_stay_unique(self):
+        self.assertFalse(self.judge("clean", listing_id_unique=False)[0])
+        self.assertFalse(self.judge("enrich", columns=["rent", "new"])[0])
+
+
+class RunToolsPrepStageTest(unittest.TestCase):
+    """RunTools' stage handling: cleaning feeds enrichment."""
+
+    def test_accepted_stages_chain_clean_into_enrich(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            paths = run_tools.DataPaths(*(tmp_path / name for name in "abcdefgh"))
+            tools = run_tools.RunTools(
+                paths, on_progress=lambda _: None, on_artifact=lambda *_: None
+            )
+            raw = tmp_path / "raw.csv"
+            LISTINGS.to_csv(raw, index=False)
+            tools.current_file = {"path": str(raw), "format": "CSV"}
+
+            self.assertIn("error", tools.call_run_prep_code())  # no stage active yet
+            tools.start_prep_stage("clean")
+            tools.call_write_prep_code(CLEAN_SCRIPT)
+            cleaned = tools.call_run_prep_code()
+            self.assertTrue(cleaned["accepted"], cleaned.get("rejected_because"))
+            self.assertEqual(tools.current_file["path"], str(paths.cleaned))
+            self.assertIn("clean_v1.py", tools.prep_working_notes())
+
+            tools.start_prep_stage("enrich")
+            self.assertIn("nothing has run yet", tools.prep_working_notes())  # fresh per stage
+            tools.call_write_prep_code(ENRICH_SCRIPT)
+            enriched = tools.call_run_prep_code()
+            self.assertTrue(enriched["accepted"], enriched.get("rejected_because"))
+            added = tools.results["enrich"]["added_columns"]
+            self.assertEqual(added, ["price_per_m2", "luxurious"])
+            self.assertEqual(len(pd.read_csv(paths.enriched)), 3)
+            self.assertIn("Real run of enrich_v1.py", enriched["team_note"])
+            self.assertIn("price_per_m2 (100% filled)", enriched["team_note"])
+            self.assertIn("ACCEPTED", enriched["team_note"])
+
+
+class SparseColumnsTest(unittest.TestCase):
+    """A lookup tried on a few rows only must not read as finished."""
+
+    def test_mostly_empty_new_column_gets_a_diagnosis(self):
+        result = {
+            "rows_after": 65,
+            "added_columns": ["municipality", "price_per_m2"],
+            "missing_values": {"municipality": 60, "price_per_m2": 5},
+        }
+        diagnosis = run_tools._sparse_columns_diagnosis(result)  # pylint: disable=protected-access
+        self.assertIn("municipality (8% filled)", diagnosis)
+        self.assertNotIn("price_per_m2", diagnosis)
+
+
+class StatusTagTest(unittest.TestCase):
+    """A reply without a status tag keeps the agent's earlier vote."""
+
+    def test_missing_tag_keeps_previous_readiness(self):
+        from agents.graph import record_turn  # pylint: disable=import-outside-toplevel
+
+        state = {
+            "pending_speaker": "Data Engineer",
+            "final_text": "Looks complete to me.",
+            "ready": {"Data Engineer": True},
+            "transcript": [],
+            "turns_in_phase": 3,
+            "turn_idx": 3,
+            "used_tool": False,
+            "team_notes": [],
+            "recent_turns": [],
+        }
+        self.assertTrue(record_turn(state)["ready"]["Data Engineer"])
+        state["final_text"] = "One more fix needed.\n[STATUS: CONTINUE]"
+        self.assertFalse(record_turn(state)["ready"]["Data Engineer"])
+
+
+class StallGuardTest(unittest.TestCase):
+    """The graph ends a phase that has run dry."""
+
+    def state(self, turns):
+        return {"phase_agents": [object()] * 3, "recent_turns": turns}
+
+    def test_two_quiet_rounds_end_the_phase(self):
+        from agents.graph import _stalled  # pylint: disable=import-outside-toplevel
+
+        quiet = [{"empty": e, "used_tool": False} for e in (True, True, False) * 2]
+        self.assertTrue(_stalled(self.state(quiet)))
+
+    def test_talking_or_tool_use_keeps_it_going(self):
+        from agents.graph import _stalled  # pylint: disable=import-outside-toplevel
+
+        talking = [{"empty": False, "used_tool": False}] * 6
+        self.assertFalse(_stalled(self.state(talking)))
+        with_tool = [{"empty": True, "used_tool": False}] * 5
+        with_tool.append({"empty": False, "used_tool": True})
+        self.assertFalse(_stalled(self.state(with_tool)))
+
+
+if __name__ == "__main__":
+    unittest.main()

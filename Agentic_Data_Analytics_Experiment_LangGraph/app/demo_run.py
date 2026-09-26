@@ -7,12 +7,14 @@ in order, once:
   2. Defining appropriate data — discussion only (no tools yet)
   3. Collecting data        — agent-written scraper code (really run),
                                real open-data search/download tools
-  4. Preparing & storing data — discussion, then real cleaning + real
-                                 SQLite storage + a real SQL query
+  4. Preparing & storing data — planning, then agent-written cleaning
+                                 code and agent-written enrichment code
+                                 (both really run), real SQLite storage +
+                                 a real SQL query
 
 Deliberately no analysis/interpretation happens here (that's the next,
-not-yet-built part of the process model) — step 4's tools profile and clean
-data structurally, they don't derive insights. Turn-taking and tool-calling
+not-yet-built part of the process model) — step 4 cleans the data and
+enriches every listing with new columns, it doesn't derive insights. Turn-taking and tool-calling
 are driven by a LangGraph `StateGraph` (see agents/graph.py): each phase
 streams the compiled graph until its agents reach consensus (a status tag)
 or a turn cap is hit.
@@ -30,13 +32,20 @@ from datetime import datetime
 from typing import NamedTuple
 
 from agents import prompts
-from agents.graph import SPEAKER_PREFIX_RE, STATUS_TAG_RE, AgentConfig, build_phase_graph, speak_once
+from agents.graph import (
+    SPEAKER_PREFIX_RE,
+    STATUS_TAG_RE,
+    AgentConfig,
+    build_phase_graph,
+    speak_once,
+)
 from agents.personas import build_agents
 from app.config import (
     CLEANED_PATH,
     CONVERSATION_HISTORY_DIR,
     DB_PATH,
     DOWNLOAD_PATH,
+    ENRICHED_PATH,
     FALLBACK_DATASET_FORMAT,
     FALLBACK_DATASET_ORGANIZATION,
     FALLBACK_DATASET_PAGE_URL,
@@ -48,9 +57,11 @@ from app.config import (
     MAX_TURNS_ACTION,
     MAX_TURNS_COLLECT,
     MAX_TURNS_DISCUSSION,
+    MAX_TURNS_PREP,
     MIN_TURNS_ACTION,
     MIN_TURNS_DISCUSSION,
     MIN_TURNS_ROUND_ROBIN,
+    PREP_DIR,
     SCRAPED_PATH,
     SCRAPERS_DIR,
     STATIC_DIR,
@@ -58,6 +69,7 @@ from app.config import (
 )
 from reporting import transcript
 from tools.opendata import download_dataset
+from tools.preparation import preview_data, profile_data
 from tools.run_tools import DataPaths, RunTools
 
 
@@ -124,19 +136,31 @@ class DemoRun:
             scrapers_dir=SCRAPERS_DIR,
             cleaned=CLEANED_PATH,
             db=DB_PATH,
+            prep_dir=PREP_DIR,
+            enriched=ENRICHED_PATH,
+            history=CONVERSATION_HISTORY_DIR,
         )
         self.tools = RunTools(
             data_paths, on_progress=self._on_progress, on_artifact=self._on_artifact
         )
-        self.tool_impls = self.tools.build_tool_impls()
-        self.agents = build_agents(analyst_working_notes=self.tools.scraper_working_notes)
+        self.agents = build_agents(
+            analyst_working_notes=self.tools.scraper_working_notes,
+            prep_working_notes=self.tools.prep_working_notes,
+        )
+
+    @property
+    def tool_impls(self) -> dict:
+        """Name -> callable for every real tool (see RunTools)."""
+        return self.tools.build_tool_impls()
 
     def _on_progress(self, stage: str):
         self.q.put(_sse("progress", {"stage": stage}))
 
     def _on_artifact(self, kind: str, data: dict):
-        """A scraper version the agent just wrote, or a scraper run that
-        just finished — shown inline in the chat and kept in the history."""
+        """A scraper / preparation script the agent just wrote, a run of
+        one that just finished, a real example shown to the class, or a
+        look at earlier runs — shown inline in the chat and kept in the
+        history."""
         self.q.put(_sse(kind, data))
         self.history.append({"kind": kind, "data": data})
 
@@ -176,6 +200,7 @@ class DemoRun:
         net / a manual Stop says to end early."""
         self.current_step["step"] = spec.step
         self.current_step["step_label"] = spec.step_label
+        self.tools.teaching.new_phase()
         self.q.put(
             _sse(
                 "phase_start",
@@ -238,6 +263,8 @@ class DemoRun:
             "pending_ai_message": None,
             "final_text": "",
             "used_tool": False,
+            "team_notes": [],
+            "recent_turns": [],
             "last_turn": None,
         }
 
@@ -247,9 +274,10 @@ class DemoRun:
             final_state = state
             if state["turns_in_phase"] > emitted and state["last_turn"]:
                 turn = state["last_turn"]
-                self._stream_turn(
-                    turn["speaker"], turn["text"], turn["used_tool"], spec.step, spec.step_label
-                )
+                if turn["text"]:  # a bare status tag isn't worth a bubble
+                    self._stream_turn(
+                        turn["speaker"], turn["text"], turn["used_tool"], spec.step, spec.step_label
+                    )
                 emitted = state["turns_in_phase"]
             if self._should_stop():
                 break
@@ -439,43 +467,105 @@ class DemoRun:
         )
         self._speak_once(self.agents.product_manager, 3, "Collecting data")
 
-    # --- Step 4: Preparing & storing data — discuss, then real tools ----
+    # --- Step 4: Preparing & storing data — plan, clean, enrich, store --
+
+    def _brief_on_dataset(self):
+        """Open Step 4 with the real facts about the collected file, so the
+        planning talk is about the actual columns, not imagined ones."""
+        path, fmt = self.tools.current_file["path"], self.tools.current_file["format"]
+        profile = profile_data(path=path, data_format=fmt)
+        preview = preview_data(path=path, data_format=fmt, n=3)
+        if profile.get("error") or preview.get("error"):
+            return
+        self.tools.results["profile"] = profile
+        self.transcript.append(
+            {"speaker": "system", "text": prompts.dataset_briefing(profile, preview)}
+        )
 
     def _run_step4(self):
+        step_label = "Preparing & storing data"
+        self._brief_on_dataset()
         self.run_phase(
-            [self.agents.product_manager, self.agents.data_engineer_notools],
+            [
+                self.agents.product_manager,
+                self.agents.data_engineer_notools,
+                self.agents.data_analyst_notools,
+            ],
             PhaseSpec(
                 step=4,
-                step_label="Preparing & storing data",
+                step_label=step_label,
                 sub_label="planning",
                 goal=prompts.STEP4A_GOAL,
                 has_tools=False,
+                min_turns_override=MIN_TURNS_ROUND_ROBIN,
             ),
         )
+        # Cleaning, then enrichment: each an agent-written script really
+        # run on the current dataset, owned by one agent and reviewed by
+        # the other (see agents/prompts.py). Enrichment is per apartment,
+        # so it's skipped on the aggregated fallback dataset.
         if not self._should_stop():
+            self.tools.start_prep_stage("clean")
             self.run_phase(
-                [self.agents.product_manager, self.agents.data_engineer_with_tools],
+                [
+                    self.agents.product_manager,
+                    self.agents.data_engineer_cleaning,
+                    self.agents.data_analyst_reviewing_cleaning,
+                ],
                 PhaseSpec(
                     step=4,
-                    step_label="Preparing & storing data",
-                    sub_label="execution",
+                    step_label=step_label,
+                    sub_label="cleaning",
                     goal=prompts.STEP4B_GOAL,
+                    has_tools=True,
+                    max_turns_override=MAX_TURNS_PREP,
+                ),
+            )
+        if not self._should_stop() and not self.tools.results["download"].get("fallback"):
+            self.tools.start_prep_stage("enrich")
+            self.run_phase(
+                [
+                    self.agents.product_manager,
+                    self.agents.data_analyst_enriching,
+                    self.agents.data_engineer_reviewing_enrichment,
+                ],
+                PhaseSpec(
+                    step=4,
+                    step_label=step_label,
+                    sub_label="enrichment",
+                    goal=prompts.STEP4C_GOAL,
+                    has_tools=True,
+                    max_turns_override=MAX_TURNS_PREP,
+                ),
+            )
+        self.tools.end_prep_stage()
+        if not self._should_stop():
+            self.run_phase(
+                [self.agents.product_manager, self.agents.data_engineer_storing],
+                PhaseSpec(
+                    step=4,
+                    step_label=step_label,
+                    sub_label="storing",
+                    goal=prompts.STEP4D_GOAL,
                     has_tools=True,
                 ),
             )
         step4_result = {
             "step": 4,
-            "step_label": "Preparing & storing data",
+            "step_label": step_label,
             "profile": dict(self.tools.results["profile"]),
             "clean": dict(self.tools.results["clean"]),
+            "enrich": dict(self.tools.results["enrich"]),
             "store": dict(self.tools.results["store"]),
             "sql": dict(self.tools.results["sql"]),
             "sketch": dict(self.tools.results["sketch"]),
-            "preview": dict(self.tools.results["clean_preview"]),
+            "preview": dict(self.tools.results["prepared_preview"]),
         }
         self.q.put(_sse("phase_done", step4_result))
         self.history.append({"kind": "phase_result", "step": 4, "data": step4_result})
-        if self.tools.results["download"].get("fallback"):
+        if self._should_stop() and not self.tools.results["store"]:
+            self._finish_stopped_or_timed_out()
+        elif self.tools.results["download"].get("fallback"):
             self.outcome = {
                 "status": "completed_with_fallback",
                 "message": (
@@ -483,9 +573,10 @@ class DemoRun:
                     "dataset — no individual-apartment-level data was ever confirmed."
                 ),
             }
+            self.q.put(_sse("done", self.outcome))
         else:
             self.outcome = {"status": "completed", "message": "Completed all 4 steps."}
-        self.q.put(_sse("done", self.outcome))
+            self.q.put(_sse("done", self.outcome))
 
     def _finish_incomplete(self):
         # Step 3 ended without ever landing on genuine individual-level data
@@ -522,9 +613,12 @@ class DemoRun:
         try:
             # Each run starts genuinely fresh — no file from a previous run
             # can leak in and be mistaken for real data in this one.
-            for stale_path in (DOWNLOAD_PATH, SCRAPED_PATH, CLEANED_PATH, DB_PATH, FALLBACK_PATH):
+            for stale_path in (
+                DOWNLOAD_PATH, SCRAPED_PATH, CLEANED_PATH, ENRICHED_PATH, DB_PATH, FALLBACK_PATH
+            ):
                 stale_path.unlink(missing_ok=True)
             shutil.rmtree(SCRAPERS_DIR, ignore_errors=True)
+            shutil.rmtree(PREP_DIR, ignore_errors=True)
 
             self._run_step1()
             if not self._should_stop():

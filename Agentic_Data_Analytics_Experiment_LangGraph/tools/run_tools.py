@@ -1,5 +1,5 @@
 """Per-run wrappers around the pure tool functions in opendata.py,
-preparation.py and scraper.py.
+preparation.py, scraper.py and prep_code.py.
 
 Those functions are stateless; a live run needs a bit of shared state on
 top of them — which file is "current" right now, the real results captured
@@ -11,12 +11,14 @@ fresh instance per run.
 
 import json
 import shutil
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, NamedTuple
 
+from agents.graph import TEAM_NOTE_KEY
 from tools.opendata import discard_dataset, download_dataset, search_open_data
+from tools.prep_code import judge_prep_output, run_prep_code, save_prep_code
 from tools.preparation import (
-    clean_data,
     make_sketch,
     preview_data,
     profile_data,
@@ -24,9 +26,17 @@ from tools.preparation import (
     store_to_database,
 )
 from tools.scraper import run_scraper_code, save_scraper_code
+from tools.teaching import TeachingAids
 from tools.validation import check_scraped_fields, filled_share, looks_like_listing_data
 
 MAX_SCRAPER_RUNS = 6  # per demo run — each scraper run may make up to 15 requests
+MAX_PREP_RUNS = 6  # per preparation stage (cleaning, enrichment)
+PREP_STAGE_LABELS = {"clean": "cleaning", "enrich": "enrichment"}
+STUCK_HINT = (
+    "- You seem stuck (your last runs in this step all failed). Only now you may call "
+    "look_up_past_runs(stage='{stage}') to see how earlier runs of this demo solved this "
+    "step and which problems they hit — then adapt it to THIS run's real data."
+)
 
 PARSING_BUG_DIAGNOSIS = (
     "The site itself answered fine (HTTP 200) — this is a bug in YOUR code, "
@@ -47,6 +57,112 @@ def _parsing_failed(run: dict) -> bool:
     return bool(run["exit_code"] != 0 or run.get("rejected_because") or run["rows_saved"] == 0)
 
 
+def _failed_requests_diagnosis(requests_log: list[dict]) -> str:
+    """For a prep run whose web lookups (partly) failed: say so plainly,
+    with the first real reason. Without it, a run with failed lookups but
+    accepted derived columns read as a success, and the agent put the fix
+    off to "future runs"."""
+    failed = [e for e in requests_log if e.get("blocked")]
+    if not failed:
+        return ""
+    return (
+        f"{len(failed)} of {len(requests_log)} web requests failed — first reason: "
+        f"{failed[0]['blocked']}. Whatever those lookups were for is missing from the "
+        "output: fix the request (the reason above is the server's own answer) and run "
+        "again — don't leave it for later."
+    )
+
+
+def _new_column_fill(result: dict) -> dict[str, float]:
+    """Share of rows each column the run added is filled in."""
+    rows = result["rows_after"] or 1
+    missing = result["missing_values"]
+    return {col: 1 - missing.get(col, 0) / rows for col in result["added_columns"]}
+
+
+def _sparse_columns_diagnosis(result: dict) -> str:
+    """For a run whose new columns are mostly empty (e.g. a lookup tried on
+    a small sample first): say so. A live run was declared done with a
+    municipality column 92% empty and nobody noticed."""
+    sparse = {c: share for c, share in _new_column_fill(result).items() if share < 0.5}
+    if not sparse:
+        return ""
+    detail = ", ".join(f"{c} ({share:.0%} filled)" for c, share in sparse.items())
+    return (
+        f"New column(s) mostly empty: {detail}. If that was a test on a few rows, run it "
+        "on all rows now; if the source really has no value, say why."
+    )
+
+
+def _compact_requests(requests_log: list[dict]) -> list[dict]:
+    """A request log small enough for the model: each URL with its status
+    or block reason. A long run of lookups is cut to its first 10 plus any
+    blocked ones."""
+    compact = [
+        {k: e.get(k) for k in ("url", "status", "blocked") if e.get(k) is not None}
+        for e in requests_log
+    ]
+    if len(compact) <= 12:
+        return compact
+    blocked = [e for e in compact[10:] if e.get("blocked")]
+    return compact[:10] + blocked + [{"note": f"{len(compact)} requests in total"}]
+
+
+def _run_note(script: str, run: dict, facts: str, verdict: str) -> str:
+    """The factual line every agent sees in the shared conversation after a
+    script really ran (see agents/graph.py's TEAM_NOTE_KEY)."""
+    outcome = "timed out" if run["timed_out"] else f"exit code {run['exit_code']}"
+    note = f"Real run of {script}: {outcome}, {facts} — {verdict}."
+    printed = run["output_tail"].strip()[-400:]
+    return f"{note} Last printed output:\n{printed}" if printed else note
+
+
+def _prep_agent_view(result: dict) -> dict:
+    """What the model gets back from run_prep_code: the result without the
+    full request log (a compact one instead), the real response structure
+    of any lookup, a diagnosis of failed lookups, and the team note."""
+    view = {k: v for k, v in result.items() if k not in ("requests", "dtypes")}
+    view["dtypes_after"] = result["dtypes"]
+    structure = [{"url": e["url"], **e["shape"]} for e in result["requests"] if e.get("shape")]
+    if structure:
+        view["response_structure"] = structure
+    view["requests"] = _compact_requests(result["requests"])
+    diagnosis = " ".join(
+        d for d in (_failed_requests_diagnosis(result["requests"]),
+                    _sparse_columns_diagnosis(result)) if d
+    )
+    if diagnosis:
+        view["diagnosis"] = diagnosis
+    failed = sum(1 for e in result["requests"] if e.get("blocked"))
+    added = ", ".join(
+        f"{col} ({share:.0%} filled)" for col, share in _new_column_fill(result).items()
+    ) or "none"
+    view[TEAM_NOTE_KEY] = _run_note(
+        f"{result['stage']}_v{result['version']}.py",
+        result,
+        f"{result['rows_before']} → {result['rows_after']} rows, new columns: {added}, "
+        f"{len(result['requests'])} web requests ({failed} failed)",
+        "ACCEPTED as the current dataset"
+        if result["accepted"]
+        else f"REJECTED ({result['rejected_because']})",
+    )
+    return view
+
+
+@dataclass
+class PrepState:
+    """Step 4's preparation stages: which one is running ("clean" /
+    "enrich", set by app/demo_run.py), the file its scripts read, and every
+    script version/run per stage."""
+
+    stage: str = ""
+    input: dict = field(default_factory=lambda: {"path": "", "format": ""})
+    # the dataset as collected in Step 3 — the "before" of a single case
+    collected: dict = field(default_factory=lambda: {"path": "", "format": ""})
+    versions: dict = field(default_factory=lambda: {"clean": [], "enrich": []})
+    runs: dict = field(default_factory=lambda: {"clean": [], "enrich": []})
+
+
 class DataPaths(NamedTuple):
     """The real files/folders one run's tools read from / write to."""
 
@@ -55,6 +171,9 @@ class DataPaths(NamedTuple):
     scrapers_dir: Path  # every scraper version the agents wrote, plus each run's log
     cleaned: Path
     db: Path
+    prep_dir: Path  # every cleaning/enrichment script version, plus each run's log
+    enriched: Path
+    history: Path  # earlier runs' saved transcripts (look_up_past_runs)
 
 
 class RunTools:
@@ -62,7 +181,7 @@ class RunTools:
 
     `results` holds the real, latest result of each tool a phase's result
     card needs to show (see app/demo_run.py's step3_result/step4_result); the
-    other attributes track which file preview/profile/clean/store act on
+    other attributes track which file preview/profile/prepare/store act on
     right now.
     """
 
@@ -74,13 +193,15 @@ class RunTools:
         self.on_artifact = on_artifact
         self.scraper_versions: list[dict] = []  # every write_scraper_code call, in order
         self.scraper_runs: list[dict] = []  # every run_scraper call, in order
+        self.prep = PrepState()
         self.results: dict[str, dict] = {
             "opendata": {},
             "download": {},
             "download_preview": {},  # first 10 raw rows, captured right after download
-            "profile": {},
-            "clean": {},
-            "clean_preview": {},  # first 10 cleaned rows, captured right after cleaning
+            "profile": {},  # the collected dataset, profiled as Step 4 opens
+            "clean": {},  # the accepted cleaning run's summary
+            "enrich": {},  # the accepted enrichment run's summary
+            "prepared_preview": {},  # first 10 rows after the latest accepted stage
             "store": {},
             "sql": {},
             "sketch": {},
@@ -88,6 +209,10 @@ class RunTools:
         self.resource_lookup: dict[str, dict] = {}  # short id -> real resource info
         self.current_file = {"path": str(paths.download), "format": "CSV"}
         self.dataset_ready = False  # True only while current_file is a real, undiscarded download
+        # show_to_class / look_up_past_runs (see teaching.py)
+        self.teaching = TeachingAids(
+            self, budgets={"scraper": MAX_SCRAPER_RUNS, "prep": MAX_PREP_RUNS}
+        )
 
     def build_tool_impls(self) -> dict[str, Callable]:
         """Name -> callable, for the graph's tool-execution step. Safe to
@@ -101,10 +226,13 @@ class RunTools:
             "discard_dataset": self.call_discard_dataset,
             "preview_data": self.call_preview_data,
             "profile_data": self.call_profile_data,
-            "clean_data": self.call_clean_data,
+            "write_prep_code": self.call_write_prep_code,
+            "run_prep_code": self.call_run_prep_code,
             "store_to_database": self.call_store_to_database,
             "run_sql_query": self.call_run_sql_query,
             "make_sketch": self.call_make_sketch,
+            "show_to_class": self.teaching.call_show_to_class,
+            "look_up_past_runs": self.teaching.call_look_up_past_runs,
         }
 
     def capture_preview(self, result_key: str, path: str, data_format: str):
@@ -137,11 +265,17 @@ class RunTools:
         If it saved enough rows that look like listings, its CSV becomes
         the current dataset — exactly like an accepted download."""
         if not self.scraper_versions:
-            return {"success": False, "error": "No scraper written yet — call write_scraper_code first."}
+            return {
+                "success": False,
+                "error": "No scraper written yet — call write_scraper_code first.",
+            }
         if len(self.scraper_runs) >= MAX_SCRAPER_RUNS:
             return {
                 "success": False,
-                "error": f"Scraper run budget used up ({MAX_SCRAPER_RUNS} runs). Work with what you have or use open data.",
+                "error": (
+                    f"Scraper run budget used up ({MAX_SCRAPER_RUNS} runs). "
+                    "Work with what you have or use open data."
+                ),
             }
         version = version or len(self.scraper_versions)
         if not 1 <= version <= len(self.scraper_versions):
@@ -188,10 +322,12 @@ class RunTools:
         if structure and _parsing_failed(result):
             agent_view["diagnosis"] = PARSING_BUG_DIAGNOSIS
         agent_view.update({k: v for k, v in result.items() if k != "requests"})
-        agent_view["requests"] = [
-            {k: e.get(k) for k in ("url", "status", "blocked") if e.get(k) is not None}
-            for e in result["requests"]
-        ]
+        agent_view["requests"] = _compact_requests(result["requests"])
+        agent_view[TEAM_NOTE_KEY] = _run_note(
+            f"scraper_v{version}.py", result, f"{result['rows_saved']} rows saved",
+            "ACCEPTED as the dataset" if result.get("accepted_as_dataset")
+            else f"not accepted ({result.get('rejected_because') or 'no rows'})",
+        )
         return agent_view
 
     def scraper_working_notes(self) -> str:
@@ -214,7 +350,8 @@ class RunTools:
             verdict += f" — {PARSING_BUG_DIAGNOSIS}"
         lines = [
             "Your private working notes (only you see these) from your LAST scraper run — "
-            f"scraper_v{run['version']}.py ({len(self.scraper_runs)}/{MAX_SCRAPER_RUNS} runs used):",
+            f"scraper_v{run['version']}.py "
+            f"({len(self.scraper_runs)}/{MAX_SCRAPER_RUNS} runs used):",
             f"- exit code {run['exit_code']}{' (timed out)' if run['timed_out'] else ''}, "
             f"{run['rows_saved']} rows saved, {verdict}",
             "- requests: "
@@ -229,6 +366,8 @@ class RunTools:
                 + json.dumps(structure, ensure_ascii=False)
             )
         lines.append(f"- the code you ran:\n{code}")
+        if self.teaching.is_stuck("scraper"):
+            lines.append(STUCK_HINT.format(stage="scraper"))
         return "\n".join(lines)
 
     def _scraped_download_result(self, run: dict) -> dict:
@@ -367,7 +506,8 @@ class RunTools:
 
     # --- Data Engineer tools: Preparing & storing data -----------------
 
-    def _no_file_error(self) -> dict | None:
+    def no_file_error(self) -> dict | None:
+        """The error to report if there's no dataset file to work on."""
         # A tool the model calls before any successful download (or after
         # a discard_dataset) has nothing real to read — report that
         # plainly instead of letting a raw FileNotFoundError crash the
@@ -381,7 +521,7 @@ class RunTools:
 
     def call_preview_data(self, n: int = 10):
         """Tool: really read the first n rows of the current file."""
-        err = self._no_file_error()
+        err = self.no_file_error()
         if err:
             return err
         result = preview_data(
@@ -397,7 +537,7 @@ class RunTools:
     def call_profile_data(self):
         """Tool: really compute structure/quality stats for the current
         file (row/column counts, duplicates, missing values, dtypes)."""
-        err = self._no_file_error()
+        err = self.no_file_error()
         if err:
             return err
         result = profile_data(
@@ -405,39 +545,15 @@ class RunTools:
             data_format=self.current_file["format"],
             on_progress=self.on_progress,
         )
-        if result.get("error"):
-            return result
-        self.results["profile"] = result
-        return result
-
-    def call_clean_data(self, drop_duplicates: bool = True, drop_missing_in: list | None = None):
-        """Tool: really drop duplicate/incomplete rows and write a cleaned
-        file, which becomes the new "current" file."""
-        err = self._no_file_error()
-        if err:
-            return err
-        result = clean_data(
-            source_path=self.current_file["path"],
-            data_format=self.current_file["format"],
-            out_path=str(self.paths.cleaned),
-            drop_duplicates=drop_duplicates,
-            drop_missing_in=drop_missing_in,
-            on_progress=self.on_progress,
-        )
-        if result.get("error"):
-            return result
-        self.results["clean"] = result
-        self.current_file["path"] = str(self.paths.cleaned)
-        self.current_file["format"] = "CSV"
-        self.capture_preview(
-            "clean_preview", self.current_file["path"], self.current_file["format"]
-        )
+        # Not stored in results: the Step 4 card shows the profile of the
+        # collected data (see app/demo_run.py's _brief_on_dataset), and a
+        # later profile of the cleaned file mustn't overwrite it.
         return result
 
     def call_store_to_database(self, table_name: str):
         """Tool: really write the current (cleaned) file into a real
         local SQLite database table."""
-        err = self._no_file_error()
+        err = self.no_file_error()
         if err:
             return err
         result = store_to_database(
@@ -460,6 +576,161 @@ class RunTools:
         if result.get("success", True) is not False:
             self.results["sql"] = result
         return result
+
+    # --- Data Engineer (cleaning) / Data Analyst (enrichment) ----------
+
+    def start_prep_stage(self, stage: str):
+        """Begin a preparation stage: its scripts read whatever is the
+        current dataset right now (the collected data for cleaning, the
+        cleaned data for enrichment)."""
+        self.prep.stage = stage
+        self.prep.input = dict(self.current_file)
+        if stage == "clean":
+            self.prep.collected = dict(self.current_file)
+
+    def end_prep_stage(self):
+        """No preparation stage is active any more (storing comes next)."""
+        self.prep.stage = ""
+
+    def call_write_prep_code(self, code: str):
+        """Tool: save (and statically check) a new version of this stage's
+        own preparation script. Every version is kept for the UI/transcript."""
+        stage = self.prep.stage
+        if not stage:
+            return {"success": False, "error": "No preparation stage is active right now."}
+        version = len(self.prep.versions[stage]) + 1
+        result = save_prep_code(code, self.paths.prep_dir, stage, version)
+        self.prep.versions[stage].append({**result, "code": code})
+        self.on_artifact("prep_code", {**result, "code": code})
+        self.on_progress(
+            f"{stage}_v{version}.py written ({result['lines']} lines) — "
+            + ("check passed." if result["check_passed"] else "check FAILED.")
+        )
+        return result
+
+    def _prep_run_refusal(self, version: int | None) -> dict | None:
+        """Why run_prep_code can't run `version` right now, if it can't."""
+        stage = self.prep.stage
+        versions = self.prep.versions.get(stage, [])
+        chosen = version or len(versions)
+        if not stage:
+            error = "No preparation stage is active right now."
+        elif not versions:
+            error = "No script written yet — call write_prep_code first."
+        elif len(self.prep.runs[stage]) >= MAX_PREP_RUNS:
+            error = f"Run budget for this stage used up ({MAX_PREP_RUNS} runs)."
+        elif not self.prep.input["path"] or not Path(self.prep.input["path"]).exists():
+            error = "There's no input dataset for this stage."
+        elif not 1 <= chosen <= len(versions):
+            error = f"Unknown version {version}."
+        elif not versions[chosen - 1]["check_passed"]:
+            return {
+                "success": False,
+                "error": "That version failed the code check — fix it first.",
+                "problems": versions[chosen - 1]["problems"],
+            }
+        else:
+            return None
+        return {"success": False, "error": error}
+
+    def call_run_prep_code(self, version: int | None = None):
+        """Tool: really run one saved preparation script (see
+        prep_code.py). If its output passes `judge_prep_output`, it becomes
+        the current dataset."""
+        refusal = self._prep_run_refusal(version)
+        if refusal:
+            return refusal
+        stage = self.prep.stage
+        version = version or len(self.prep.versions[stage])
+        run_number = len(self.prep.runs[stage]) + 1
+        work_dir = self.paths.prep_dir / f"{stage}_run_{run_number}_v{version}"
+        result = run_prep_code(
+            Path(self.prep.versions[stage][version - 1]["path"]),
+            work_dir,
+            Path(self.prep.input["path"]),
+            self.prep.input["format"] or "CSV",
+            work_dir / "output.csv",
+            on_progress=self.on_progress,
+        )
+        result["stage"] = stage
+        result["version"] = version
+        result["accepted"], reason = judge_prep_output(stage, result)
+        if result["accepted"]:
+            self._accept_prep_output(stage, result, work_dir / "output.csv")
+        else:
+            result["rejected_because"] = reason
+        self.prep.runs[stage].append(result)
+        self.on_artifact("prep_run", result)
+        return _prep_agent_view(result)
+
+    def _accept_prep_output(self, stage: str, result: dict, out_path: Path):
+        """An accepted run's output becomes the current dataset."""
+        target = self.paths.cleaned if stage == "clean" else self.paths.enriched
+        shutil.copyfile(out_path, target)
+        self.current_file["path"] = str(target)
+        self.current_file["format"] = "CSV"
+        self.results[stage] = {
+            k: result[k]
+            for k in (
+                "version", "rows_before", "rows_after", "columns",
+                "added_columns", "removed_columns", "missing_values",
+            )
+        }
+        self.capture_preview("prepared_preview", str(target), "CSV")
+
+    def prep_working_notes(self) -> str:
+        """The coding agent's private memory of its latest run in the
+        current preparation stage — same reason as scraper_working_notes."""
+        stage = self.prep.stage
+        if not stage:
+            return ""
+        if not self.prep.runs[stage]:
+            # Live runs: without this, the enrichment coder spent a whole
+            # phase answering questions about its plan and never wrote code.
+            return (
+                "Your private working notes (only you see these): nothing has run yet in "
+                f"this {PREP_STAGE_LABELS[stage]} stage — no script exists, so no data has "
+                "changed. Talking about the plan doesn't change the data: on your turn, "
+                "call write_prep_code with your complete script and then run_prep_code."
+            )
+        run = self.prep.runs[stage][-1]
+        code = self.prep.versions[stage][run["version"] - 1]["code"]
+        verdict = (
+            "ACCEPTED as the current dataset"
+            if run["accepted"]
+            else f"REJECTED: {run['rejected_because']}"
+        )
+        lines = [
+            "Your private working notes (only you see these) from your LAST run in this "
+            f"stage — {stage}_v{run['version']}.py "
+            f"({len(self.prep.runs[stage])}/{MAX_PREP_RUNS} runs used):",
+            f"- exit code {run['exit_code']}{' (timed out)' if run['timed_out'] else ''}, "
+            f"{run['rows_before']} → {run['rows_after']} rows, {verdict}",
+            f"- input columns: {', '.join(run['columns_before'])}",
+        ]
+        for diagnosis in (_failed_requests_diagnosis(run["requests"]),
+                          _sparse_columns_diagnosis(run)):
+            if diagnosis:
+                lines.append(f"- {diagnosis}")
+        if run["saved"]:
+            lines.append(f"- output dtypes: {json.dumps(run['dtypes'])}")
+            lines.append(f"- output missing values: {json.dumps(run['missing_values'])}")
+        if run["requests"]:
+            lines.append(f"- {len(run['requests'])} web requests: " + "; ".join(
+                f"{e['url']} -> {e.get('blocked') or e.get('status')}"
+                for e in run["requests"][:5]
+            ))
+            structure = [{"url": e["url"], **e["shape"]} for e in run["requests"] if e.get("shape")]
+            if structure:
+                lines.append(
+                    "- REAL response structure (use exactly these key names):\n"
+                    + json.dumps(structure, ensure_ascii=False)
+                )
+        lines.append(f"- last printed output / traceback:\n{run['output_tail'][-800:]}")
+        lines.append(f"- the code you ran:\n{code}")
+        if self.teaching.is_stuck(stage):
+            lines.append(STUCK_HINT.format(stage=stage))
+        return "\n".join(lines)
 
     # --- All agents: optional sketch ------------------------------------
 

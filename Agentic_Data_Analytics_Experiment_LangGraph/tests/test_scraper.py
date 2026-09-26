@@ -4,6 +4,9 @@ check, scraper_kit's politeness rules (with mocked HTTP), and the runner.
 Run from the app folder:  python -m unittest discover tests
 """
 
+# Test method names say what each test checks.
+# pylint: disable=missing-function-docstring
+
 import csv
 import importlib
 import os
@@ -17,10 +20,13 @@ APP_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(APP_DIR))
 
 from sandbox import scraper_kit  # noqa: E402  pylint: disable=wrong-import-position
+from tools import sandbox as sandbox_tool  # noqa: E402  pylint: disable=wrong-import-position
 from tools import scraper as scraper_tool  # noqa: E402  pylint: disable=wrong-import-position
 
 
 class FakeResponse:  # pylint: disable=too-few-public-methods
+    """Just enough of requests.Response for scraper_kit."""
+
     def __init__(self, status=200, text="", headers=None, url=""):
         self.status_code = status
         self.text = text
@@ -37,7 +43,9 @@ def fake_web(pages: dict):
         if url in pages:
             response = pages[url]
         elif url.endswith("/robots.txt"):
-            response = FakeResponse(200, "User-agent: *\nAllow: /\n", {"Content-Type": "text/plain"})
+            response = FakeResponse(
+                200, "User-agent: *\nAllow: /\n", {"Content-Type": "text/plain"}
+            )
         else:
             response = FakeResponse(404, "not found")
         response.url = response.url or url
@@ -47,6 +55,8 @@ def fake_web(pages: dict):
 
 
 class CheckScraperCodeTest(unittest.TestCase):
+    """The static whitelist check of agent-written scraper code."""
+
     def test_accepts_typical_scraper(self):
         code = (
             "import scraper_kit\nfrom urllib.parse import urljoin\nfrom bs4 import BeautifulSoup\n"
@@ -79,6 +89,8 @@ class CheckScraperCodeTest(unittest.TestCase):
 
 
 class ScraperKitTest(unittest.TestCase):
+    """scraper_kit's politeness rules, with mocked HTTP."""
+
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()  # pylint: disable=consider-using-with
         env = {
@@ -99,7 +111,8 @@ class ScraperKitTest(unittest.TestCase):
             return self.kit.polite_get(url)
 
     def test_ok_page(self):
-        page = self.get({"https://flatfox.ch/a": FakeResponse(200, '{"n": 1}')}, "https://flatfox.ch/a")
+        pages = {"https://flatfox.ch/a": FakeResponse(200, '{"n": 1}')}
+        page = self.get(pages, "https://flatfox.ch/a")
         self.assertEqual(page.json(), {"n": 1})
 
     def test_first_page_structure_logged_once_per_host(self):
@@ -107,7 +120,7 @@ class ScraperKitTest(unittest.TestCase):
         pages = {f"https://flatfox.ch/{i}": FakeResponse(200, body) for i in range(2)}
         self.get(pages, "https://flatfox.ch/0")
         self.get(pages, "https://flatfox.ch/1")
-        log = scraper_tool._read_request_log(Path(self.kit.LOG_PATH))  # pylint: disable=protected-access
+        log = sandbox_tool.read_request_log(Path(self.kit.LOG_PATH))  # pylint: disable=protected-access
         shapes = [e["shape"] for e in log if e.get("shape")]
         self.assertEqual(len(shapes), 1)
         self.assertEqual(shapes[0]["keys_of_first_item_in_results"], ["pk", "rent_gross"])
@@ -126,6 +139,18 @@ class ScraperKitTest(unittest.TestCase):
     def test_429(self):
         with self.assertRaisesRegex(self.kit.ScrapeBlocked, "rate-limited"):
             self.get({"https://flatfox.ch/a": FakeResponse(429)}, "https://flatfox.ch/a")
+
+    def test_400_fails_only_that_request_and_quotes_the_server(self):
+        pages = {
+            "https://flatfox.ch/bad": FakeResponse(
+                400, '{"detail": "Please provide the parameter tolerance"}'
+            ),
+            "https://flatfox.ch/good": FakeResponse(200, "{}"),
+        }
+        server_message = "not a block.*provide the parameter tolerance"
+        with self.assertRaisesRegex(self.kit.ScrapeBlocked, server_message):
+            self.get(pages, "https://flatfox.ch/bad")
+        self.assertEqual(self.get(pages, "https://flatfox.ch/good").json(), {})
 
     def test_cloudflare_challenge(self):
         challenge = FakeResponse(
@@ -171,7 +196,13 @@ class ScraperKitTest(unittest.TestCase):
         self.assertEqual(list(rows[0]), list(self.kit.FIELDS))
 
 
+def _run(script: Path, tmp: str) -> dict:
+    return scraper_tool.run_scraper_code(script, Path(tmp) / "w", Path(tmp) / "w" / "o.csv")
+
+
 class RunnerTest(unittest.TestCase):
+    """Really running a saved scraper in its separate process."""
+
     def test_env_has_no_secrets(self):
         with mock.patch.dict(os.environ, {"OPENAI_API_KEY": "sk-secret", "HOME": "/x"}):
             env = scraper_tool.scraper_env(Path("log"), Path("out"))
@@ -186,7 +217,7 @@ class RunnerTest(unittest.TestCase):
                 "scraper_kit.save_rows([{'source': 't', 'listing_id': i} for i in range(3)])\n",
                 encoding="utf-8",
             )
-            result = scraper_tool.run_scraper_code(script, Path(tmp) / "w", Path(tmp) / "w" / "o.csv")
+            result = _run(script, tmp)
         self.assertEqual(result["exit_code"], 0)
         self.assertEqual(result["rows_saved"], 3)
         self.assertIn("hello", result["output_tail"])
@@ -195,7 +226,7 @@ class RunnerTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             script = Path(tmp) / "s.py"
             script.write_text("x = {}\nx['missing']\n", encoding="utf-8")
-            result = scraper_tool.run_scraper_code(script, Path(tmp) / "w", Path(tmp) / "w" / "o.csv")
+            result = _run(script, tmp)
         self.assertNotEqual(result["exit_code"], 0)
         self.assertIn("KeyError", result["output_tail"])
 
@@ -203,7 +234,7 @@ class RunnerTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             script = Path(tmp) / "s.py"
             script.write_text("import tools.preparation\n", encoding="utf-8")
-            result = scraper_tool.run_scraper_code(script, Path(tmp) / "w", Path(tmp) / "w" / "o.csv")
+            result = _run(script, tmp)
         self.assertIn("ModuleNotFoundError", result["output_tail"])
 
 
@@ -215,8 +246,10 @@ class ParsingDiagnosisTest(unittest.TestCase):
         from tools import run_tools  # pylint: disable=import-outside-toplevel
 
         with tempfile.TemporaryDirectory() as tmp:
-            paths = run_tools.DataPaths(*(Path(tmp) / name for name in "abcde"))
-            tools = run_tools.RunTools(paths, on_progress=lambda _: None, on_artifact=lambda *_: None)
+            paths = run_tools.DataPaths(*(Path(tmp) / name for name in "abcdefgh"))
+            tools = run_tools.RunTools(
+                paths, on_progress=lambda _: None, on_artifact=lambda *_: None
+            )
             tools.call_write_scraper_code("import scraper_kit\n")
             fake_run = {
                 "exit_code": 0,
@@ -224,7 +257,12 @@ class ParsingDiagnosisTest(unittest.TestCase):
                 "elapsed_seconds": 1.0,
                 "output_tail": "",
                 "requests": [
-                    {"url": "https://flatfox.ch/a", "kind": "page", "status": 200, "shape": {"type": "json"}}
+                    {
+                        "url": "https://flatfox.ch/a",
+                        "kind": "page",
+                        "status": 200,
+                        "shape": {"type": "json"},
+                    }
                 ],
                 "rows_saved": rows_saved,
                 "columns": [],

@@ -237,6 +237,215 @@ function buildScraperRunCard(data) {
   return card;
 }
 
+// Step 4's agent-written preparation scripts: who owns which stage.
+const PREP_STAGES = {
+  clean: { label: "cleaning", author: "Data Engineer" },
+  enrich: { label: "enrichment", author: "Data Analyst" },
+};
+
+function prepFileName(data) {
+  return `${data.stage}_v${data.version}.py`;
+}
+
+// One cleaning/enrichment script version just written — shown in full.
+function buildPrepCodeCard(data) {
+  const card = document.createElement("article");
+  card.className = "phase-card";
+
+  const stage = PREP_STAGES[data.stage] || { label: data.stage, author: "an agent" };
+  const heading = document.createElement("h2");
+  heading.textContent = `🧑‍💻 ${prepFileName(data)} — ${stage.label} code written by the ${stage.author} (${data.lines} lines)`;
+  card.appendChild(heading);
+
+  const check = document.createElement("p");
+  check.className = "result-meta";
+  check.textContent = data.check_passed
+    ? "Code check passed (data only via prep_kit; web access only via scraper_kit)."
+    : `Code check failed: ${data.problems.join("; ")}`;
+  card.appendChild(check);
+
+  card.appendChild(preBlock(data.code, "code-block"));
+  return card;
+}
+
+function columnList(label, columns) {
+  const p = document.createElement("p");
+  p.className = "result-meta";
+  p.textContent = `${label}: ${columns.join(", ")}`;
+  return p;
+}
+
+// What really happened when a preparation script ran: rows before/after,
+// columns added/removed, missing values, requests, printed output.
+function buildPrepRunCard(data) {
+  const card = document.createElement("article");
+  card.className = "phase-card";
+
+  const heading = document.createElement("h2");
+  const outcome = data.timed_out
+    ? "⏱️ timed out"
+    : data.exit_code === 0 ? "exit code 0" : `❌ crashed (exit code ${data.exit_code})`;
+  heading.textContent = `▶️ Ran ${prepFileName(data)} — ${outcome}`;
+  card.appendChild(heading);
+
+  const grid = document.createElement("div");
+  grid.className = "stat-grid";
+  grid.append(
+    statTile("rows before", data.rows_before),
+    statTile("rows after", data.rows_after),
+    statTile("columns added", (data.added_columns || []).length),
+    statTile("web requests", (data.requests || []).length),
+  );
+  card.appendChild(grid);
+
+  const verdict = document.createElement("p");
+  verdict.className = "result-meta";
+  verdict.textContent = data.accepted
+    ? "✅ Accepted as the current dataset."
+    : `⚠️ Not accepted: ${data.rejected_because}`;
+  card.appendChild(verdict);
+
+  if ((data.added_columns || []).length > 0) card.appendChild(columnList("New columns", data.added_columns));
+  if ((data.removed_columns || []).length > 0) card.appendChild(columnList("Removed columns", data.removed_columns));
+  const missing = Object.entries(data.missing_values || {});
+  if (missing.length > 0) {
+    card.appendChild(columnList("Missing values after", missing.map(([col, n]) => `${col} ${n}`)));
+  }
+
+  if (data.requests && data.requests.length > 0) {
+    const reqHeading = document.createElement("h3");
+    reqHeading.className = "preview-heading";
+    const shown = data.requests.slice(0, 20);
+    reqHeading.textContent = shown.length < data.requests.length
+      ? `Requests (first ${shown.length} of ${data.requests.length})`
+      : `Requests (${data.requests.length})`;
+    card.append(reqHeading, preBlock(shown.map(describeRequest).join("\n")));
+  }
+
+  if (data.output_tail) {
+    const outHeading = document.createElement("h3");
+    outHeading.className = "preview-heading";
+    outHeading.textContent = "Printed output";
+    card.append(outHeading, preBlock(data.output_tail, "code-block"));
+  }
+
+  if (Array.isArray(data.sample_rows) && data.sample_rows.length > 0) {
+    const sampleHeading = document.createElement("h3");
+    sampleHeading.className = "preview-heading";
+    sampleHeading.textContent = `First ${data.sample_rows.length} rows of the output`;
+    card.appendChild(sampleHeading);
+    const table = dataTable(data.columns, data.sample_rows);
+    if (table) card.appendChild(table);
+  }
+
+  return card;
+}
+
+const CASE_STATUS_LABELS = { new: "new", changed: "changed", removed: "removed", same: "" };
+
+function cellText(value) {
+  return value === null || value === undefined ? "—" : String(value);
+}
+
+// ONE listing, field by field: as collected vs. now — full text, no cutting,
+// so students can see e.g. which words in a description became which flag.
+function buildCaseTable(data) {
+  const wrap = document.createElement("div");
+  wrap.className = "table-scroll";
+  const table = document.createElement("table");
+  table.className = "preview-table case-table";
+  const head = document.createElement("tr");
+  ["column", "as collected", "now", ""].forEach((label) => {
+    const th = document.createElement("th");
+    th.textContent = label;
+    head.appendChild(th);
+  });
+  table.appendChild(head);
+  data.fields.forEach((field) => {
+    const tr = document.createElement("tr");
+    tr.className = `status-${field.status}`;
+    [field.column, cellText(field.before), cellText(field.after), CASE_STATUS_LABELS[field.status] || ""]
+      .forEach((text, i) => {
+        const td = document.createElement("td");
+        if (i === 1 || i === 2) td.className = "case-value";
+        td.textContent = text;
+        tr.appendChild(td);
+      });
+    table.appendChild(tr);
+  });
+  wrap.appendChild(table);
+  return wrap;
+}
+
+function exhibitHeading(data) {
+  if (data.kind === "single_case") {
+    return `One listing up close — ${data.listing_id}${data.dropped ? " (dropped by the cleaning)" : ""}`;
+  }
+  if (data.kind === "rows") {
+    return `Real rows from ${data.file} (${(data.rows || []).length} of ${data.total_rows})`;
+  }
+  const end = data.start_line + (data.lines || []).length - 1;
+  return `${data.file}, lines ${data.start_line}–${end} of ${data.total_lines}`;
+}
+
+// A real example an agent put in front of the class (show_to_class): one
+// listing before/after, a few real rows, or a few real lines of code.
+function buildExhibitCard(data) {
+  const card = document.createElement("article");
+  card.className = "phase-card exhibit";
+
+  const heading = document.createElement("h2");
+  heading.textContent = `🔎 ${exhibitHeading(data)}`;
+  card.appendChild(heading);
+
+  if (data.caption) {
+    const caption = document.createElement("p");
+    caption.className = "exhibit-caption";
+    caption.textContent = data.caption;
+    card.appendChild(caption);
+  }
+
+  if (data.kind === "single_case") {
+    card.appendChild(buildCaseTable(data));
+    const legend = document.createElement("p");
+    legend.className = "case-legend";
+    legend.textContent = "Green: added by the preparation · yellow: changed by it.";
+    card.appendChild(legend);
+  } else if (data.kind === "rows") {
+    const table = dataTable(data.columns, data.rows);
+    if (table) card.appendChild(table);
+  } else if (data.kind === "code") {
+    const width = String(data.start_line + data.lines.length - 1).length;
+    const numbered = data.lines
+      .map((line, i) => `${String(data.start_line + i).padStart(width)}  ${line}`)
+      .join("\n");
+    card.appendChild(preBlock(numbered, "code-block"));
+  }
+  return card;
+}
+
+// An agent got stuck and looked at how earlier runs solved the same step.
+function buildHistoryLookupCard(data) {
+  const card = document.createElement("article");
+  card.className = "phase-card";
+  const heading = document.createElement("h2");
+  heading.textContent = `📚 Stuck at the ${data.stage} step — looked at ${data.runs_searched} earlier run(s)`;
+  card.appendChild(heading);
+  const found = document.createElement("p");
+  found.className = "result-meta";
+  found.textContent = data.found.length
+    ? `Working script(s) found: ${data.found.join(", ")}`
+    : "No earlier run had a working script for this step.";
+  card.appendChild(found);
+  if (data.problems.length) {
+    const probHeading = document.createElement("h3");
+    probHeading.className = "preview-heading";
+    probHeading.textContent = "Problems earlier runs hit";
+    card.append(probHeading, preBlock(data.problems.join("\n")));
+  }
+  return card;
+}
+
 function buildCollectingCard(data) {
   const { download } = data || {};
   if (!download || Object.keys(download).length === 0) return null;
@@ -296,7 +505,7 @@ function buildCollectingCard(data) {
 }
 
 function buildPreparingCard(data) {
-  const { profile, clean, store, sql, sketch, preview } = data || {};
+  const { profile, clean, enrich, store, sql, sketch, preview } = data || {};
   const hasAnything = (profile && "n_rows" in profile) || (clean && "rows_after" in clean) || (store && store.table_name);
   if (!hasAnything) return null;
 
@@ -305,7 +514,7 @@ function buildPreparingCard(data) {
 
   const heading = document.createElement("h2");
   heading.textContent = store && store.table_name
-    ? "✅ Data cleaned and stored in a real SQLite database"
+    ? `✅ Data ${enrich && "rows_after" in enrich ? "cleaned, enriched" : "prepared"} and stored in a real SQLite database`
     : "⚠️ Preparing & storing didn't finish";
   card.appendChild(heading);
 
@@ -313,7 +522,7 @@ function buildPreparingCard(data) {
     const grid = document.createElement("div");
     grid.className = "stat-grid";
     grid.append(
-      statTile("rows (raw)", profile.n_rows.toLocaleString()),
+      statTile("rows (collected)", profile.n_rows.toLocaleString()),
       statTile("columns", profile.n_columns),
       statTile("duplicate rows", profile.duplicate_rows.toLocaleString()),
       statTile("cols with missing values", Object.keys(profile.missing_values || {}).length),
@@ -341,8 +550,14 @@ function buildPreparingCard(data) {
   if (clean && "rows_after" in clean) {
     const cl = document.createElement("p");
     cl.className = "result-meta";
-    cl.textContent = `Cleaned: ${clean.rows_before.toLocaleString()} → ${clean.rows_after.toLocaleString()} rows (${clean.dropped_duplicates.toLocaleString()} duplicates, ${clean.dropped_missing.toLocaleString()} missing-value rows dropped).`;
+    cl.textContent = `Cleaned (clean_v${clean.version}.py): ${clean.rows_before.toLocaleString()} → ${clean.rows_after.toLocaleString()} rows${(clean.removed_columns || []).length ? `, removed ${clean.removed_columns.join(", ")}` : ""}.`;
     card.appendChild(cl);
+  } else {
+    card.appendChild(columnList("Cleaning", ["no cleaning run was accepted"]));
+  }
+
+  if (enrich && "rows_after" in enrich) {
+    card.appendChild(columnList(`Enriched (enrich_v${enrich.version}.py), new columns`, enrich.added_columns));
   }
 
   if (store && store.table_name) {
@@ -355,7 +570,7 @@ function buildPreparingCard(data) {
   if (preview && Array.isArray(preview.rows) && preview.rows.length > 0) {
     const previewHeading = document.createElement("h3");
     previewHeading.className = "preview-heading";
-    previewHeading.textContent = `First ${preview.rows.length} rows (cleaned)`;
+    previewHeading.textContent = `First ${preview.rows.length} rows (prepared)`;
     card.appendChild(previewHeading);
     const previewTable = dataTable(preview.columns, preview.rows);
     if (previewTable) card.appendChild(previewTable);
@@ -439,6 +654,22 @@ function startDemo() {
 
   eventSource.addEventListener("scraper_run", (event) => {
     addPhaseCard(buildScraperRunCard, JSON.parse(event.data));
+  });
+
+  eventSource.addEventListener("prep_code", (event) => {
+    addPhaseCard(buildPrepCodeCard, JSON.parse(event.data));
+  });
+
+  eventSource.addEventListener("prep_run", (event) => {
+    addPhaseCard(buildPrepRunCard, JSON.parse(event.data));
+  });
+
+  eventSource.addEventListener("exhibit", (event) => {
+    addPhaseCard(buildExhibitCard, JSON.parse(event.data));
+  });
+
+  eventSource.addEventListener("history_lookup", (event) => {
+    addPhaseCard(buildHistoryLookupCard, JSON.parse(event.data));
   });
 
   eventSource.addEventListener("phase_done", (event) => {

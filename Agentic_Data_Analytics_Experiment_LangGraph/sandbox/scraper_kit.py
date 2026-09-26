@@ -8,10 +8,13 @@ ignore:
 - only a short allowlist of domains can be fetched at all
 - robots.txt is really checked first (stdlib semantics: 401/403 on
   robots.txt means "everything disallowed"; unreadable means "don't go")
-- a randomized 2–5 s pause before every request after the first
+- a randomized 2–5 s pause before every request after the first (0.2–0.5 s
+  for public-sector lookup APIs such as api3.geo.admin.ch)
 - a hard cap on requests per scraper run
-- the first 403/429 (or a Cloudflare bot challenge) blocks that host for
-  the rest of the run — no retries, no workarounds
+- the first 403/429 (or a Cloudflare bot challenge, or a server error)
+  blocks that host for the rest of the run — no retries, no workarounds;
+  any other 4xx (e.g. 400 bad parameters) fails only that request, with
+  the server's own error message
 - an honest User-Agent, no browser impersonation
 
 Every request (allowed or not) is appended to a JSON-lines log the app
@@ -40,9 +43,20 @@ from urllib.robotparser import RobotFileParser
 import requests
 
 USER_AGENT = "ZHAW-DataAnalytics-teaching-demo/1.0 (non-commercial; low request rate)"
-ALLOWED_DOMAINS = ("flatfox.ch", "immoscout24.ch", "homegate.ch")
+# Which sites a run may reach is set by the app per kind of script (the
+# listing sites for a scraper, plus the federal geodata API for a
+# data-preparation script) — never by the script itself.
+ALLOWED_DOMAINS = tuple(
+    d for d in os.environ.get(
+        "SCRAPER_KIT_DOMAINS", "flatfox.ch,immoscout24.ch,homegate.ch"
+    ).split(",") if d
+)
 REQUEST_TIMEOUT_SECONDS = 10
 MIN_DELAY_SECONDS, MAX_DELAY_SECONDS = 2.0, 5.0
+# Public-sector APIs built for per-address lookups get a shorter pause than
+# listing sites: one lookup per apartment must fit into one run.
+API_DOMAINS = ("api3.geo.admin.ch",)
+API_MIN_DELAY_SECONDS, API_MAX_DELAY_SECONDS = 0.2, 0.5
 
 MAX_REQUESTS = int(os.environ.get("SCRAPER_KIT_MAX_REQUESTS", "15"))
 MAX_ROWS = int(os.environ.get("SCRAPER_KIT_MAX_ROWS", "150"))
@@ -68,6 +82,12 @@ FIELDS = (
     "lat",
     "lon",
     "url",
+    "object_type",
+    "description",
+    "attributes",
+    "is_furnished",
+    "year_renovated",
+    "moving_date",
 )
 
 
@@ -90,6 +110,7 @@ class Page:
     headers: dict = field(default_factory=dict)
 
     def json(self):
+        """The page body parsed as JSON."""
         return json.loads(self.text)
 
 
@@ -110,9 +131,16 @@ def _host_allowed(host: str) -> bool:
     return any(host == d or host.endswith("." + d) for d in ALLOWED_DOMAINS)
 
 
-def _pause() -> None:
+def _is_api(host: str) -> bool:
+    return any(host == d or host.endswith("." + d) for d in API_DOMAINS)
+
+
+def _pause(host: str = "") -> None:
     if _state["last_request_at"] is not None:
-        wait = random.uniform(MIN_DELAY_SECONDS, MAX_DELAY_SECONDS)
+        if _is_api(host):
+            wait = random.uniform(API_MIN_DELAY_SECONDS, API_MAX_DELAY_SECONDS)
+        else:
+            wait = random.uniform(MIN_DELAY_SECONDS, MAX_DELAY_SECONDS)
         elapsed = time.monotonic() - _state["last_request_at"]
         if elapsed < wait:
             time.sleep(wait - elapsed)
@@ -124,7 +152,7 @@ def _robots_for(scheme: str, host: str) -> RobotFileParser | None:
         return _robots[host]
     robots_url = f"{scheme}://{host}/robots.txt"
     parser = RobotFileParser(robots_url)
-    _pause()
+    _pause(host)
     try:
         response = requests.get(
             robots_url, headers={"User-Agent": USER_AGENT}, timeout=REQUEST_TIMEOUT_SECONDS
@@ -156,7 +184,8 @@ def _refuse(url: str, reason: str, status=None, host: str | None = None) -> NoRe
 def _looks_like_bot_challenge(response: requests.Response) -> bool:
     if response.headers.get("cf-mitigated", "").lower() == "challenge":
         return True
-    head = response.text[:2000].lower() if "html" in response.headers.get("Content-Type", "") else ""
+    is_html = "html" in response.headers.get("Content-Type", "")
+    head = response.text[:2000].lower() if is_html else ""
     return "<title>just a moment" in head
 
 
@@ -185,11 +214,14 @@ def _shape_of(response: requests.Response) -> dict:
     return shape
 
 
-def _short(value):
+def _short(value, depth: int = 0):
     """A value small enough to show the agent: scalars as-is (long strings
-    cut), nested lists/dicts summarized by type and size."""
+    cut), a nested dict one level deep (e.g. geo.admin's `attributes`),
+    anything deeper summarized by type and size."""
     if isinstance(value, str):
         return value[:60]
+    if isinstance(value, dict) and depth == 0:
+        return {k: _short(v, depth + 1) for k, v in list(value.items())[:40]}
     if isinstance(value, (dict, list)):
         return f"<{type(value).__name__} of {len(value)}>"
     return value
@@ -205,7 +237,9 @@ def polite_get(url: str, params: dict | None = None) -> Page:
     if parsed.scheme not in ("http", "https") or not _host_allowed(host):
         _refuse(full_url, f"domain not allowed ({host}); allowed: {', '.join(ALLOWED_DOMAINS)}")
     if host in _blocked_hosts:
-        _refuse(full_url, f"{host} already blocked this run ({_blocked_hosts[host]}) — not retrying")
+        _refuse(
+            full_url, f"{host} already blocked this run ({_blocked_hosts[host]}) — not retrying"
+        )
     if _state["requests_made"] >= MAX_REQUESTS:
         _refuse(
             full_url,
@@ -219,7 +253,7 @@ def polite_get(url: str, params: dict | None = None) -> Page:
     if not robots.can_fetch(USER_AGENT, full_url):
         _refuse(full_url, "robots.txt disallows this URL", host=host)
 
-    _pause()
+    _pause(host)
     _state["requests_made"] += 1
     started = time.monotonic()
     try:
@@ -238,12 +272,20 @@ def polite_get(url: str, params: dict | None = None) -> Page:
                 status=response.status_code, host=host)
     if _looks_like_bot_challenge(response):
         _refuse(full_url,
-                f"Cloudflare bot challenge (HTTP {response.status_code}) — site blocks automated access",
+                f"Cloudflare bot challenge (HTTP {response.status_code}) — "
+                "site blocks automated access",
                 status=response.status_code, host=host)
     if response.status_code in (403, 429):
         reason = "rate-limited" if response.status_code == 429 else "forbidden"
         _refuse(full_url, f"HTTP {response.status_code} {reason} — stopping for this site",
                 status=response.status_code, host=host)
+    if 400 <= response.status_code < 500:
+        # A client error (400 bad parameters, 404 not found) is about THIS
+        # request, not a refusal by the site: only this URL fails, and the
+        # server's own explanation is passed on so the code can be fixed.
+        said = " ".join(response.text[:300].split())
+        _refuse(full_url, f"HTTP {response.status_code} for this request (not a block) — "
+                f"the server says: {said}", status=response.status_code)
     if response.status_code != 200:
         _refuse(full_url, f"HTTP {response.status_code} — stopping for this site",
                 status=response.status_code, host=host)

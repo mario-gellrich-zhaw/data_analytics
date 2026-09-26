@@ -14,6 +14,8 @@
   --engineer-border: #403f44;
 
   --chat-bg: #eef0f3;
+  --new-bg: #e3f4e6;
+  --changed-bg: #fdf1d8;
 }
 
 * { box-sizing: border-box; }
@@ -475,10 +477,41 @@ h1 {
     --text: #f0f0f2;
     --text-muted: #9a9aa5;
     --chat-bg: #1a1a20;
+    --new-bg: #1f3a26;
+    --changed-bg: #3d321a;
   }
 }
 
 .phase-card .code-block {
   max-height: 360px;
   overflow: auto;
+}
+
+/* Real examples an agent put in front of the class (show_to_class). */
+.phase-card.exhibit {
+  border-left: 4px solid var(--accent);
+}
+
+.phase-card .exhibit-caption {
+  margin: 0 0 10px;
+  font-weight: 600;
+}
+
+.phase-card .case-table td.case-value {
+  white-space: pre-wrap;
+  max-width: 420px;
+}
+
+.phase-card .case-table tr.status-new td {
+  background: var(--new-bg);
+}
+
+.phase-card .case-table tr.status-changed td {
+  background: var(--changed-bg);
+}
+
+.phase-card .case-legend {
+  margin: 6px 0 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
 }

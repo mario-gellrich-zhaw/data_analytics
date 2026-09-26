@@ -11,7 +11,8 @@ and a **Data Engineer**, peers with no hierarchy between them &mdash; work
 through the first steps of the course's Data Analytics Process Model:
 agreeing on a business objective, defining what data is needed, actually
 collecting it (real web scraping / open-data API calls), and preparing and
-storing it (real cleaning, a real SQLite database, a real SQL query). No
+storing it (cleaning and enrichment code the agents write themselves, a
+real SQLite database, a real SQL query). No
 analysis or modeling happens yet &mdash; that's a later part of the process
 model this demo doesn't cover.
 
@@ -35,15 +36,21 @@ agents/
   graph.py               LangGraph StateGraph: one phase's turn-taking
 tools/
   opendata.py            opendata.swiss search / download / discard
-  preparation.py         preview, profile, clean, SQLite store, SQL query, sketch
+  preparation.py         preview, profile, SQLite store, SQL query, sketch
   scraper.py             check, save and run agent-written scrapers
+  prep_code.py           check, save, run and judge agent-written cleaning/enrichment code
+  teaching.py            show_to_class + look_up_past_runs (only when stuck)
+  exhibits.py            real rows / one listing before-after / code excerpts
+  history.py             what earlier runs did at a step, from saved transcripts
+  sandbox.py             the code check + separate-process runner both share
   validation.py          "is this really listing-level data?" checks
   schemas.py             every tool schema the models see
   run_tools.py           RunTools: per-run state + tool dispatch
-sandbox/scraper_kit.py   agent-written scrapers' only way to the web
+sandbox/scraper_kit.py   agent-written code's only way to the web
+sandbox/prep_kit.py      agent-written prep code's only way to the data
 reporting/transcript.py  saves each run as Markdown + HTML
 static/                  plain HTML/CSS/JS frontend (no build step)
-tests/                   offline tests for the scraper tools
+tests/                   offline tests for the scraper and prep-code tools
 ```
 
 - **`app/`** &mdash; the web layer. `config.py` holds every setting a run
@@ -78,11 +85,12 @@ tests/                   offline tests for the scraper tools
   `conversation_history/` as both a Markdown transcript and a
   self-contained HTML page styled like the live chat.
 - **`data/`** &mdash; where a run's real dataset files land: the scraped or
-  downloaded dataset, the cleaned version, the SQLite database, the
-  fallback dataset if one was needed, and `data/scrapers/` (every scraper
-  version the agent wrote plus each run's request log and output).
+  downloaded dataset, the cleaned and enriched versions, the SQLite
+  database, the fallback dataset if one was needed, `data/scrapers/` (every
+  scraper version the agent wrote plus each run's request log and output)
+  and `data/prep/` (every cleaning/enrichment script version, same idea).
   Git-ignored (regenerated fresh every run).
-- **`tests/`** &mdash; offline tests for the scraper tools
+- **`tests/`** &mdash; offline tests for the scraper and prep-code tools
   (`python -m unittest discover tests`, from this folder).
 - **`conversation_history/`** &mdash; every run's saved Markdown + HTML
   transcript. Git-ignored.
@@ -159,7 +167,7 @@ import a short whitelist of modules (`scraper_kit`, `bs4`, `json`, `re`,
 Results go through `scraper_kit.save_rows(...)` into a fixed column schema.
 A run's output only becomes the dataset if it looks like individual
 listings with the key fields (ID, rent, rooms, zip/city) at least 80%
-filled; the Data Engineer then cleans it and stores it in SQLite as usual.
+filled; the agents then clean, enrich and store it (see below).
 
 **Working memory.** Tool results only exist during the turn that called
 the tool; the shared transcript keeps just each agent's one-sentence
@@ -175,6 +183,80 @@ listings (e.g. 63 Zürich-area rental apartments in one test run). The code
 check and the separate process keep an LLM's code honest in a classroom
 demo; they're not a hard security boundary, so don't expose this app
 publicly. Check each site's terms of use before using its data.
+
+## Agent-written cleaning & enrichment
+
+Step 4 works the same way as the scraper, on the individual flatfox
+listings collected in Step 3 (one row per apartment), in four phases:
+
+1. **Planning** &mdash; all three agents see a briefing with the real
+   collected columns, types, missing values and sample rows, and agree on
+   what cleaning and which extra per-apartment information make sense.
+2. **Cleaning** &mdash; the Data Engineer profiles the data, then writes
+   its own pandas script (`write_prep_code`) and really runs it
+   (`run_prep_code`); the Data Analyst reviews the code and the real
+   before/after numbers.
+3. **Enrichment** &mdash; the Data Analyst writes its own script that adds
+   new columns to every apartment; the Data Engineer reviews it. Nothing
+   is prescribed: the agents decide what to derive from existing columns
+   (e.g. price per m², as in Week 3), what to extract from each listing's
+   description and attributes (the scraper now also saves those), and
+   whether to look up real information per apartment's coordinates via the
+   federal geodata API (`api3.geo.admin.ch`: the municipality and its BFS
+   number, or building-register data such as the construction year).
+4. **Storing** &mdash; the Data Engineer stores the prepared table in
+   SQLite and verifies it with a SQL query, as before.
+
+**The rules are enforced in code, as for the scraper.** A prep script runs
+in a separate, time-limited process (240 s) without your API key; it may
+import only pandas, numpy, a few stdlib modules and the two sandbox kits.
+It gets its input only via `prep_kit.load_data()` and hands back its
+result via `prep_kit.save_data(df)` &mdash; pandas' own file readers and
+writers (`read_*`, `to_csv`, ...) are rejected by the code check. Its only
+way to the web is `scraper_kit.polite_get` again, here allowed for
+`flatfox.ch` and `api3.geo.admin.ch` (robots.txt checked, 0.2&ndash;0.5 s
+between geodata lookups, at most 300 requests per run, stop at the first
+403/429). Every run's result is judged in code: listing_id must stay
+unique, cleaning may drop at most half the rows, enrichment must keep
+every row and add at least one column &mdash; otherwise the run is
+rejected with the reason and the agent fixes its code. A missing rent is
+never filled in (it's what the model will predict), and a run whose
+lookups failed or whose new columns are mostly empty (a test on a few
+rows) gets a diagnosis saying so. Each coder has private working notes on
+its last run, like the scraper's author. On the aggregated fallback
+dataset the enrichment phase is skipped.
+
+**What everyone sees.** After every real script run (scraper or prep), a
+one-line system note lands in the shared conversation ("Real run of
+enrich_v2.py: exit code 0, 65 → 65 rows, new columns: municipality_name
+(100% filled), ... — ACCEPTED"), so reviewers discuss what actually ran —
+in live tests a reviewer otherwise described a run that never happened. A
+phase also ends once two full rounds pass with mostly empty replies and no
+tool use, and a reply without a status tag keeps the agent's earlier vote.
+
+## Showing, not just telling
+
+The app is meant for students to learn from, so the agents don't only
+talk about results — they can put real examples in the chat with
+`show_to_class` (tools/teaching.py, tools/exhibits.py):
+
+- **one listing up close** — a single apartment field by field, as
+  collected vs. after preparation, e.g. its description text next to the
+  flags the enrichment derived from it (new values green, changed yellow)
+- **real rows** — a few rows of the current dataset, chosen columns
+- **code** — a few numbered lines of a script an agent wrote this run
+
+Everything shown is read from the real files; the agent only picks what
+to show and writes a one-sentence caption on what to notice. At most four
+examples per phase.
+
+**Help when stuck.** Only once a coding agent can't get further on its own
+— its last two runs in a step failed, or its run budget is nearly used up
+with nothing accepted — may it call `look_up_past_runs`: the script that
+finally worked at the same step in earlier runs, and the problems those
+runs hit, read from `conversation_history/*.md` (tools/history.py). Before
+that the tool refuses, so every run first has to find its own way; when it
+is used, a card in the chat says so.
 
 ## Setup
 

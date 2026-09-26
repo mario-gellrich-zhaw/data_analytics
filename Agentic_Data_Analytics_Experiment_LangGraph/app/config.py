@@ -42,15 +42,19 @@ MAX_TURNS_ACTION = round(14 * _SCALE)
 # up so the Data Analyst still gets roughly as many actual
 # searching/downloading turns as before.
 MAX_TURNS_COLLECT = round(36 * _SCALE)
-MAX_TURNS = round(80 * _SCALE)  # safety net: a live demo shouldn't run forever if nobody stops it
+# Step 4's cleaning and enrichment phases are 3-way round-robins too (the
+# coder, its reviewer, the Product Manager) where the coder writes, runs
+# and fixes real scripts — so they get the same kind of extra room.
+MAX_TURNS_PREP = round(18 * _SCALE)
+MAX_TURNS = round(120 * _SCALE)  # safety net: a live demo shouldn't run forever if nobody stops it
 MAX_RUNTIME_SECONDS = DEMO_LENGTH_MINUTES * 60  # ...or this many minutes, whichever comes first
 
 # --- Paths --------------------------------------------------------------------
 
 BASE_DIR = Path(__file__).resolve().parent.parent  # the app root, one level above app/
 STATIC_DIR = BASE_DIR / "static"
-# Every real dataset file a run touches (downloaded, cleaned, the SQLite
-# database, the fallback dataset) lives here — kept separate from the
+# Every real dataset file a run touches (downloaded, cleaned, enriched, the
+# SQLite database, the fallback dataset) lives here — kept separate from the
 # source files.
 DATA_DIR = BASE_DIR / "data"
 DATA_DIR.mkdir(exist_ok=True)
@@ -60,6 +64,10 @@ SCRAPED_PATH = DATA_DIR / "scraped_listings.csv"
 # working folder (request log, printed output, raw CSV).
 SCRAPERS_DIR = DATA_DIR / "scrapers"
 CLEANED_PATH = DATA_DIR / "cleaned_dataset.csv"
+ENRICHED_PATH = DATA_DIR / "enriched_dataset.csv"
+# Every cleaning/enrichment script version the agents write (clean_vN.py,
+# enrich_vN.py) and each run's working folder (output, request log).
+PREP_DIR = DATA_DIR / "prep"
 DB_PATH = DATA_DIR / "rental_data.db"
 FALLBACK_PATH = DATA_DIR / "fallback_dataset.csv"
 # Every run's full agent-to-agent conversation is saved here as

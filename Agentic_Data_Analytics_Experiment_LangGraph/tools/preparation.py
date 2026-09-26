@@ -1,20 +1,21 @@
 """Data-preparation tools the Data Engineer (and, for previews, the Data
 Analyst) can call — no analysis/interpretation here, just structure/quality
-checks and real cleaning/storage:
+checks and real storage:
 
 1. `preview_data` really reads the first N rows of the downloaded file.
 2. `profile_data` loads the file and computes real structure/quality stats
    (row count, duplicate rows, missing values) — profiling *for cleaning*,
    not data analysis.
-3. `clean_data` really drops duplicate rows and/or rows missing key
-   columns, writing a real cleaned file.
-4. `store_to_database` really writes the cleaned file into a real local
+3. `store_to_database` really writes the prepared file into a real local
    SQLite database.
-5. `run_sql_query` really runs a real (read-only) SQL query against that
+4. `run_sql_query` really runs a real (read-only) SQL query against that
    database and returns real rows.
 
+(Cleaning and enrichment themselves are code the agents write — see
+prep_code.py.)
+
 All three agents:
-6. `make_sketch` hands through a diagram the agent authored itself (plain
+5. `make_sketch` hands through a diagram the agent authored itself (plain
    ASCII or Graphviz DOT source) if it finds a sketch useful — no
    computation, just structured enough for the UI to render it distinctly.
 """
@@ -26,7 +27,8 @@ from pathlib import Path
 import pandas as pd
 
 
-def _read_table(path: str, data_format: str, **kwargs) -> pd.DataFrame:
+def read_table(path: str, data_format: str, **kwargs) -> pd.DataFrame:
+    """Read a CSV/XLSX/JSON dataset file into a DataFrame."""
     fmt = data_format.upper()
     if fmt in {"XLSX", "XLS"}:
         return pd.read_excel(path, **kwargs)
@@ -52,7 +54,7 @@ def preview_data(
 
     report(f"Reading the first {n} rows of {Path(path).name} ...")
     try:
-        df = _read_table(path, data_format, nrows=n)
+        df = read_table(path, data_format, nrows=n)
     except Exception as exc:  # pylint: disable=broad-exception-caught
         # A genuinely unreadable file (wrong format guess, corrupt/garbled
         # content) should read as "that failed, try something else" — not
@@ -81,7 +83,7 @@ def profile_data(
 
     report(f"Profiling {Path(path).name} ...")
     try:
-        df = _read_table(path, data_format)
+        df = read_table(path, data_format)
     except Exception as exc:  # pylint: disable=broad-exception-caught
         # See preview_data's matching except: same boundary, same reason.
         report(f"Couldn't read {Path(path).name} ({exc}).")
@@ -104,56 +106,6 @@ def profile_data(
         "dtypes": dtypes,
         "duplicate_rows": duplicate_rows,
         "missing_values": missing_values,
-    }
-
-
-def clean_data(
-    source_path: str = "downloaded_dataset.csv",
-    data_format: str = "CSV",
-    out_path: str = "cleaned_dataset.csv",
-    drop_duplicates: bool = True,
-    drop_missing_in: list | None = None,
-    on_progress=None,
-) -> dict:
-    """Really clean the downloaded file: drop exact duplicate rows and/or
-    rows missing values in agent-named key columns. Writes a real new file."""
-
-    def report(stage: str):
-        if on_progress:
-            on_progress(stage)
-
-    report(f"Cleaning {Path(source_path).name} ...")
-    try:
-        df = _read_table(source_path, data_format)
-    except Exception as exc:  # pylint: disable=broad-exception-caught
-        # See preview_data's matching except: same boundary, same reason.
-        report(f"Couldn't read {Path(source_path).name} ({exc}).")
-        return {"error": str(exc)}
-    n_before = len(df)
-
-    if drop_duplicates:
-        df = df.drop_duplicates()
-    dropped_duplicates = n_before - len(df)
-
-    dropped_missing = 0
-    if drop_missing_in:
-        valid_cols = [c for c in drop_missing_in if c in df.columns]
-        n_before_missing = len(df)
-        if valid_cols:
-            df = df.dropna(subset=valid_cols)
-        dropped_missing = n_before_missing - len(df)
-
-    df.to_csv(out_path, index=False)
-    report(
-        f"Cleaned: {n_before:,} → {len(df):,} rows "
-        f"({dropped_duplicates:,} duplicates, {dropped_missing:,} missing-value rows dropped)."
-    )
-    return {
-        "rows_before": n_before,
-        "rows_after": len(df),
-        "dropped_duplicates": dropped_duplicates,
-        "dropped_missing": dropped_missing,
-        "path": out_path,
     }
 
 

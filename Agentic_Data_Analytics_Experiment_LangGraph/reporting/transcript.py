@@ -107,11 +107,12 @@ def _render_step4_result_lines(data: dict) -> list[str]:
         )
     clean = data.get("clean") or {}
     if "rows_after" in clean:
-        lines.append(
-            f"- Cleaned: {clean.get('rows_before', 0):,} → {clean.get('rows_after', 0):,} rows "
-            f"({clean.get('dropped_duplicates', 0):,} duplicates, "
-            f"{clean.get('dropped_missing', 0):,} missing-value rows dropped)."
-        )
+        lines.append(f"- {_clean_summary(clean)}")
+    else:
+        lines.append("- Cleaning: no cleaning run was accepted.")
+    enrich = data.get("enrich") or {}
+    if "rows_after" in enrich:
+        lines.append(f"- {_enrich_summary(enrich)}")
     store = data.get("store") or {}
     if store.get("table_name"):
         lines.append(
@@ -126,6 +127,41 @@ def _render_step4_result_lines(data: dict) -> list[str]:
     if sketch.get("title"):
         lines.append(f"- Sketch: \"{sketch['title']}\" ({sketch.get('kind', 'ascii')}).")
     return lines
+
+
+def _clean_summary(clean: dict) -> str:
+    removed = clean.get("removed_columns") or []
+    return (
+        f"Cleaned (clean_v{clean.get('version')}.py): {clean.get('rows_before', 0):,} → "
+        f"{clean.get('rows_after', 0):,} rows"
+        + (f", removed {', '.join(removed)}" if removed else "")
+        + "."
+    )
+
+
+def _enrich_summary(enrich: dict) -> str:
+    return (
+        f"Enriched (enrich_v{enrich.get('version')}.py), new columns: "
+        f"{', '.join(enrich.get('added_columns') or [])}."
+    )
+
+
+PREP_STAGES = {"clean": ("cleaning", "Data Engineer"), "enrich": ("enrichment", "Data Analyst")}
+
+
+def _prep_file(data: dict) -> str:
+    return f"{data.get('stage')}_v{data.get('version')}.py"
+
+
+def _prep_code_heading(data: dict) -> str:
+    label, author = PREP_STAGES.get(data.get("stage"), (data.get("stage"), "an agent"))
+    return f"{_prep_file(data)} — {label} code written by the {author} ({data.get('lines')} lines)"
+
+
+def _prep_verdict(data: dict) -> str:
+    if data.get("accepted"):
+        return "Accepted as the current dataset."
+    return f"Not accepted: {data.get('rejected_because')}"
 
 
 def _describe_request(entry: dict) -> str:
@@ -157,7 +193,8 @@ def _render_scraper_code_lines(data: dict) -> list[str]:
         else "check failed: " + "; ".join(data.get("problems") or [])
     )
     return [
-        f"**Data Analyst wrote `scraper_v{data['version']}.py`** ({data.get('lines')} lines, {check}):",
+        f"**Data Analyst wrote `scraper_v{data['version']}.py`** "
+        f"({data.get('lines')} lines, {check}):",
         "```python",
         data.get("code", "").rstrip(),
         "```",
@@ -181,12 +218,121 @@ def _render_scraper_run_lines(data: dict) -> list[str]:
     return lines
 
 
+def _render_prep_code_lines(data: dict) -> list[str]:
+    check = (
+        "check passed"
+        if data.get("check_passed")
+        else "check failed: " + "; ".join(data.get("problems") or [])
+    )
+    return [
+        f"**{_prep_code_heading(data)}**, {check}:",
+        "```python",
+        data.get("code", "").rstrip(),
+        "```",
+    ]
+
+
+def _render_prep_run_lines(data: dict) -> list[str]:
+    lines = [
+        f"**Ran `{_prep_file(data)}`:** {_run_outcome(data)}, "
+        f"{data.get('rows_before', 0)} → {data.get('rows_after', 0)} rows, "
+        f"{len(data.get('requests') or [])} web request(s), {data.get('elapsed_seconds')} s.",
+        f"- {_prep_verdict(data)}",
+    ]
+    if data.get("added_columns"):
+        lines.append(f"- New columns: {', '.join(data['added_columns'])}")
+    if data.get("removed_columns"):
+        lines.append(f"- Removed columns: {', '.join(data['removed_columns'])}")
+    requests_log = data.get("requests") or []
+    if requests_log:
+        lines += ["```", *(_describe_request(e) for e in requests_log[:20])]
+        if len(requests_log) > 20:
+            lines.append(f"... {len(requests_log) - 20} more")
+        lines.append("```")
+    if data.get("output_tail"):
+        lines += ["Printed output:", "```", data["output_tail"].rstrip(), "```"]
+    return lines
+
+
+def _exhibit_heading(data: dict) -> str:
+    """The heading of a show_to_class exhibit card."""
+    kind = data.get("kind")
+    if kind == "single_case":
+        dropped = " (dropped by the cleaning)" if data.get("dropped") else ""
+        return f"One listing up close — {data.get('listing_id')}{dropped}"
+    if kind == "rows":
+        shown = len(data.get("rows") or [])
+        return f"Real rows from {data.get('file')} ({shown} of {data.get('total_rows')})"
+    lines = data.get("lines") or []
+    start = data.get("start_line", 1)
+    end = start + len(lines) - 1
+    return f"{data.get('file')}, lines {start}–{end} of {data.get('total_lines')}"
+
+
+def _numbered_code(data: dict) -> str:
+    """A code exhibit's lines, numbered as in the script."""
+    lines = data.get("lines") or []
+    start = data.get("start_line", 1)
+    width = len(str(start + len(lines) - 1))
+    return "\n".join(f"{str(start + i).rjust(width)}  {line}" for i, line in enumerate(lines))
+
+
+def _md_cell(value) -> str:
+    text = "—" if value is None else str(value)
+    return text.replace("|", "\\|").replace("\n", " ")
+
+
+def _render_exhibit_lines(data: dict) -> list[str]:
+    lines = [f"**🔎 Shown to the class: {_exhibit_heading(data)}**"]
+    if data.get("caption"):
+        lines.append(f"*{data['caption']}*")
+    lines.append("")
+    if data.get("kind") == "single_case":
+        lines += ["| column | as collected | now | |", "|---|---|---|---|"]
+        for field in data.get("fields") or []:
+            status = "" if field["status"] == "same" else field["status"]
+            lines.append(
+                f"| {field['column']} | {_md_cell(field['before'])} | "
+                f"{_md_cell(field['after'])} | {status} |"
+            )
+    elif data.get("kind") == "rows":
+        columns = data.get("columns") or []
+        lines += ["| " + " | ".join(columns) + " |", "|" + "---|" * len(columns)]
+        lines += [
+            "| " + " | ".join(_md_cell(v) for v in row) + " |" for row in data.get("rows") or []
+        ]
+    else:
+        lines += ["```python", _numbered_code(data), "```"]
+    return lines
+
+
+def _render_history_lookup_lines(data: dict) -> list[str]:
+    found = ", ".join(data.get("found") or []) or "no working script"
+    lines = [
+        f"**📚 Stuck at the {data.get('stage')} step — looked at "
+        f"{data.get('runs_searched')} earlier run(s):** found {found}."
+    ]
+    lines += [f"- {problem}" for problem in data.get("problems") or []]
+    return lines
+
+
 def _render_phase_result_lines(step: int, data: dict) -> list[str]:
     if step == 3:
         return _render_step3_result_lines(data)
     if step == 4:
         return _render_step4_result_lines(data)
     return []
+
+
+# How each inline artifact (see app/demo_run.py's _on_artifact) renders.
+_ARTIFACT_MARKDOWN = {
+    "scraper_code": _render_scraper_code_lines,
+    "scraper_run": _render_scraper_run_lines,
+    "prep_code": _render_prep_code_lines,
+    "prep_run": _render_prep_run_lines,
+    "exhibit": _render_exhibit_lines,
+    "history_lookup": _render_history_lookup_lines,
+}
 
 
 def render_markdown(
@@ -219,11 +365,8 @@ def render_markdown(
             suffix = " _(used a real tool)_" if entry["action"] else ""
             lines.append(f"**{entry['speaker']}:** {entry['text']}{suffix}")
             lines.append("")
-        elif entry["kind"] == "scraper_code":
-            lines.extend(_render_scraper_code_lines(entry["data"]))
-            lines.append("")
-        elif entry["kind"] == "scraper_run":
-            lines.extend(_render_scraper_run_lines(entry["data"]))
+        elif entry["kind"] in _ARTIFACT_MARKDOWN:
+            lines.extend(_ARTIFACT_MARKDOWN[entry["kind"]](entry["data"]))
             lines.append("")
         elif entry["kind"] == "phase_result":
             result_lines = _render_phase_result_lines(entry["step"], entry["data"])
@@ -401,6 +544,122 @@ def _scraper_run_card_html(data: dict) -> str:
     return "".join(parts)
 
 
+def _prep_code_card_html(data: dict) -> str:
+    check = (
+        "Code check passed (data only via prep_kit; web access only via scraper_kit)."
+        if data.get("check_passed")
+        else "Code check failed: " + "; ".join(data.get("problems") or [])
+    )
+    return (
+        '<article class="phase-card">'
+        f"<h2>🧑‍💻 {_esc(_prep_code_heading(data))}</h2>"
+        f'<p class="result-meta">{_esc(check)}</p>'
+        f'<pre class="sketch-ascii code-block">{_esc(data.get("code"))}</pre>'
+        "</article>"
+    )
+
+
+def _prep_run_card_html(data: dict) -> str:
+    outcome = _run_outcome(data)
+    if data.get("timed_out"):
+        outcome = f"⏱️ {outcome}"
+    elif data.get("exit_code") != 0:
+        outcome = f"❌ {outcome}"
+    requests_log = data.get("requests") or []
+    parts = ['<article class="phase-card">']
+    parts.append(f"<h2>▶️ Ran {_esc(_prep_file(data))} — {_esc(outcome)}</h2>")
+    parts.append('<div class="stat-grid">')
+    parts.append(_stat_tile_html("rows before", data.get("rows_before", 0)))
+    parts.append(_stat_tile_html("rows after", data.get("rows_after", 0)))
+    parts.append(_stat_tile_html("columns added", len(data.get("added_columns") or [])))
+    parts.append(_stat_tile_html("web requests", len(requests_log)))
+    parts.append("</div>")
+    icon = "✅" if data.get("accepted") else "⚠️"
+    parts.append(f'<p class="result-meta">{icon} {_esc(_prep_verdict(data))}</p>')
+    for label, key in (("New columns", "added_columns"), ("Removed columns", "removed_columns")):
+        if data.get(key):
+            parts.append(f'<p class="result-meta">{label}: {_esc(", ".join(data[key]))}</p>')
+    missing = data.get("missing_values") or {}
+    if missing:
+        text = ", ".join(f"{col} {n}" for col, n in missing.items())
+        parts.append(f'<p class="result-meta">Missing values after: {_esc(text)}</p>')
+    if requests_log:
+        shown = requests_log[:20]
+        count = (
+            f"first {len(shown)} of {len(requests_log)}"
+            if len(shown) < len(requests_log)
+            else str(len(requests_log))
+        )
+        parts.append(f'<h3 class="preview-heading">Requests ({count})</h3>')
+        text = "\n".join(_describe_request(e) for e in shown)
+        parts.append(f'<pre class="sketch-ascii">{_esc(text)}</pre>')
+    if data.get("output_tail"):
+        parts.append('<h3 class="preview-heading">Printed output</h3>')
+        parts.append(f'<pre class="sketch-ascii code-block">{_esc(data["output_tail"])}</pre>')
+    sample_rows = data.get("sample_rows") or []
+    if sample_rows:
+        parts.append(
+            f'<h3 class="preview-heading">First {len(sample_rows)} rows of the output</h3>'
+        )
+        parts.append(_data_table_html(data.get("columns") or [], sample_rows))
+    parts.append("</article>")
+    return "".join(parts)
+
+
+def _case_table_html(data: dict) -> str:
+    rows = [
+        "<tr><th>column</th><th>as collected</th><th>now</th><th></th></tr>"
+    ]
+    for field in data.get("fields") or []:
+        status = "" if field["status"] == "same" else field["status"]
+        before = "—" if field["before"] is None else field["before"]
+        after = "—" if field["after"] is None else field["after"]
+        rows.append(
+            f'<tr class="status-{_esc(field["status"])}"><td>{_esc(field["column"])}</td>'
+            f'<td class="case-value">{_esc(before)}</td>'
+            f'<td class="case-value">{_esc(after)}</td><td>{_esc(status)}</td></tr>'
+        )
+    return (
+        '<div class="table-scroll"><table class="preview-table case-table">'
+        + "".join(rows)
+        + "</table></div>"
+        + '<p class="case-legend">Green: added by the preparation · yellow: changed by it.</p>'
+    )
+
+
+def _exhibit_card_html(data: dict) -> str:
+    parts = ['<article class="phase-card exhibit">', f"<h2>🔎 {_esc(_exhibit_heading(data))}</h2>"]
+    if data.get("caption"):
+        parts.append(f'<p class="exhibit-caption">{_esc(data["caption"])}</p>')
+    if data.get("kind") == "single_case":
+        parts.append(_case_table_html(data))
+    elif data.get("kind") == "rows":
+        parts.append(_data_table_html(data.get("columns") or [], data.get("rows") or []))
+    else:
+        parts.append(f'<pre class="sketch-ascii code-block">{_esc(_numbered_code(data))}</pre>')
+    parts.append("</article>")
+    return "".join(parts)
+
+
+def _history_lookup_card_html(data: dict) -> str:
+    found = data.get("found") or []
+    parts = [
+        '<article class="phase-card">',
+        f"<h2>📚 Stuck at the {_esc(data.get('stage'))} step — looked at "
+        f"{_esc(data.get('runs_searched'))} earlier run(s)</h2>",
+        '<p class="result-meta">'
+        + (_esc("Working script(s) found: " + ", ".join(found)) if found
+           else "No earlier run had a working script for this step.")
+        + "</p>",
+    ]
+    problems = data.get("problems") or []
+    if problems:
+        parts.append('<h3 class="preview-heading">Problems earlier runs hit</h3>')
+        parts.append(f'<pre class="sketch-ascii">{_esc(chr(10).join(problems))}</pre>')
+    parts.append("</article>")
+    return "".join(parts)
+
+
 def _collecting_card_html(data: dict) -> str:
     download = data.get("download") or {}
     if not download:
@@ -462,6 +721,7 @@ def _collecting_card_html(data: dict) -> str:
 def _preparing_card_html(data: dict) -> str:
     profile = data.get("profile") or {}
     clean = data.get("clean") or {}
+    enrich = data.get("enrich") or {}
     store = data.get("store") or {}
     sql = data.get("sql") or {}
     preview = data.get("preview") or {}
@@ -470,7 +730,8 @@ def _preparing_card_html(data: dict) -> str:
         return ""
 
     heading = (
-        "✅ Data cleaned and stored in a real SQLite database"
+        f"✅ Data {'cleaned, enriched' if 'rows_after' in enrich else 'prepared'} "
+        "and stored in a real SQLite database"
         if store.get("table_name")
         else "⚠️ Preparing & storing didn't finish"
     )
@@ -478,7 +739,7 @@ def _preparing_card_html(data: dict) -> str:
 
     if "n_rows" in profile:
         parts.append('<div class="stat-grid">')
-        parts.append(_stat_tile_html("rows (raw)", f'{profile["n_rows"]:,}'))
+        parts.append(_stat_tile_html("rows (collected)", f'{profile["n_rows"]:,}'))
         parts.append(_stat_tile_html("columns", profile.get("n_columns", 0)))
         parts.append(_stat_tile_html("duplicate rows", f'{profile.get("duplicate_rows", 0):,}'))
         parts.append(
@@ -497,12 +758,11 @@ def _preparing_card_html(data: dict) -> str:
             parts.append("</ul>")
 
     if "rows_after" in clean:
-        parts.append(
-            '<p class="result-meta">Cleaned: '
-            f'{clean.get("rows_before", 0):,} → {clean.get("rows_after", 0):,} rows '
-            f'({clean.get("dropped_duplicates", 0):,} duplicates, '
-            f'{clean.get("dropped_missing", 0):,} missing-value rows dropped).</p>'
-        )
+        parts.append(f'<p class="result-meta">{_esc(_clean_summary(clean))}</p>')
+    else:
+        parts.append('<p class="result-meta">Cleaning: no cleaning run was accepted.</p>')
+    if "rows_after" in enrich:
+        parts.append(f'<p class="result-meta">{_esc(_enrich_summary(enrich))}</p>')
 
     if store.get("table_name"):
         db_path = _esc(store.get("db_path") or "rental_data.db")
@@ -514,7 +774,7 @@ def _preparing_card_html(data: dict) -> str:
 
     rows = preview.get("rows") or []
     if rows:
-        parts.append(f'<h3 class="preview-heading">First {len(rows)} rows (cleaned)</h3>')
+        parts.append(f'<h3 class="preview-heading">First {len(rows)} rows (prepared)</h3>')
         parts.append(_data_table_html(preview.get("columns") or [], rows))
 
     if sql.get("query"):
@@ -543,6 +803,14 @@ def _render_body_html(history: list[dict]) -> str:
             parts.append(_scraper_code_card_html(entry["data"]))
         elif entry["kind"] == "scraper_run":
             parts.append(_scraper_run_card_html(entry["data"]))
+        elif entry["kind"] == "prep_code":
+            parts.append(_prep_code_card_html(entry["data"]))
+        elif entry["kind"] == "prep_run":
+            parts.append(_prep_run_card_html(entry["data"]))
+        elif entry["kind"] == "exhibit":
+            parts.append(_exhibit_card_html(entry["data"]))
+        elif entry["kind"] == "history_lookup":
+            parts.append(_history_lookup_card_html(entry["data"]))
         elif entry["kind"] == "phase_result":
             if entry["step"] == 3:
                 parts.append(_collecting_card_html(entry["data"]))
