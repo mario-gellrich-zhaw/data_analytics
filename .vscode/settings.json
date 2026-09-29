@@ -1,4 +1,8 @@
 {
     "python.defaultInterpreterPath": "/usr/local/bin/python",
-    "python-envs.defaultEnvManager": "ms-python.python:system"
+    "remote.autoForwardPorts": true,
+    "remote.otherPortsAttributes": { "onAutoForward": "ignore" },
+    "portsAttributes": {
+        "8000": { "label": "Agentic app", "onAutoForward": "notify" }
+    }
 }

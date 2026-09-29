@@ -1,0 +1,58 @@
+# docker compose up --build   ->  UI http://localhost:8080 · API :8000 · MLflow :5000
+# The OpenAI key is read from ./.env or ../.env (repo root) — never baked into images.
+services:
+  backend:
+    build: { context: ., dockerfile: docker/backend.Dockerfile }
+    env_file:
+      - { path: ./.env, required: false }
+      - { path: ../.env, required: false }
+    environment:
+      ADA_VAR_DIR: /data/var
+      ADA_VAULT_DIR: /vault            # holdout vault: mounted ONLY here
+      ADA_SANDBOX_MODE: remote
+      ADA_SANDBOX_URL: http://sandbox:8100
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+    volumes:
+      - var:/data/var
+      - runs:/data/var/runs
+      - vault:/vault
+    ports: ["8000:8000"]
+    networks: [internal, egress]        # egress: web access for the DataCollector's tools
+    depends_on: [sandbox, mlflow]
+
+  sandbox:
+    build: { context: ., dockerfile: docker/sandbox.Dockerfile }
+    environment:
+      ADA_RUNS_DIR: /data/var/runs
+      ADA_MEMORY_MB: "6144"
+      ADA_CPU_SECONDS: "900"
+    volumes:
+      - runs:/data/var/runs            # workspaces only — no vault, no .env, no databases
+    read_only: true
+    tmpfs: [/tmp]
+    mem_limit: 8g
+    pids_limit: 512
+    networks: [internal]               # internal network: no internet egress
+
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v3.16.1
+    command: mlflow server --backend-store-uri sqlite:////mlflow/mlflow.db --artifacts-destination /mlflow/artifacts --host 0.0.0.0 --port 5000
+    volumes: [mlflow:/mlflow]
+    ports: ["5000:5000"]
+    networks: [internal, egress]
+
+  frontend:
+    build: { context: ., dockerfile: docker/frontend.Dockerfile }
+    ports: ["8080:80"]
+    networks: [internal, egress]
+    depends_on: [backend]
+
+networks:
+  internal: { internal: true }
+  egress: {}
+
+volumes:
+  var: {}
+  runs: {}
+  vault: {}
+  mlflow: {}

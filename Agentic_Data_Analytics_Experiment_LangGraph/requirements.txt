@@ -1,0 +1,23 @@
+# Backend + sandbox (Python 3.11+). Install into the project venv: make setup
+langgraph==1.2.12
+langgraph-checkpoint-sqlite==3.1.1
+openai==3.19.2
+python-dotenv==1.2.3
+PyYAML==6.0.3
+pydantic==2.13.5
+fastapi==0.141.1
+uvicorn[standard]==0.54.0
+httpx==0.28.1
+pandas==3.0.6
+numpy==2.4.6
+pyarrow==25.0.1
+duckdb==1.5.5
+openpyxl==3.1.5
+scikit-learn==1.9.1
+lightgbm==4.7.0
+shap==0.51.0
+cloudpickle==3.1.2
+matplotlib==3.11.2
+mlflow==3.16.1
+Markdown==3.11
+pytest==9.1.1
