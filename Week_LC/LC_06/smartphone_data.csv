@@ -1,0 +1,1001 @@
+sale_id,date,shop_city,brand,model,storage_gb,price_chf,payment
+S-7378-LG,2026-04-30,Affoltern,Samsung,Galaxy A55,256,514,TWINT
+S-2330-BV,2026-07-28,Zofingen,Google,Pixel 9 Pro,128,978,TWINT
+S-7150-JV,2026-08-14,Allschwil,Apple,iPhone 16 Pro,512,1499,TWINT
+S-5672-LQ,2025-11-01,Binningen,Apple,iPhone 15,512,926,Card
+S-9118-EJ,2026-08-17,Münchenstein,Apple,iPhone 15,512,999,Card
+S-5786-UF,2026-03-09,Buchs,Google,Pixel 9 Pro,256,1177,Card
+S-0718-MV,2026-04-28,Vevey,Google,Pixel 8a,256,588,Cash
+S-2555-WM,2026-09-24,Burgdorf,Apple,iPhone 16,512,1191,Card
+S-5208-QP,2026-03-16,Wetzikon,Apple,iPhone 16,256,958,Card
+S-6332-JE,2026-03-28,Solothurn,Samsung,Galaxy S24 Ultra,512,1466,Card
+S-4063-KZ,2025-11-13,Ecublens,Samsung,Galaxy S24,256,879,Card
+S-0428-UE,2025-10-29,Neuhausen,Google,Pixel 8a,256,554,Card
+S-7974-II,2026-05-22,Aesch,Samsung,Galaxy A55,256,549,TWINT
+S-0495-PP,2026-08-26,Lancy,Google,Pixel 9,512,1099,Cash
+S-2161-LB,2026-06-10,Biel/Bienne,Samsung,Galaxy S24,128,754,Card
+S-4856-FO,2026-06-03,Glarus,Google,Pixel 9 Pro,128,1001,TWINT
+S-8098-VX,2025-11-08,Opfikon,Apple,iPhone 15,512,905,TWINT
+S-2349-UV,2025-11-03,Emmen,Apple,iPhone 16 Pro,512,1352,TWINT
+S-8791-IM,2025-11-09,Thalwil,Google,Pixel 9 Pro,512,1386,TWINT
+S-8831-NU,2026-10-11,Bern,Samsung,Galaxy A55,512,673,TWINT
+S-1178-NB,2026-06-24,Schwyz,Google,Pixel 9 Pro,128,1016,Cash
+S-1300-QB,2025-11-03,Wettingen,Google,Pixel 9 Pro,256,1129,TWINT
+S-3665-FO,2026-06-07,Arth,Google,Pixel 9 Pro,256,1178,TWINT
+S-9379-QU,2026-08-29,Küssnacht,Apple,iPhone 16 Pro,256,1234,TWINT
+S-9680-KU,2025-12-31,Ecublens,Samsung,Galaxy S24 Ultra,256,1337,Card
+S-8496-VV,2026-04-06,Freiburg,Google,Pixel 9,128,731,Cash
+S-5593-QF,2026-10-02,Sursee,Samsung,Galaxy S24,512,1086,TWINT
+S-3394-TY,2025-12-15,Schlieren,Apple,iPhone 15,512,930,TWINT
+S-4269-RG,2025-12-26,Arbon,Samsung,Galaxy S24 Ultra,512,1569,TWINT
+S-0189-CZ,2026-05-29,Küsnacht,Google,Pixel 8a,256,558,Card
+S-4375-AX,2025-12-18,Urdorf,Google,Pixel 9,128,743,Card
+S-6833-KZ,2026-08-16,Aigle,Samsung,Galaxy S24,256,934,Cash
+S-6320-FH,2026-05-28,Schwyz,Google,Pixel 9,128,797,Cash
+S-4254-TO,2026-06-05,Bernex,Google,Pixel 9 Pro,128,999,Card
+S-3545-DK,2025-11-01,Liestal,Google,Pixel 9,512,1021,Cash
+S-0135-IQ,2026-03-17,Thun,Google,Pixel 9 Pro,128,1051,TWINT
+S-3805-MI,2026-06-07,Allschwil,Apple,iPhone 16 Pro,128,1120,Cash
+S-2704-RD,2026-01-06,Meilen,Samsung,Galaxy S24 Ultra,256,1367,TWINT
+S-5052-NQ,2026-05-29,Frauenfeld,Apple,iPhone 16 Pro,512,1410,Card
+S-3388-SX,2026-04-01,Brig-Glis,Google,Pixel 8a,256,584,Card
+S-5859-IB,2026-09-17,Horgen,Samsung,Galaxy A55,128,423,Cash
+S-8584-HK,2026-01-14,Zofingen,Apple,iPhone 16,512,1092,Cash
+S-3426-YO,2026-04-16,Baar,Samsung,Galaxy S24 Ultra,128,1252,Cash
+S-5974-VI,2026-07-13,Oftringen,Samsung,Galaxy S24,128,778,Card
+S-9497-MF,2026-01-10,Bellinzona,Samsung,Galaxy S24,128,842,Card
+S-5756-KO,2026-03-31,Lancy,Samsung,Galaxy S24,256,913,Card
+S-7139-VE,2026-07-19,Delsberg,Samsung,Galaxy A55,256,549,Card
+S-9438-NI,2026-04-19,Illnau-Effretikon,Samsung,Galaxy S24,512,1096,Card
+S-8503-JS,2025-11-09,Belp,Google,Pixel 9 Pro,512,1325,Card
+S-0397-FG,2026-05-03,Renens,Google,Pixel 8a,512,765,Cash
+S-2567-OP,2026-04-04,Richterswil,Apple,iPhone 15,256,816,Card
+S-3991-WF,2025-12-14,Lenzburg,Apple,iPhone 15,256,761,TWINT
+S-3072-MJ,2025-10-22,Emmen,Google,Pixel 9 Pro,256,1071,Card
+S-8161-WH,2026-01-01,Uzwil,Google,Pixel 9,128,798,Card
+S-9913-NB,2026-05-18,Pfäffikon,Apple,iPhone 16,128,812,TWINT
+S-6097-CZ,2026-07-28,Glarus,Samsung,Galaxy A55,256,549,Card
+S-7482-SV,2026-03-03,Lausanne,Google,Pixel 9,256,880,TWINT
+S-4917-UY,2025-12-08,Meilen,Samsung,Galaxy S24,128,812,TWINT
+S-7305-VB,2026-04-24,Zug,Samsung,Galaxy S24,256,897,TWINT
+S-3074-MV,2026-03-27,Regensdorf,Apple,iPhone 15,256,842,Cash
+S-3325-AQ,2026-07-29,La Chaux-de-Fonds,Apple,iPhone 16,128,880,Cash
+S-3492-SX,2026-04-12,Nyon,Samsung,Galaxy A55,256,520,Cash
+S-1034-UJ,2026-03-07,Payerne,Apple,iPhone 16 Pro,512,1466,Card
+S-4393-YH,2026-09-03,Oftringen,Google,Pixel 8a,256,584,Card
+S-8326-YQ,2026-09-23,Thalwil,Samsung,Galaxy A55,512,692,TWINT
+S-0127-HW,2026-04-10,Monthey,Apple,iPhone 16,512,1094,Card
+S-4746-XZ,2026-10-02,Locarno,Apple,iPhone 15,512,999,TWINT
+S-4754-WI,2026-04-30,Hinwil,Apple,iPhone 15,256,806,Cash
+S-2050-KY,2026-02-22,Steinhausen,Apple,iPhone 16,256,950,Card
+S-5983-IU,2026-06-03,Worb,Apple,iPhone 16,128,870,Card
+S-4645-NU,2026-03-12,Baar,Apple,iPhone 16,512,1164,Card
+S-4631-ND,2026-04-05,Glarus,Samsung,Galaxy S24 Ultra,128,1288,Cash
+S-6718-FK,2026-08-14,Zofingen,Google,Pixel 9 Pro,128,1016,Card
+S-8201-CF,2026-05-17,Worb,Google,Pixel 9,256,857,TWINT
+S-4294-OW,2026-10-09,Bernex,Samsung,Galaxy S24 Ultra,512,1528,Card
+S-5845-ZI,2026-07-18,Uster,Apple,iPhone 16 Pro,512,1412,Cash
+S-3375-ES,2026-04-25,Versoix,Apple,iPhone 16,512,1114,TWINT
+S-9559-LV,2026-04-13,Köniz,Samsung,Galaxy S24,512,1026,Cash
+S-2882-GU,2025-12-25,Regensdorf,Samsung,Galaxy S24,512,1104,Cash
+S-8419-PZ,2026-06-06,Lyss,Google,Pixel 9 Pro,128,1062,Cash
+S-2088-GZ,2026-07-31,Renens,Apple,iPhone 16,512,1129,Cash
+S-6492-BM,2025-10-24,Oftringen,Samsung,Galaxy A55,512,737,TWINT
+S-4674-LU,2026-09-11,Neuenburg,Apple,iPhone 15,512,943,TWINT
+S-6804-RK,2026-10-04,Glarus,Samsung,Galaxy S24 Ultra,512,1460,Card
+S-2925-MH,2026-07-09,Arbon,Samsung,Galaxy A55,128,414,Card
+S-9226-YT,2026-04-06,Freiburg,Google,Pixel 9 Pro,512,1336,Card
+S-7266-VH,2026-06-21,Sursee,Apple,iPhone 15,256,781,Card
+S-0165-JZ,2026-08-06,Lenzburg,Apple,iPhone 16,256,907,Card
+S-8942-WH,2026-04-19,Bulle,Google,Pixel 9 Pro,128,1022,TWINT
+S-7749-ZD,2026-03-18,Wald,Samsung,Galaxy S24 Ultra,512,1537,TWINT
+S-4986-OX,2026-09-27,Olten,Apple,iPhone 16 Pro,256,1299,TWINT
+S-4470-OF,2026-10-13,Chur,Apple,iPhone 16 Pro,256,1185,TWINT
+S-6563-HQ,2025-11-15,Gland,Google,Pixel 9 Pro,256,1156,Cash
+S-5688-GZ,2026-04-16,Brugg,Google,Pixel 9,128,786,Cash
+S-3633-RN,2025-10-25,Bassersdorf,Samsung,Galaxy A55,256,502,TWINT
+S-3916-SF,2026-08-17,Arth,Google,Pixel 9 Pro,512,1310,Cash
+S-6505-EV,2026-06-15,Allschwil,Apple,iPhone 16 Pro,256,1299,Cash
+S-8965-TD,2026-07-05,Wallisellen,Apple,iPhone 16,256,953,TWINT
+S-4542-UC,2025-12-06,Volketswil,Google,Pixel 8a,128,479,Card
+S-6983-YB,2026-10-12,Renens,Samsung,Galaxy A55,128,409,Cash
+S-5677-YQ,2025-11-13,Küssnacht,Google,Pixel 9,512,1099,Cash
+S-0276-LK,2025-10-19,Sitten,Google,Pixel 9 Pro,128,1061,TWINT
+S-4029-OE,2026-09-21,Herisau,Apple,iPhone 16,128,859,TWINT
+S-2254-AQ,2026-10-03,Neuenburg,Samsung,Galaxy S24 Ultra,128,1160,TWINT
+S-2580-YR,2026-01-16,Val-de-Ruz,Samsung,Galaxy S24,512,1141,Cash
+S-9552-JA,2026-07-17,Wädenswil,Samsung,Galaxy S24,512,1149,Card
+S-6782-HB,2026-03-27,Ecublens,Samsung,Galaxy S24,256,949,Cash
+S-5718-GB,2026-02-12,Crans-Montana,Google,Pixel 8a,128,469,TWINT
+S-4721-VV,2026-04-06,Riehen,Apple,iPhone 16 Pro,128,1100,Card
+S-7382-MP,2026-07-10,Yverdon-les-Bains,Google,Pixel 9 Pro,256,1056,Card
+S-5279-SJ,2026-09-15,Onex,Samsung,Galaxy S24,128,793,TWINT
+S-4993-HD,2026-08-04,Männedorf,Apple,iPhone 16,256,981,Cash
+S-0206-TC,2025-11-29,Biel/Bienne,Google,Pixel 9 Pro,512,1280,Card
+S-6196-KN,2026-01-01,Aigle,Apple,iPhone 16,512,1140,Cash
+S-6902-ER,2026-03-25,Dübendorf,Apple,iPhone 15,256,813,Cash
+S-5234-XN,2026-09-19,Männedorf,Apple,iPhone 16,512,1138,Card
+S-6194-XJ,2026-05-04,Maur,Samsung,Galaxy S24 Ultra,512,1438,Cash
+S-0247-OS,2026-04-04,Luzern,Apple,iPhone 16 Pro,128,1182,Cash
+S-6819-CT,2026-01-09,Regensdorf,Google,Pixel 8a,256,594,Card
+S-5860-US,2026-06-17,Münsingen,Samsung,Galaxy S24,128,809,Card
+S-2503-JU,2025-12-25,Winterthur,Samsung,Galaxy S24 Ultra,128,1238,TWINT
+S-7992-JC,2026-10-11,Binningen,Google,Pixel 9,256,883,TWINT
+S-4135-OM,2026-04-20,Glarus,Apple,iPhone 16 Pro,256,1280,TWINT
+S-2626-MA,2025-10-27,Vernier,Samsung,Galaxy S24,256,887,TWINT
+S-6872-OY,2026-08-29,Brugg,Apple,iPhone 16 Pro,512,1344,TWINT
+S-7194-NH,2026-01-25,Bulle,Samsung,Galaxy S24 Ultra,512,1473,Card
+S-9507-WG,2026-05-08,Urdorf,Apple,iPhone 16,512,1106,Cash
+S-3497-AW,2026-07-11,Delsberg,Google,Pixel 8a,128,449,TWINT
+S-8737-ZI,2026-01-27,La Chaux-de-Fonds,Apple,iPhone 16,512,1199,Card
+S-2968-FB,2026-07-20,Küssnacht,Apple,iPhone 16 Pro,256,1299,TWINT
+S-1525-DO,2026-09-23,Gland,Google,Pixel 9,256,879,Card
+S-0608-IA,2026-06-17,Luzern,Samsung,Galaxy S24,512,1146,Cash
+S-9823-ZI,2026-01-28,Thônex,Samsung,Galaxy S24 Ultra,256,1384,Card
+S-6751-MH,2026-02-04,Möhlin,Samsung,Galaxy S24,512,1088,Card
+S-4631-EP,2025-10-29,Biel/Bienne,Google,Pixel 9 Pro,256,1199,Card
+S-7946-ZA,2026-03-16,Flawil,Samsung,Galaxy A55,512,725,Card
+S-3891-NP,2026-04-19,Ittigen,Google,Pixel 9,512,1099,Cash
+S-1636-ZB,2026-09-28,Monthey,Apple,iPhone 16,512,1186,Cash
+S-2817-BN,2026-10-15,Val-de-Ruz,Google,Pixel 9 Pro,128,985,Card
+S-7119-FD,2026-10-06,Lenzburg,Apple,iPhone 16,256,971,Card
+S-2184-TQ,2026-07-18,Köniz,Apple,iPhone 16,512,1124,Card
+S-6479-ED,2026-05-11,Münchenbuchsee,Apple,iPhone 16,512,1105,TWINT
+S-9870-WJ,2026-01-01,Uzwil,Google,Pixel 9 Pro,256,1163,Card
+S-6488-HF,2026-09-19,Kriens,Samsung,Galaxy S24 Ultra,128,1204,Cash
+S-5990-LF,2025-12-26,Allschwil,Samsung,Galaxy S24 Ultra,256,1317,Cash
+S-7596-KA,2025-12-22,Crans-Montana,Samsung,Galaxy S24,128,783,TWINT
+S-6355-XG,2026-01-15,Glarus,Google,Pixel 9 Pro,128,1072,Card
+S-9511-QR,2026-07-01,Binningen,Apple,iPhone 16,256,999,Card
+S-8146-LX,2025-11-09,Schwyz,Samsung,Galaxy A55,128,445,Cash
+S-0281-SE,2026-07-18,Kloten,Apple,iPhone 15,256,825,Card
+S-3699-WM,2026-02-15,Le Grand-Saconnex,Google,Pixel 9 Pro,128,1020,Card
+S-0064-DJ,2026-10-09,Regensdorf,Apple,iPhone 16,512,1149,Cash
+S-2872-WW,2026-04-21,Mendrisio,Apple,iPhone 16,256,965,Cash
+S-9796-RH,2026-10-07,Ittigen,Apple,iPhone 16,512,1148,TWINT
+S-5208-TR,2026-07-27,Brig-Glis,Apple,iPhone 15,512,950,Card
+S-2251-LG,2026-09-18,Bassersdorf,Apple,iPhone 16,256,972,Cash
+S-1599-VR,2026-06-05,Richterswil,Apple,iPhone 16,512,1067,Cash
+S-3490-VV,2026-07-22,Freiburg,Google,Pixel 9 Pro,128,1098,Card
+S-7253-YZ,2026-03-31,Oberwil,Samsung,Galaxy S24 Ultra,128,1265,Card
+S-2591-WW,2026-04-11,Wil,Google,Pixel 9 Pro,512,1281,TWINT
+S-8931-UP,2025-11-12,Solothurn,Samsung,Galaxy S24,128,789,Cash
+S-3719-KO,2026-06-04,Hinwil,Apple,iPhone 15,128,737,TWINT
+S-3663-VZ,2025-11-01,Versoix,Apple,iPhone 16,512,1144,Cash
+S-6449-NM,2026-02-02,Wetzikon,Apple,iPhone 15,256,831,TWINT
+S-8527-WJ,2026-03-17,Zürich,Apple,iPhone 16,512,1098,Card
+S-8427-DK,2026-01-25,Grenchen,Google,Pixel 8a,128,463,TWINT
+S-9803-QW,2026-08-18,Langenthal,Google,Pixel 8a,512,782,Card
+S-9201-UZ,2026-06-30,Villars-sur-Glâne,Samsung,Galaxy S24 Ultra,128,1213,Cash
+S-5640-TU,2026-06-22,Dietikon,Apple,iPhone 16 Pro,128,1157,Card
+S-8769-GV,2025-11-04,Aesch,Apple,iPhone 15,256,809,TWINT
+S-9574-VK,2026-08-03,Wetzikon,Apple,iPhone 16 Pro,128,1136,Card
+S-8897-HT,2026-08-29,Meyrin,Google,Pixel 9 Pro,128,1069,Cash
+S-1754-RT,2025-11-10,Meilen,Apple,iPhone 16 Pro,512,1399,TWINT
+S-4248-TS,2026-07-23,Glarus,Samsung,Galaxy A55,256,511,Cash
+S-4201-DT,2026-07-31,Biel/Bienne,Google,Pixel 9,128,745,TWINT
+S-4383-GE,2026-04-22,Maur,Google,Pixel 9,512,995,Cash
+S-3291-FO,2026-05-05,Wädenswil,Samsung,Galaxy S24 Ultra,128,1248,TWINT
+S-1518-LP,2026-07-08,Le Grand-Saconnex,Apple,iPhone 16 Pro,512,1499,Card
+S-5005-NJ,2026-08-09,Wil,Samsung,Galaxy S24 Ultra,512,1550,TWINT
+S-7453-VV,2025-12-12,Cham,Apple,iPhone 16,512,1129,TWINT
+S-1638-DO,2026-09-14,Adliswil,Apple,iPhone 16 Pro,512,1423,TWINT
+S-1415-WT,2026-07-25,Mendrisio,Google,Pixel 8a,512,741,Cash
+S-4411-ES,2026-01-01,Val-de-Ruz,Apple,iPhone 16,128,825,Cash
+S-9336-VZ,2026-01-31,Gossau,Apple,iPhone 15,512,1001,TWINT
+S-2454-HW,2026-04-30,Liestal,Samsung,Galaxy S24,512,1097,Cash
+S-1466-DC,2026-07-13,Münchenbuchsee,Google,Pixel 9,512,1087,TWINT
+S-9166-KU,2026-01-22,Vevey,Samsung,Galaxy A55,256,499,TWINT
+S-8193-HA,2026-04-13,Chêne-Bougeries,Samsung,Galaxy S24,128,816,Card
+S-4215-YP,2026-09-14,Winterthur,Google,Pixel 8a,128,496,Card
+S-7929-CZ,2025-12-01,Uzwil,Samsung,Galaxy A55,512,745,Card
+S-0630-AU,2025-10-26,Biel/Bienne,Samsung,Galaxy S24 Ultra,128,1256,Cash
+S-1146-GV,2026-10-02,Winterthur,Apple,iPhone 15,256,754,Card
+S-7017-ZQ,2026-09-11,Lancy,Samsung,Galaxy S24,128,780,Card
+S-0798-BB,2026-06-30,Lutry,Apple,iPhone 16,128,899,Cash
+S-5198-LR,2026-03-24,Thônex,Samsung,Galaxy S24,256,906,TWINT
+S-0298-JJ,2025-11-24,Gossau,Google,Pixel 9 Pro,256,1126,TWINT
+S-2189-LJ,2026-03-08,Arbon,Google,Pixel 9 Pro,512,1294,Card
+S-3498-NQ,2026-05-14,Binningen,Apple,iPhone 15,512,982,Cash
+S-5687-ID,2026-05-09,Delsberg,Apple,iPhone 15,128,731,TWINT
+S-9850-HF,2026-01-11,Emmen,Samsung,Galaxy S24,512,1073,Card
+S-7271-WX,2026-07-28,Opfikon,Apple,iPhone 16 Pro,128,1166,Cash
+S-3207-OT,2026-01-07,Gland,Samsung,Galaxy S24 Ultra,128,1299,Card
+S-3313-ZU,2026-08-31,Naters,Samsung,Galaxy S24 Ultra,512,1564,Card
+S-9510-DW,2026-04-27,Solothurn,Apple,iPhone 16,512,1172,TWINT
+S-8870-ZE,2026-09-28,Onex,Google,Pixel 9,256,820,TWINT
+S-5688-SJ,2026-04-03,Riehen,Apple,iPhone 16 Pro,256,1179,TWINT
+S-7759-UU,2025-11-26,Carouge,Apple,iPhone 16,256,991,Card
+S-5857-TF,2025-12-09,Allschwil,Apple,iPhone 15,256,801,Card
+S-9936-VL,2026-07-27,Wädenswil,Apple,iPhone 15,512,993,Cash
+S-7180-HG,2026-10-07,Oberwil,Samsung,Galaxy S24 Ultra,512,1599,Card
+S-8989-DT,2026-06-20,Glarus,Apple,iPhone 16 Pro,256,1299,Cash
+S-0158-WN,2026-08-08,Altstätten,Samsung,Galaxy S24,256,905,Cash
+S-0442-IT,2025-12-27,Cham,Samsung,Galaxy A55,256,519,Cash
+S-4130-HJ,2026-01-04,Weinfelden,Google,Pixel 9 Pro,512,1362,Card
+S-1971-ID,2026-01-17,Martigny,Apple,iPhone 16,128,899,TWINT
+S-6844-GO,2026-09-24,Münchenstein,Apple,iPhone 16 Pro,256,1236,Card
+S-8124-WA,2026-04-08,Opfikon,Samsung,Galaxy S24,512,1118,Card
+S-7662-ZS,2025-12-10,St. Gallen,Google,Pixel 9,512,1083,Card
+S-1517-XN,2026-09-18,Regensdorf,Google,Pixel 9 Pro,512,1347,TWINT
+S-7845-AA,2026-02-13,Chêne-Bougeries,Google,Pixel 9,128,795,Cash
+S-8253-OQ,2026-08-21,Binningen,Google,Pixel 9 Pro,512,1298,TWINT
+S-2436-EL,2026-08-17,Sursee,Apple,iPhone 16 Pro,256,1233,Cash
+S-4859-ZQ,2025-12-07,Siders,Samsung,Galaxy S24 Ultra,128,1263,Cash
+S-2991-AS,2026-02-28,Wetzikon,Samsung,Galaxy A55,512,703,Cash
+S-9802-SB,2025-10-22,Spreitenbach,Google,Pixel 8a,512,760,Card
+S-0599-CC,2025-11-16,Siders,Apple,iPhone 15,512,1049,Card
+S-1854-OP,2026-01-11,Veyrier,Samsung,Galaxy S24,128,811,TWINT
+S-8948-BY,2025-10-26,Vevey,Apple,iPhone 16 Pro,512,1451,Card
+S-6972-KD,2026-10-09,Wädenswil,Samsung,Galaxy A55,512,749,Cash
+S-3435-ER,2026-01-25,Aigle,Samsung,Galaxy A55,256,536,Card
+S-3726-RN,2026-08-19,Basel,Apple,iPhone 15,128,699,Card
+S-8030-HM,2026-06-12,Oftringen,Samsung,Galaxy S24 Ultra,128,1266,Card
+S-1969-BY,2026-05-07,Siders,Samsung,Galaxy A55,128,401,TWINT
+S-8972-AH,2025-10-31,Sitten,Samsung,Galaxy S24,512,1013,TWINT
+S-4740-SC,2026-04-30,Weinfelden,Apple,iPhone 15,256,817,Card
+S-7847-UN,2025-11-08,Grenchen,Samsung,Galaxy S24,512,1066,Cash
+S-1269-ZP,2025-10-26,Versoix,Google,Pixel 9,512,956,Cash
+S-3121-CW,2026-03-15,Genf,Google,Pixel 9,512,1059,Card
+S-3412-QJ,2025-10-23,Altstätten,Samsung,Galaxy S24 Ultra,512,1577,TWINT
+S-7734-UY,2026-08-01,Versoix,Samsung,Galaxy S24,128,821,Cash
+S-9326-RU,2026-04-02,Yverdon-les-Bains,Samsung,Galaxy A55,512,749,TWINT
+S-5745-QB,2026-04-21,Kreuzlingen,Apple,iPhone 16 Pro,128,1199,TWINT
+S-5227-GR,2026-06-19,Neuenburg,Google,Pixel 9 Pro,128,1035,Card
+S-9669-OH,2026-06-02,Solothurn,Apple,iPhone 16 Pro,256,1256,Card
+S-0595-XX,2026-10-17,Plan-les-Ouates,Apple,iPhone 16 Pro,128,1127,Cash
+S-9109-RC,2025-11-10,Belp,Samsung,Galaxy S24 Ultra,256,1302,Card
+S-5585-EM,2026-01-16,La Chaux-de-Fonds,Google,Pixel 9 Pro,512,1372,Card
+S-4751-JL,2026-02-24,Worb,Apple,iPhone 16,256,957,Card
+S-7274-CS,2026-01-02,Ittigen,Google,Pixel 9,256,864,Card
+S-3163-EM,2026-02-22,Schlieren,Apple,iPhone 16,512,1171,Cash
+S-8170-CM,2026-07-12,Lyss,Google,Pixel 9,512,1081,TWINT
+S-2297-WQ,2026-03-13,Regensdorf,Google,Pixel 9 Pro,256,1124,TWINT
+S-4137-XB,2026-08-22,Davos,Samsung,Galaxy S24 Ultra,256,1337,TWINT
+S-0452-RF,2026-06-08,Pfäffikon,Apple,iPhone 15,128,702,TWINT
+S-8755-OV,2026-05-26,Wetzikon,Samsung,Galaxy S24,512,1046,Cash
+S-8488-LN,2025-11-13,Reinach,Samsung,Galaxy S24,256,863,Cash
+S-1337-BX,2026-05-26,Frauenfeld,Apple,iPhone 16,128,894,Cash
+S-0591-BK,2025-12-29,Birsfelden,Apple,iPhone 16,128,885,TWINT
+S-8075-ZM,2026-02-01,Reinach,Apple,iPhone 16 Pro,256,1247,TWINT
+S-8960-KQ,2026-02-16,Davos,Samsung,Galaxy S24 Ultra,128,1228,Card
+S-3643-MJ,2025-10-31,Möhlin,Google,Pixel 9,256,820,TWINT
+S-3097-BC,2026-06-20,Vernier,Google,Pixel 9 Pro,512,1383,Card
+S-1275-WA,2026-03-18,Zug,Apple,iPhone 16,256,967,TWINT
+S-0204-OE,2026-04-04,Spreitenbach,Apple,iPhone 16 Pro,256,1221,Cash
+S-1057-FB,2026-06-27,Vevey,Samsung,Galaxy A55,128,404,Cash
+S-5260-GD,2025-12-06,Oftringen,Samsung,Galaxy A55,256,491,Cash
+S-7188-SR,2026-01-06,Mendrisio,Google,Pixel 9,128,791,Cash
+S-4120-KJ,2026-05-19,Chêne-Bougeries,Apple,iPhone 16,128,862,Cash
+S-3441-AF,2026-05-22,Illnau-Effretikon,Samsung,Galaxy S24 Ultra,256,1374,TWINT
+S-7597-DZ,2026-02-27,Vevey,Google,Pixel 9 Pro,512,1282,TWINT
+S-3027-QJ,2026-01-02,Schlieren,Google,Pixel 9 Pro,256,1118,Cash
+S-2370-OP,2026-03-23,Wohlen,Apple,iPhone 15,512,1012,TWINT
+S-5266-RW,2026-08-04,Val-de-Ruz,Google,Pixel 8a,256,584,TWINT
+S-1952-ZP,2026-01-05,Cham,Google,Pixel 8a,512,750,Card
+S-4884-RB,2026-03-11,Richterswil,Google,Pixel 9 Pro,128,1001,Cash
+S-3352-HD,2026-02-12,Gossau,Google,Pixel 9,256,882,TWINT
+S-9996-BL,2026-03-21,Glarus,Google,Pixel 8a,512,769,Cash
+S-4661-NZ,2026-08-06,Wohlen,Apple,iPhone 16 Pro,128,1134,Cash
+S-4502-PH,2026-08-27,Schlieren,Samsung,Galaxy S24,256,901,Cash
+S-4058-PM,2026-07-22,Steffisburg,Apple,iPhone 16 Pro,512,1404,TWINT
+S-9083-LM,2026-06-29,Aarau,Apple,iPhone 16,256,989,TWINT
+S-7928-PH,2025-11-11,Gossau,Apple,iPhone 16,512,1168,Card
+S-1242-SY,2026-01-30,Sitten,Samsung,Galaxy S24 Ultra,512,1599,Card
+S-1285-VV,2025-11-08,Nyon,Apple,iPhone 16 Pro,512,1421,Card
+S-5466-VH,2026-07-15,Montreux,Google,Pixel 9,512,997,Cash
+S-9506-FP,2026-05-11,Schwyz,Samsung,Galaxy S24,128,849,Cash
+S-8471-OO,2026-04-22,St. Gallen,Samsung,Galaxy S24,128,828,Card
+S-0921-XN,2026-02-19,Martigny,Google,Pixel 9 Pro,512,1279,Cash
+S-8908-SE,2025-12-03,Ittigen,Apple,iPhone 15,256,811,TWINT
+S-9538-TH,2026-02-28,Gossau,Google,Pixel 9,128,799,Card
+S-5671-AN,2025-12-03,Lausanne,Apple,iPhone 16,256,902,Cash
+S-5704-PW,2026-09-15,Freiburg,Samsung,Galaxy A55,256,549,Cash
+S-4457-EC,2026-09-03,Weinfelden,Samsung,Galaxy A55,128,402,Card
+S-5439-OO,2026-01-07,Risch,Google,Pixel 9 Pro,512,1362,TWINT
+S-1062-ZS,2026-09-20,Renens,Google,Pixel 8a,256,586,TWINT
+S-1689-WH,2026-04-09,Belp,Google,Pixel 9 Pro,128,1043,TWINT
+S-8400-JK,2026-07-27,Baden,Apple,iPhone 16,128,855,Cash
+S-8507-NN,2025-10-23,Chur,Apple,iPhone 15,256,786,Card
+S-4194-CD,2026-04-25,Baar,Samsung,Galaxy S24 Ultra,512,1487,Cash
+S-4659-FD,2026-02-11,Vernier,Apple,iPhone 16,128,859,TWINT
+S-7237-OP,2026-04-17,Vernier,Apple,iPhone 15,128,672,Cash
+S-9131-JR,2025-11-21,Zürich,Google,Pixel 8a,128,460,Cash
+S-2221-QS,2025-11-22,Allschwil,Samsung,Galaxy S24 Ultra,128,1220,Card
+S-9056-IZ,2026-09-26,Spiez,Google,Pixel 9,128,755,Cash
+S-0253-OK,2025-11-26,Küsnacht,Apple,iPhone 16,128,857,Card
+S-9765-PU,2026-02-06,Zollikofen,Samsung,Galaxy A55,256,523,Cash
+S-8545-AR,2026-10-18,Wil,Google,Pixel 9 Pro,256,1107,TWINT
+S-9513-AY,2026-04-02,Pfäffikon,Apple,iPhone 16 Pro,256,1209,Cash
+S-5085-UF,2026-04-01,Lutry,Google,Pixel 9,256,853,TWINT
+S-9422-MS,2026-01-03,Dietikon,Samsung,Galaxy S24,512,1045,Card
+S-1439-FC,2026-03-29,Reinach,Apple,iPhone 15,512,1008,Card
+S-2698-RM,2026-06-10,Allschwil,Google,Pixel 9 Pro,256,1118,TWINT
+S-5725-DF,2026-10-01,Schwyz,Apple,iPhone 15,256,777,TWINT
+S-9551-KS,2026-01-03,Gossau,Samsung,Galaxy S24,256,944,Card
+S-5276-QZ,2026-04-03,Lutry,Google,Pixel 9 Pro,256,1152,TWINT
+S-8506-TO,2026-08-23,Ecublens,Apple,iPhone 16 Pro,256,1147,Card
+S-7762-VD,2026-02-13,Lyss,Samsung,Galaxy A55,128,444,TWINT
+S-3929-HE,2026-07-12,Payerne,Samsung,Galaxy A55,256,496,Card
+S-0113-IA,2025-11-05,Altstätten,Google,Pixel 9,512,1091,TWINT
+S-3761-YL,2026-08-31,Wettingen,Apple,iPhone 16,128,839,Cash
+S-6277-HL,2026-01-17,Morges,Apple,iPhone 15,128,743,Cash
+S-2544-LI,2026-08-07,Burgdorf,Samsung,Galaxy S24 Ultra,256,1364,Cash
+S-8200-DB,2026-05-06,Spiez,Apple,iPhone 16 Pro,256,1254,Cash
+S-7788-GL,2026-04-03,Val-de-Travers,Samsung,Galaxy S24 Ultra,512,1554,TWINT
+S-0707-AY,2025-12-22,Pratteln,Apple,iPhone 15,128,681,TWINT
+S-7718-LH,2026-08-22,Romanshorn,Samsung,Galaxy S24 Ultra,512,1466,TWINT
+S-8098-XJ,2026-08-02,Uster,Samsung,Galaxy S24 Ultra,256,1280,TWINT
+S-7174-QT,2026-05-06,Gossau,Samsung,Galaxy A55,512,706,Card
+S-4875-OZ,2026-01-11,Affoltern,Google,Pixel 8a,512,707,Card
+S-1825-VG,2025-11-03,Steffisburg,Apple,iPhone 16 Pro,128,1090,TWINT
+S-5808-SQ,2026-10-13,Solothurn,Apple,iPhone 16 Pro,128,1123,Card
+S-8343-SD,2025-12-29,Dübendorf,Samsung,Galaxy A55,512,743,Card
+S-0540-MS,2026-01-05,Crans-Montana,Google,Pixel 9,128,737,TWINT
+S-2753-VC,2025-11-29,Schaffhausen,Google,Pixel 9,256,831,Cash
+S-4967-FF,2026-10-01,Vevey,Google,Pixel 9,128,756,Cash
+S-8525-HX,2026-08-04,Belp,Samsung,Galaxy S24 Ultra,128,1197,Card
+S-4105-SE,2026-06-21,Pratteln,Google,Pixel 8a,256,551,TWINT
+S-5514-OC,2026-08-04,Chur,Samsung,Galaxy S24,256,913,Card
+S-7449-QD,2026-03-04,Urdorf,Samsung,Galaxy S24 Ultra,256,1297,Cash
+S-6656-ZA,2025-11-07,Bulle,Google,Pixel 9 Pro,256,1122,TWINT
+S-4140-GE,2026-02-25,Ecublens,Apple,iPhone 16,256,937,TWINT
+S-2496-GQ,2026-02-27,Pully,Google,Pixel 9,512,1059,Card
+S-6643-AH,2025-10-27,Winterthur,Samsung,Galaxy A55,128,435,TWINT
+S-4320-QW,2026-05-18,Kriens,Google,Pixel 9 Pro,512,1322,Cash
+S-7716-YM,2025-10-25,Oberwil,Apple,iPhone 16 Pro,256,1160,Card
+S-8320-SJ,2026-06-08,Meyrin,Samsung,Galaxy A55,128,385,Card
+S-5522-RY,2026-08-25,Arth,Samsung,Galaxy S24 Ultra,128,1253,Card
+S-2747-PC,2026-06-18,Chur,Apple,iPhone 15,128,743,Card
+S-6520-CF,2026-08-03,Adliswil,Google,Pixel 9,128,770,Cash
+S-0640-YR,2026-09-16,Zollikon,Google,Pixel 9,128,786,TWINT
+S-4641-OM,2026-02-20,Grenchen,Google,Pixel 9,128,772,Cash
+S-1974-DP,2025-12-01,Amriswil,Samsung,Galaxy S24,512,1073,Cash
+S-9190-QD,2025-12-07,Urdorf,Apple,iPhone 15,128,739,TWINT
+S-6909-BH,2026-06-15,Gossau,Google,Pixel 9,512,1017,TWINT
+S-9618-YZ,2026-03-12,Naters,Samsung,Galaxy S24 Ultra,128,1193,Cash
+S-6056-UP,2026-08-13,Solothurn,Google,Pixel 9 Pro,256,1066,TWINT
+S-5132-SQ,2026-06-15,La Chaux-de-Fonds,Google,Pixel 8a,512,701,TWINT
+S-8718-YR,2025-11-12,Baar,Google,Pixel 8a,512,727,Card
+S-9540-PI,2026-09-30,Montreux,Samsung,Galaxy A55,512,644,Card
+S-6057-BL,2026-08-07,Lausanne,Google,Pixel 9 Pro,512,1357,TWINT
+S-2639-EQ,2026-01-30,Wohlen,Samsung,Galaxy S24 Ultra,256,1314,Card
+S-5039-NF,2026-10-07,Hinwil,Apple,iPhone 15,512,989,TWINT
+S-5233-DW,2025-12-10,Zollikon,Samsung,Galaxy A55,256,512,Cash
+S-5072-RM,2026-07-17,Chêne-Bougeries,Samsung,Galaxy S24,512,1044,Cash
+S-5041-XQ,2026-05-22,Mendrisio,Apple,iPhone 16,128,866,Card
+S-6073-WF,2026-06-30,Lausanne,Samsung,Galaxy S24 Ultra,128,1145,TWINT
+S-9596-ST,2025-12-12,Muttenz,Apple,iPhone 16 Pro,512,1348,Card
+S-8506-KZ,2026-01-21,Altstätten,Samsung,Galaxy S24,256,888,Card
+S-6899-RW,2026-07-08,Dietikon,Apple,iPhone 16,256,930,TWINT
+S-9750-CJ,2026-04-10,Aigle,Google,Pixel 9 Pro,256,1185,Card
+S-5630-WC,2025-11-11,Wald,Samsung,Galaxy S24,512,1149,TWINT
+S-0380-BN,2026-09-13,Monthey,Samsung,Galaxy S24,256,905,Cash
+S-8228-YA,2026-09-11,Lausanne,Apple,iPhone 16,512,1124,Card
+S-5084-FC,2026-01-05,Bern,Samsung,Galaxy S24 Ultra,128,1222,TWINT
+S-0393-WD,2026-02-19,Belp,Apple,iPhone 16,128,893,TWINT
+S-9653-FO,2026-10-13,Muttenz,Google,Pixel 9,128,773,TWINT
+S-0121-XX,2026-07-01,Thônex,Google,Pixel 9,256,791,Card
+S-4277-FK,2026-01-03,Dietikon,Apple,iPhone 16 Pro,128,1104,Card
+S-8341-KF,2026-05-17,Onex,Google,Pixel 9 Pro,256,1109,TWINT
+S-1919-CU,2026-01-07,Zollikofen,Samsung,Galaxy S24,128,817,Card
+S-3293-KK,2026-07-07,Neuhausen,Apple,iPhone 16 Pro,128,1103,Card
+S-9547-YL,2026-05-18,Aigle,Apple,iPhone 15,512,942,TWINT
+S-5254-LF,2026-08-23,Brugg,Google,Pixel 9,128,735,TWINT
+S-5409-WX,2026-02-02,Schwyz,Samsung,Galaxy S24,512,1110,Card
+S-7036-RA,2026-08-24,La Chaux-de-Fonds,Samsung,Galaxy S24 Ultra,256,1313,TWINT
+S-4408-EE,2025-10-27,Risch,Apple,iPhone 16,128,885,TWINT
+S-8766-WN,2026-09-16,Rheinfelden,Google,Pixel 8a,256,576,Cash
+S-9760-IP,2026-02-12,La Chaux-de-Fonds,Google,Pixel 9,512,1018,TWINT
+S-8206-PC,2026-01-28,Pully,Google,Pixel 9 Pro,256,1164,Cash
+S-6318-TQ,2026-05-27,Baar,Samsung,Galaxy S24 Ultra,512,1533,Cash
+S-3113-BU,2026-09-09,Arbon,Apple,iPhone 16,128,802,Cash
+S-5814-HF,2026-08-23,Val-de-Travers,Apple,iPhone 16,128,860,Cash
+S-2649-VF,2026-04-26,Thônex,Google,Pixel 9 Pro,512,1286,TWINT
+S-8061-EI,2025-12-24,Ecublens,Apple,iPhone 16,256,960,Cash
+S-4671-EW,2025-11-25,Siders,Samsung,Galaxy S24,512,1143,Cash
+S-2950-IS,2026-10-13,Belp,Apple,iPhone 15,256,806,Card
+S-2841-LC,2025-11-01,Prilly,Apple,iPhone 16 Pro,128,1156,TWINT
+S-1971-QL,2025-12-31,Ittigen,Google,Pixel 9 Pro,128,1099,Cash
+S-4001-ZT,2026-10-15,Langenthal,Google,Pixel 9 Pro,512,1395,TWINT
+S-5102-ZP,2025-11-01,Bernex,Apple,iPhone 16 Pro,128,1158,Cash
+S-7612-VZ,2026-07-24,Lenzburg,Google,Pixel 9 Pro,512,1246,TWINT
+S-5541-RE,2026-09-04,Bern,Google,Pixel 9,256,874,Card
+S-2022-HT,2026-08-03,Uzwil,Samsung,Galaxy S24 Ultra,256,1330,TWINT
+S-9863-UB,2026-06-03,Wallisellen,Google,Pixel 9,128,739,Card
+S-4711-CC,2026-03-03,Bulle,Samsung,Galaxy A55,128,421,TWINT
+S-9074-EE,2026-09-22,Villars-sur-Glâne,Samsung,Galaxy S24,512,1106,Card
+S-0497-EJ,2026-08-27,Renens,Samsung,Galaxy S24 Ultra,128,1146,TWINT
+S-7786-KH,2026-01-10,Gossau,Apple,iPhone 16 Pro,512,1343,Card
+S-1964-FX,2026-06-16,La Chaux-de-Fonds,Samsung,Galaxy S24,128,849,TWINT
+S-5722-UX,2026-09-07,Spreitenbach,Google,Pixel 8a,128,455,Cash
+S-1756-MZ,2026-09-09,Carouge,Samsung,Galaxy A55,128,417,Card
+S-3062-RJ,2026-03-03,Zug,Apple,iPhone 15,512,955,Cash
+S-2776-TM,2026-03-22,Lutry,Samsung,Galaxy S24 Ultra,256,1323,Cash
+S-9913-HX,2026-04-20,Monthey,Google,Pixel 8a,128,457,Cash
+S-7318-ZI,2026-06-02,Bulle,Samsung,Galaxy S24,512,1003,Card
+S-7590-SQ,2026-09-22,Adliswil,Apple,iPhone 16 Pro,256,1145,Card
+S-9809-TD,2026-03-26,Nyon,Apple,iPhone 16,128,790,TWINT
+S-8609-YC,2025-12-26,Riehen,Samsung,Galaxy S24 Ultra,256,1270,Card
+S-7150-ME,2026-01-26,Risch,Apple,iPhone 16 Pro,128,1094,Card
+S-4280-UH,2025-12-21,Ittigen,Google,Pixel 8a,256,546,Cash
+S-3789-LZ,2026-02-18,Lugano,Apple,iPhone 15,128,744,Cash
+S-6111-QA,2026-02-18,Steffisburg,Apple,iPhone 15,128,644,Cash
+S-2476-YT,2025-11-05,Locarno,Apple,iPhone 15,256,798,Card
+S-1569-UM,2026-03-18,Yverdon-les-Bains,Apple,iPhone 15,128,701,TWINT
+S-1469-RS,2025-10-19,Muttenz,Google,Pixel 8a,128,471,TWINT
+S-7136-DP,2026-03-27,Zollikon,Apple,iPhone 15,256,790,TWINT
+S-6274-PH,2026-08-14,Münsingen,Google,Pixel 8a,256,599,Card
+S-5185-EG,2026-06-30,Richterswil,Samsung,Galaxy S24 Ultra,512,1503,TWINT
+S-5513-AP,2026-07-05,Affoltern,Samsung,Galaxy S24,128,849,TWINT
+S-1603-SC,2026-10-14,Siders,Samsung,Galaxy A55,512,740,TWINT
+S-4001-AH,2026-09-25,La Tour-de-Peilz,Samsung,Galaxy A55,128,449,TWINT
+S-5656-GA,2026-02-20,Lancy,Apple,iPhone 15,128,749,Card
+S-8309-BT,2026-01-31,Amriswil,Samsung,Galaxy A55,128,416,Card
+S-4441-MZ,2025-12-10,Aarau,Apple,iPhone 15,512,1016,Cash
+S-6621-PK,2026-08-21,Baden,Google,Pixel 8a,128,476,Cash
+S-3901-QR,2025-12-29,Schwyz,Apple,iPhone 15,512,1003,Card
+S-6233-AU,2026-01-06,St. Gallen,Google,Pixel 9,128,795,TWINT
+S-3734-JO,2026-04-21,Bernex,Google,Pixel 8a,256,586,Card
+S-4737-NQ,2026-02-27,Freiburg,Samsung,Galaxy S24,512,1148,TWINT
+S-8526-CR,2026-04-11,Kloten,Apple,iPhone 16,128,865,Card
+S-6094-JX,2026-05-28,Gossau,Google,Pixel 8a,512,799,TWINT
+S-1658-XJ,2026-07-01,Bülach,Apple,iPhone 16,256,964,Cash
+S-4591-IK,2025-11-22,Möhlin,Apple,iPhone 15,512,958,Card
+S-5460-GK,2026-03-22,Oftringen,Samsung,Galaxy S24 Ultra,256,1262,TWINT
+S-9896-DV,2025-11-09,Baden,Samsung,Galaxy S24 Ultra,512,1446,Cash
+S-2270-EW,2026-02-19,Horgen,Samsung,Galaxy A55,256,511,Cash
+S-1833-JZ,2026-09-14,Sursee,Apple,iPhone 16,128,890,TWINT
+S-0679-VV,2026-09-28,Wil,Apple,iPhone 15,256,776,TWINT
+S-1611-NT,2025-11-25,Wohlen,Apple,iPhone 16,512,1114,Cash
+S-1186-ZJ,2026-09-10,Kreuzlingen,Samsung,Galaxy S24 Ultra,256,1314,TWINT
+S-6746-XT,2026-02-28,Bellinzona,Samsung,Galaxy A55,512,748,TWINT
+S-4342-YO,2026-08-28,Langenthal,Google,Pixel 9,256,840,Card
+S-6770-HR,2026-02-16,Kloten,Apple,iPhone 15,128,669,Card
+S-4278-WX,2025-12-10,Riehen,Apple,iPhone 16,256,919,Cash
+S-8051-XE,2026-07-17,Prilly,Google,Pixel 9,512,1054,Card
+S-4188-IU,2025-12-06,Steffisburg,Apple,iPhone 15,512,974,TWINT
+S-2898-ZL,2026-04-29,Lausanne,Google,Pixel 8a,512,759,Cash
+S-8524-WY,2025-10-20,Monthey,Apple,iPhone 16,256,942,TWINT
+S-2527-BG,2026-03-21,Locarno,Samsung,Galaxy S24 Ultra,128,1190,TWINT
+S-2278-FK,2026-03-15,Zofingen,Samsung,Galaxy A55,128,420,Card
+S-3947-EW,2025-10-22,Freiburg,Samsung,Galaxy A55,512,709,TWINT
+S-5602-KU,2026-06-09,Oberwil,Apple,iPhone 15,256,794,Cash
+S-5560-KM,2025-12-01,Montreux,Google,Pixel 9,128,785,Card
+S-6551-IH,2026-04-24,Bernex,Samsung,Galaxy S24 Ultra,128,1285,Cash
+S-6998-MW,2026-03-25,Crans-Montana,Apple,iPhone 16 Pro,128,1116,Card
+S-3160-EL,2026-02-07,Romanshorn,Samsung,Galaxy A55,128,437,Card
+S-3813-JO,2026-05-06,Ecublens,Apple,iPhone 16,512,1112,TWINT
+S-6301-FC,2026-05-22,Lugano,Apple,iPhone 16,512,1199,Cash
+S-5624-HV,2026-01-28,Wohlen,Samsung,Galaxy S24,512,1037,TWINT
+S-0742-KW,2026-06-29,Küsnacht,Samsung,Galaxy A55,512,714,Card
+S-0794-RX,2026-01-04,Vernier,Apple,iPhone 16,128,794,Cash
+S-2995-IL,2026-02-10,Chur,Apple,iPhone 16,256,999,TWINT
+S-7687-PN,2026-05-02,Bernex,Apple,iPhone 16,512,1199,TWINT
+S-8409-GR,2026-02-19,Wald,Apple,iPhone 15,512,938,Card
+S-5727-HD,2026-09-03,Flawil,Samsung,Galaxy A55,128,424,Cash
+S-4736-XZ,2026-07-31,Sarnen,Apple,iPhone 16 Pro,512,1406,TWINT
+S-8665-DK,2025-11-16,Lutry,Samsung,Galaxy S24,512,1086,Card
+S-2289-NP,2025-12-11,Lausanne,Samsung,Galaxy A55,128,424,Cash
+S-6410-UE,2026-09-25,Meilen,Google,Pixel 9 Pro,128,1020,Card
+S-9724-RT,2026-10-01,Wald,Samsung,Galaxy A55,128,444,TWINT
+S-2640-UU,2026-04-07,Thun,Apple,iPhone 16 Pro,512,1434,TWINT
+S-8750-IS,2025-12-03,Kloten,Samsung,Galaxy S24,512,1032,TWINT
+S-1832-II,2025-11-13,Münsingen,Google,Pixel 9,512,1036,TWINT
+S-8594-RP,2026-09-26,Flawil,Apple,iPhone 16 Pro,256,1266,Card
+S-0558-FS,2026-09-18,Opfikon,Google,Pixel 9,512,1040,Cash
+S-6569-YI,2026-07-31,Sursee,Samsung,Galaxy S24 Ultra,256,1271,Card
+S-3556-ZA,2026-03-17,Glarus,Apple,iPhone 16,128,861,Card
+S-9071-YN,2025-12-08,Frauenfeld,Apple,iPhone 16,512,1147,Cash
+S-4692-CU,2026-07-28,Muttenz,Samsung,Galaxy A55,512,697,Card
+S-6616-RS,2026-07-23,Freiburg,Google,Pixel 8a,256,549,TWINT
+S-4607-TS,2026-03-12,Freienbach,Google,Pixel 9,128,712,Cash
+S-9712-YC,2026-03-12,Wetzikon,Apple,iPhone 16 Pro,512,1431,TWINT
+S-7839-RO,2026-08-29,Dietikon,Apple,iPhone 16,256,935,TWINT
+S-7458-JT,2026-09-05,Arth,Apple,iPhone 16,256,907,TWINT
+S-3947-GK,2026-07-31,Bellinzona,Samsung,Galaxy A55,512,749,Card
+S-3668-TG,2026-09-28,Altstätten,Google,Pixel 9 Pro,128,1037,Card
+S-0025-UZ,2026-06-23,Solothurn,Samsung,Galaxy S24 Ultra,512,1489,Card
+S-2419-GJ,2025-11-23,Opfikon,Samsung,Galaxy S24 Ultra,128,1238,TWINT
+S-0166-OS,2026-08-05,Freienbach,Apple,iPhone 16 Pro,128,1179,TWINT
+S-2904-FU,2026-09-05,Horgen,Google,Pixel 9,512,1018,TWINT
+S-9608-TY,2026-01-29,Rapperswil-Jona,Samsung,Galaxy S24,512,1034,TWINT
+S-9710-LF,2026-10-03,Lutry,Google,Pixel 9,256,857,Cash
+S-5719-JV,2025-12-16,Prilly,Samsung,Galaxy S24,128,822,TWINT
+S-2231-XU,2026-09-18,Freienbach,Samsung,Galaxy A55,512,717,Cash
+S-8498-CF,2026-09-16,Horgen,Google,Pixel 9 Pro,256,1064,TWINT
+S-3323-IO,2026-10-10,Brugg,Samsung,Galaxy A55,512,674,TWINT
+S-1283-TI,2026-05-25,Männedorf,Samsung,Galaxy S24,128,804,TWINT
+S-6424-AP,2026-06-03,Aigle,Apple,iPhone 16 Pro,256,1290,Cash
+S-1121-HV,2026-07-02,Möhlin,Google,Pixel 8a,128,499,Cash
+S-7852-KF,2026-02-15,Amriswil,Google,Pixel 9,256,865,Cash
+S-5942-RC,2026-08-18,Meilen,Google,Pixel 9 Pro,512,1345,Card
+S-1996-ZI,2025-11-11,Herisau,Samsung,Galaxy S24,128,797,Cash
+S-9718-PY,2026-08-05,Liestal,Google,Pixel 9,512,1093,Cash
+S-7548-UN,2026-08-19,Bellinzona,Apple,iPhone 16 Pro,256,1239,TWINT
+S-4260-AW,2026-08-01,Stäfa,Samsung,Galaxy A55,256,509,Card
+S-1651-IX,2025-11-02,Olten,Google,Pixel 9 Pro,256,1199,Card
+S-5551-HG,2026-09-12,Bülach,Samsung,Galaxy S24 Ultra,256,1200,Cash
+S-7145-WQ,2025-12-14,Plan-les-Ouates,Google,Pixel 8a,256,555,TWINT
+S-3951-QK,2026-03-15,Pratteln,Apple,iPhone 15,512,973,TWINT
+S-7682-EO,2026-08-13,Münchenbuchsee,Apple,iPhone 16 Pro,256,1299,TWINT
+S-9291-GT,2026-05-08,Bellinzona,Google,Pixel 8a,512,791,Cash
+S-3629-CH,2026-07-11,Brig-Glis,Apple,iPhone 15,128,680,Card
+S-4052-KS,2026-07-23,Wil,Samsung,Galaxy A55,512,684,TWINT
+S-8268-AN,2025-11-23,Locarno,Google,Pixel 8a,256,599,Card
+S-9273-BA,2026-07-11,Wallisellen,Apple,iPhone 15,128,676,TWINT
+S-5006-NK,2026-02-24,Olten,Samsung,Galaxy S24,128,781,Cash
+S-4784-AQ,2026-02-09,Küssnacht,Samsung,Galaxy S24 Ultra,128,1200,Cash
+S-6753-FZ,2026-09-25,Dietikon,Google,Pixel 9,128,793,Cash
+S-9239-BB,2026-05-21,Regensdorf,Google,Pixel 9,128,750,Cash
+S-4512-HJ,2026-08-13,Dübendorf,Samsung,Galaxy S24 Ultra,128,1264,TWINT
+S-3588-JL,2026-06-04,Kreuzlingen,Google,Pixel 9,256,833,Cash
+S-5506-YQ,2025-11-23,Pully,Samsung,Galaxy S24,128,743,Cash
+S-0167-TO,2026-08-13,Burgdorf,Samsung,Galaxy S24 Ultra,128,1199,TWINT
+S-9939-KS,2026-10-02,Solothurn,Apple,iPhone 15,256,771,TWINT
+S-6617-RX,2025-12-01,Gossau,Samsung,Galaxy S24,512,1104,TWINT
+S-2865-QT,2026-06-13,Frauenfeld,Samsung,Galaxy S24 Ultra,256,1384,TWINT
+S-3675-WW,2026-01-08,Chêne-Bougeries,Apple,iPhone 16 Pro,512,1421,TWINT
+S-4328-NH,2026-10-02,Val-de-Ruz,Samsung,Galaxy A55,512,679,TWINT
+S-6279-JY,2026-07-14,Veyrier,Samsung,Galaxy S24 Ultra,512,1423,Cash
+S-0615-US,2026-04-18,Emmen,Samsung,Galaxy S24 Ultra,512,1520,Cash
+S-6758-YG,2026-08-21,Zug,Samsung,Galaxy S24,256,890,Cash
+S-2368-UZ,2025-10-20,Bernex,Apple,iPhone 16 Pro,512,1445,Cash
+S-8317-PH,2026-04-20,Cham,Apple,iPhone 16,512,1199,TWINT
+S-3109-EO,2026-01-16,Bern,Samsung,Galaxy A55,256,519,Card
+S-6939-PJ,2026-02-15,Veyrier,Google,Pixel 9 Pro,128,1027,TWINT
+S-2551-DU,2026-07-04,Männedorf,Samsung,Galaxy S24,128,819,Card
+S-1593-BM,2026-10-18,Risch,Samsung,Galaxy S24,256,906,TWINT
+S-7777-ST,2026-07-09,Hinwil,Samsung,Galaxy S24,512,1149,TWINT
+S-4330-GL,2026-03-30,Pully,Samsung,Galaxy S24 Ultra,512,1512,Card
+S-5413-TK,2026-01-18,Lenzburg,Google,Pixel 8a,256,535,Cash
+S-1812-FN,2026-01-27,Männedorf,Samsung,Galaxy A55,128,426,TWINT
+S-2320-BZ,2026-09-08,Liestal,Samsung,Galaxy S24 Ultra,128,1201,TWINT
+S-6090-CE,2026-06-06,Schlieren,Apple,iPhone 15,256,790,Cash
+S-0895-KB,2026-08-16,Affoltern,Google,Pixel 8a,512,782,TWINT
+S-5815-RV,2026-05-28,Aigle,Google,Pixel 9 Pro,512,1315,Cash
+S-2834-AM,2026-06-08,Baar,Apple,iPhone 16 Pro,128,1176,Cash
+S-5541-OS,2026-10-07,Wil,Apple,iPhone 16,512,997,Card
+S-4905-CC,2026-03-02,Küssnacht,Samsung,Galaxy A55,512,704,Cash
+S-6757-UH,2026-02-12,Liestal,Google,Pixel 9 Pro,128,1090,Card
+S-5790-DU,2026-01-15,Herisau,Google,Pixel 8a,512,799,Cash
+S-9007-VN,2026-03-09,Meyrin,Apple,iPhone 16 Pro,256,1154,TWINT
+S-9885-KI,2026-01-10,Montreux,Apple,iPhone 16 Pro,256,1200,Card
+S-3118-XZ,2026-04-26,Monthey,Apple,iPhone 16,256,931,Cash
+S-1858-WK,2026-06-06,Oberwil,Samsung,Galaxy S24 Ultra,128,1299,TWINT
+S-4851-SW,2026-03-10,Baden,Apple,iPhone 16,128,873,Card
+S-3431-NT,2026-07-17,Volketswil,Apple,iPhone 16,128,896,TWINT
+S-3839-SV,2025-11-30,Brig-Glis,Google,Pixel 9 Pro,128,994,TWINT
+S-6450-UT,2026-05-26,Basel,Google,Pixel 9,256,871,Cash
+S-3370-AR,2025-12-29,Brugg,Google,Pixel 8a,256,522,Cash
+S-8303-VD,2026-03-15,Zofingen,Samsung,Galaxy S24,128,787,Card
+S-9966-DW,2026-06-05,Emmen,Samsung,Galaxy A55,256,528,Cash
+S-9511-YU,2025-10-24,Schwyz,Samsung,Galaxy S24,512,1028,Card
+S-6117-WM,2025-11-19,Freienbach,Samsung,Galaxy S24 Ultra,128,1299,TWINT
+S-3005-FY,2026-04-10,Arbon,Samsung,Galaxy S24 Ultra,128,1275,TWINT
+S-4298-JY,2026-08-09,La Chaux-de-Fonds,Google,Pixel 9 Pro,256,1156,TWINT
+S-5944-LC,2026-10-11,Langenthal,Apple,iPhone 16 Pro,256,1176,Card
+S-7033-KF,2026-10-10,Bernex,Samsung,Galaxy S24 Ultra,256,1266,Cash
+S-2617-YS,2026-05-28,Meilen,Samsung,Galaxy S24,512,1073,Card
+S-6625-FV,2026-03-06,Sitten,Google,Pixel 9 Pro,256,1199,Card
+S-6055-IN,2026-04-12,Davos,Google,Pixel 8a,256,581,Card
+S-4075-DM,2026-03-02,Reinach,Apple,iPhone 16 Pro,128,1190,TWINT
+S-3391-CO,2025-11-13,Frauenfeld,Google,Pixel 9,256,808,TWINT
+S-3805-BF,2026-07-19,Dübendorf,Apple,iPhone 15,256,820,Cash
+S-7519-FJ,2025-12-07,Ebikon,Apple,iPhone 16,256,924,TWINT
+S-7094-PP,2026-09-07,Ebikon,Google,Pixel 8a,256,524,Card
+S-2597-GM,2026-05-18,Le Grand-Saconnex,Apple,iPhone 16 Pro,128,1140,TWINT
+S-5003-CF,2026-09-14,Baden,Google,Pixel 9 Pro,256,1103,Cash
+S-4652-TP,2026-02-25,Pully,Samsung,Galaxy A55,128,433,Card
+S-0295-RU,2026-03-18,Ostermundigen,Google,Pixel 9,256,851,Cash
+S-4416-KF,2026-08-07,Lugano,Samsung,Galaxy S24,128,804,Card
+S-7119-UN,2026-08-26,La Tour-de-Peilz,Google,Pixel 8a,256,568,Cash
+S-0008-GG,2026-04-24,Arbon,Google,Pixel 8a,512,755,Card
+S-1603-QM,2025-12-23,Aarau,Google,Pixel 9,256,867,Cash
+S-1944-YQ,2026-07-24,Rüti,Samsung,Galaxy S24,256,829,TWINT
+S-5778-OV,2026-03-24,Sitten,Samsung,Galaxy S24 Ultra,128,1265,Cash
+S-7032-YF,2026-01-16,Stäfa,Apple,iPhone 16,512,1125,Cash
+S-2155-ZW,2026-05-07,Kriens,Samsung,Galaxy S24 Ultra,512,1535,Card
+S-5553-FS,2026-03-22,Spreitenbach,Apple,iPhone 15,256,849,Card
+S-5869-KJ,2026-08-24,Reinach,Samsung,Galaxy S24,128,772,TWINT
+S-4553-QP,2026-05-11,Cham,Samsung,Galaxy S24,128,797,TWINT
+S-9710-WA,2025-12-14,Freiburg,Google,Pixel 9 Pro,128,1099,Card
+S-8345-BL,2026-09-09,Renens,Google,Pixel 9 Pro,256,1172,TWINT
+S-3089-SY,2026-10-08,Muttenz,Samsung,Galaxy A55,128,449,TWINT
+S-5533-NO,2026-07-20,Le Grand-Saconnex,Apple,iPhone 16 Pro,512,1405,TWINT
+S-3864-LT,2026-09-16,Wettingen,Samsung,Galaxy A55,128,398,Cash
+S-2543-PT,2026-10-09,Riehen,Apple,iPhone 16 Pro,256,1169,Card
+S-1266-ES,2026-07-25,Wald,Samsung,Galaxy S24 Ultra,512,1599,Cash
+S-5360-VE,2026-07-02,Worb,Google,Pixel 8a,128,499,Cash
+S-3451-MQ,2026-05-08,Payerne,Samsung,Galaxy A55,256,509,TWINT
+S-7887-GV,2025-12-10,Morges,Google,Pixel 8a,512,704,Cash
+S-1856-OK,2026-08-21,Ostermundigen,Apple,iPhone 15,512,993,Card
+S-2705-QH,2026-08-12,Martigny,Samsung,Galaxy A55,512,679,TWINT
+S-2739-CM,2026-01-19,Wil,Google,Pixel 8a,512,799,TWINT
+S-9187-SQ,2026-01-11,Belp,Samsung,Galaxy S24 Ultra,128,1238,Cash
+S-2271-DA,2026-09-21,Zollikon,Samsung,Galaxy S24,256,884,Card
+S-3341-RR,2026-01-15,Risch,Apple,iPhone 16 Pro,512,1447,Card
+S-2743-QE,2025-11-17,Zollikofen,Google,Pixel 8a,512,765,TWINT
+S-5692-VA,2026-02-07,Thun,Apple,iPhone 16,512,1105,TWINT
+S-1213-CP,2026-01-28,Baar,Samsung,Galaxy A55,256,535,Card
+S-0377-AN,2026-06-29,Männedorf,Google,Pixel 8a,256,592,Cash
+S-3814-UM,2026-05-12,Naters,Apple,iPhone 16,128,826,Card
+S-6168-CP,2026-06-12,Lenzburg,Apple,iPhone 16 Pro,512,1408,Cash
+S-9022-HS,2026-02-13,Wil,Apple,iPhone 16 Pro,256,1285,Cash
+S-0136-UN,2026-10-13,Brig-Glis,Samsung,Galaxy S24 Ultra,512,1490,TWINT
+S-5538-AK,2026-02-23,Grenchen,Apple,iPhone 16,128,873,TWINT
+S-1147-BB,2026-03-21,Kriens,Apple,iPhone 16,512,1107,Card
+S-9497-WG,2026-02-10,Zofingen,Google,Pixel 9,512,1043,Card
+S-4343-JO,2026-04-02,Steffisburg,Google,Pixel 9 Pro,256,1152,TWINT
+S-1227-NR,2026-02-17,Luzern,Samsung,Galaxy S24 Ultra,128,1273,Card
+S-0332-IW,2026-05-15,Grenchen,Samsung,Galaxy A55,128,423,Card
+S-5220-LP,2026-01-12,Hinwil,Apple,iPhone 15,128,712,TWINT
+S-6988-JJ,2025-11-04,Wettingen,Apple,iPhone 16,128,785,TWINT
+S-6834-DX,2026-07-03,Kreuzlingen,Google,Pixel 9 Pro,256,1140,Card
+S-6514-XH,2026-01-02,Renens,Google,Pixel 9,512,1099,TWINT
+S-2687-XX,2026-05-12,Brig-Glis,Google,Pixel 9,128,692,Cash
+S-9717-LS,2026-04-02,Steffisburg,Google,Pixel 9 Pro,128,1099,Card
+S-6859-XR,2026-07-22,Liestal,Samsung,Galaxy A55,512,661,Cash
+S-4199-BJ,2026-02-09,Freiburg,Samsung,Galaxy A55,128,442,Card
+S-5540-UG,2026-08-05,Basel,Google,Pixel 9 Pro,128,982,Cash
+S-6642-KV,2026-03-14,Steffisburg,Apple,iPhone 15,128,717,TWINT
+S-1525-DD,2026-02-08,Pfäffikon,Apple,iPhone 16,256,927,Card
+S-7087-DR,2026-03-23,Sursee,Google,Pixel 9 Pro,128,1042,Cash
+S-5657-QD,2025-12-23,Arth,Samsung,Galaxy S24 Ultra,512,1525,Card
+S-6166-ZO,2025-10-19,Möhlin,Apple,iPhone 15,512,974,TWINT
+S-1966-EF,2026-03-11,Wettingen,Google,Pixel 8a,128,487,TWINT
+S-5308-YZ,2025-11-29,Bellinzona,Google,Pixel 9 Pro,256,1115,Cash
+S-2779-UU,2026-08-18,Montreux,Apple,iPhone 16 Pro,512,1488,Cash
+S-8561-DR,2026-10-17,Münchenbuchsee,Samsung,Galaxy A55,256,537,TWINT
+S-6034-HI,2026-06-17,Meilen,Samsung,Galaxy S24 Ultra,512,1551,Card
+S-5537-MI,2026-09-15,Thônex,Apple,iPhone 16,256,952,Cash
+S-6071-SK,2025-12-14,Brugg,Samsung,Galaxy S24 Ultra,256,1260,TWINT
+S-0275-WJ,2025-12-03,Renens,Apple,iPhone 16,128,884,Cash
+S-4505-DC,2026-03-04,Mendrisio,Google,Pixel 8a,512,786,Cash
+S-1686-ZJ,2026-08-30,Meyrin,Samsung,Galaxy S24,128,844,Cash
+S-9469-KK,2025-10-20,Zürich,Samsung,Galaxy A55,512,723,Card
+S-2797-MT,2026-10-09,Sarnen,Apple,iPhone 16,128,834,Cash
+S-1776-MR,2026-03-11,Freiburg,Google,Pixel 8a,128,489,Cash
+S-2840-NL,2026-06-05,Pratteln,Apple,iPhone 16 Pro,512,1441,Cash
+S-9326-ND,2026-06-22,Wädenswil,Samsung,Galaxy S24,512,1118,Cash
+S-3164-GF,2026-04-18,Küssnacht,Apple,iPhone 16 Pro,256,1229,Card
+S-4801-LC,2025-10-22,Volketswil,Apple,iPhone 15,256,849,TWINT
+S-3440-OK,2026-03-16,Plan-les-Ouates,Apple,iPhone 15,512,971,Cash
+S-3513-IY,2026-05-15,Montreux,Samsung,Galaxy A55,512,684,Card
+S-2850-UU,2026-10-09,Langenthal,Google,Pixel 8a,256,589,TWINT
+S-7716-UV,2025-11-09,Köniz,Google,Pixel 9,128,761,TWINT
+S-9465-TJ,2025-11-01,Ecublens,Samsung,Galaxy S24,512,1133,Cash
+S-8329-HG,2026-02-06,Risch,Apple,iPhone 16,256,909,Cash
+S-7239-OP,2025-11-09,Schwyz,Google,Pixel 9,128,739,TWINT
+S-3648-UJ,2026-10-06,Amriswil,Google,Pixel 8a,128,416,TWINT
+S-4816-LI,2026-04-21,Vevey,Apple,iPhone 16 Pro,256,1244,Card
+S-1378-SN,2026-01-07,Biel/Bienne,Samsung,Galaxy S24 Ultra,512,1575,TWINT
+S-4166-EL,2025-12-29,Meilen,Google,Pixel 8a,128,483,Cash
+S-0945-BW,2025-12-23,Adliswil,Apple,iPhone 16,128,899,Card
+S-0004-EI,2025-10-28,Opfikon,Google,Pixel 9 Pro,256,1129,Card
+S-8571-HS,2026-04-08,Regensdorf,Google,Pixel 9,128,749,Card
+S-7050-XG,2026-07-29,Kriens,Google,Pixel 9,512,1003,Cash
+S-3075-TP,2025-12-22,Schlieren,Samsung,Galaxy S24,512,1072,Cash
+S-8306-CB,2026-07-18,Wallisellen,Google,Pixel 9 Pro,128,1062,TWINT
+S-4296-TK,2025-12-22,Oberwil,Samsung,Galaxy A55,512,672,Card
+S-2050-KT,2026-03-31,Weinfelden,Google,Pixel 8a,512,740,Cash
+S-3200-ZC,2026-03-07,Wallisellen,Google,Pixel 9,128,732,TWINT
+S-1086-RA,2026-05-28,Zollikon,Google,Pixel 8a,128,497,TWINT
+S-7781-XF,2026-03-31,Zug,Google,Pixel 9 Pro,128,1080,TWINT
+S-4205-UY,2026-04-16,Aesch,Google,Pixel 9,256,876,Cash
+S-9663-BY,2026-06-07,Ittigen,Apple,iPhone 16 Pro,128,1157,Card
+S-9426-LG,2026-06-10,Dübendorf,Google,Pixel 9 Pro,256,1199,Card
+S-9661-SK,2026-09-24,Kriens,Samsung,Galaxy S24 Ultra,256,1260,Card
+S-0454-HF,2026-09-07,Küssnacht,Google,Pixel 9,256,861,Cash
+S-9710-XB,2026-02-23,Vevey,Google,Pixel 8a,256,548,Card
+S-1023-JC,2026-06-20,Biel/Bienne,Google,Pixel 9 Pro,256,1101,TWINT
+S-5581-BD,2026-08-01,Langenthal,Google,Pixel 9 Pro,512,1244,Card
+S-7763-HF,2026-04-24,Adliswil,Google,Pixel 9 Pro,128,1017,TWINT
+S-5436-LI,2026-08-21,Ecublens,Samsung,Galaxy S24,512,1073,TWINT
+S-8705-SB,2025-11-27,Küsnacht,Google,Pixel 9,512,1075,Card
+S-9664-ZX,2026-04-01,Möhlin,Apple,iPhone 16,256,943,Cash
+S-0087-JY,2026-06-15,Maur,Samsung,Galaxy S24,128,746,Card
+S-6434-HW,2026-08-08,Siders,Samsung,Galaxy S24,256,949,Cash
+S-1525-KF,2026-07-08,Arbon,Samsung,Galaxy S24 Ultra,256,1366,Card
+S-6173-NS,2026-07-06,Lutry,Samsung,Galaxy S24 Ultra,256,1311,Cash
+S-8689-UZ,2026-06-20,Neuenburg,Apple,iPhone 16,256,882,Cash
+S-0929-EZ,2026-07-22,Cham,Apple,iPhone 15,512,1040,Cash
+S-1268-AS,2026-05-10,Adliswil,Google,Pixel 9,256,868,Card
+S-2176-KS,2026-01-16,Spiez,Google,Pixel 9 Pro,256,1129,Cash
+S-4081-QR,2026-03-04,Oftringen,Google,Pixel 9 Pro,256,987,Cash
+S-1911-TK,2026-05-19,Aarau,Google,Pixel 9 Pro,256,1178,TWINT
+S-8732-TA,2026-09-04,Payerne,Google,Pixel 9 Pro,256,1143,Card
+S-9476-BW,2026-06-27,Volketswil,Samsung,Galaxy A55,128,412,Cash
+S-4806-IL,2026-03-25,Lausanne,Google,Pixel 8a,256,584,TWINT
+S-7956-FP,2026-08-31,Winterthur,Google,Pixel 9,128,744,Cash
+S-1477-UE,2026-02-26,Meilen,Apple,iPhone 16,512,1116,Cash
+S-2318-CJ,2026-09-06,Zollikon,Google,Pixel 9,512,1057,TWINT
+S-6170-EB,2026-07-13,Ostermundigen,Samsung,Galaxy S24,128,792,TWINT
+S-9083-JT,2026-04-13,St. Gallen,Google,Pixel 9 Pro,256,1053,Card
+S-2696-RS,2026-03-12,Romanshorn,Google,Pixel 9 Pro,256,1129,Card
+S-7445-EZ,2025-11-27,Basel,Google,Pixel 9 Pro,128,1059,TWINT
+S-6148-PA,2026-04-10,Gland,Google,Pixel 9 Pro,128,1073,TWINT
+S-5783-SJ,2026-03-03,Winterthur,Samsung,Galaxy A55,128,421,Card
+S-9317-AK,2026-09-14,Kloten,Google,Pixel 9 Pro,256,1085,Card
+S-5852-IK,2026-01-09,Münchenstein,Samsung,Galaxy S24 Ultra,512,1504,TWINT
+S-2818-SH,2026-08-30,Zollikofen,Google,Pixel 8a,512,746,Cash
+S-0934-NH,2025-12-13,Spreitenbach,Apple,iPhone 16 Pro,256,1092,Card
+S-4269-QU,2025-12-15,Neuhausen,Apple,iPhone 15,256,829,Cash
+S-8110-DW,2026-06-13,Wettingen,Google,Pixel 8a,256,593,Card
+S-2602-SU,2026-07-30,Kreuzlingen,Samsung,Galaxy A55,128,420,Cash
+S-4634-XH,2025-12-25,Uster,Google,Pixel 8a,512,763,Cash
+S-1292-KX,2025-10-26,Wädenswil,Google,Pixel 8a,512,738,Cash
+S-0740-EP,2025-11-23,Meilen,Samsung,Galaxy S24,256,851,Cash
+S-2214-VX,2026-02-20,Bassersdorf,Apple,iPhone 15,512,978,Cash
+S-9372-NA,2025-12-25,Spiez,Apple,iPhone 15,256,810,TWINT
+S-9703-SD,2025-11-17,Binningen,Google,Pixel 9,128,739,TWINT
+S-2909-RK,2026-09-06,Spiez,Samsung,Galaxy S24 Ultra,128,1204,Cash
+S-8373-LO,2026-10-08,Volketswil,Google,Pixel 9 Pro,128,1044,Cash
+S-0605-TX,2025-12-02,Ostermundigen,Google,Pixel 9,512,1065,TWINT
+S-3630-GU,2026-02-14,Schlieren,Google,Pixel 9,512,1011,TWINT
+S-8564-WU,2026-03-17,Muttenz,Google,Pixel 8a,128,476,TWINT
+S-2284-XY,2026-01-29,Männedorf,Samsung,Galaxy A55,256,545,TWINT
+S-6676-DC,2026-07-29,Wetzikon,Google,Pixel 9,512,1010,TWINT
+S-7140-HG,2026-05-27,Winterthur,Apple,iPhone 16 Pro,256,1256,TWINT
+S-0918-PT,2026-06-20,Villars-sur-Glâne,Google,Pixel 9 Pro,512,1354,Card
+S-8795-YT,2026-01-12,Locarno,Samsung,Galaxy S24,256,874,TWINT
+S-7438-UM,2026-08-10,Glarus,Apple,iPhone 15,512,1026,Card
+S-9041-OY,2026-03-10,Zofingen,Google,Pixel 8a,256,571,Cash
+S-4051-VU,2025-10-24,Zollikofen,Google,Pixel 9,512,1083,Card
+S-7937-DG,2026-09-16,Flawil,Apple,iPhone 16 Pro,256,1299,Card
+S-6818-TS,2026-07-26,Zug,Google,Pixel 8a,128,467,Cash
+S-3145-CD,2026-07-09,Neuenburg,Samsung,Galaxy S24 Ultra,512,1414,TWINT
+S-8798-MH,2026-01-21,Wetzikon,Apple,iPhone 16 Pro,128,1177,Cash
+S-9844-TK,2026-04-29,Wetzikon,Samsung,Galaxy A55,256,494,Cash
+S-6226-UN,2026-01-02,Münchenbuchsee,Google,Pixel 8a,512,722,Card
+S-3334-KI,2026-07-15,Küsnacht,Apple,iPhone 15,512,930,Card
+S-0444-CO,2026-08-28,Binningen,Samsung,Galaxy S24,512,1137,Cash
+S-8488-AK,2025-10-23,Muttenz,Apple,iPhone 16,128,875,TWINT
+S-7900-XG,2026-10-10,Uzwil,Samsung,Galaxy S24 Ultra,512,1409,Cash
+S-9977-BX,2026-05-19,Plan-les-Ouates,Apple,iPhone 15,512,995,Card
+S-5087-YE,2025-12-11,Worb,Google,Pixel 9,256,851,Cash
+S-7692-TF,2026-06-16,Sarnen,Apple,iPhone 15,128,688,Cash
+S-3334-HR,2026-05-06,Mendrisio,Samsung,Galaxy S24 Ultra,128,1198,Cash
+S-6320-RR,2025-12-10,Reinach,Apple,iPhone 16 Pro,256,1258,TWINT
+S-5121-XT,2025-11-24,Versoix,Samsung,Galaxy A55,256,524,Card
+S-0263-TH,2026-04-06,Sursee,Samsung,Galaxy S24,256,874,TWINT
+S-0232-DP,2026-07-18,Olten,Samsung,Galaxy A55,512,701,TWINT
+S-3247-HG,2026-09-21,Winterthur,Samsung,Galaxy S24,256,926,TWINT
+S-8390-UQ,2026-06-26,Ittigen,Google,Pixel 8a,128,447,Cash
+S-3798-CW,2026-09-26,Bulle,Apple,iPhone 15,512,957,Card
+S-7074-MG,2026-03-31,Risch,Apple,iPhone 16,512,1150,Cash
+S-8267-IR,2026-08-18,La Chaux-de-Fonds,Samsung,Galaxy S24 Ultra,256,1354,Cash
+S-3910-HT,2026-07-29,Freienbach,Google,Pixel 8a,512,727,Cash
+S-4117-AN,2026-04-06,Kreuzlingen,Samsung,Galaxy A55,256,549,Card
+S-5536-CW,2026-02-02,Ecublens,Google,Pixel 9 Pro,512,1318,Cash
+S-3571-AD,2026-08-26,Neuhausen,Apple,iPhone 16,512,1163,Cash
+S-5268-QW,2026-01-14,Kloten,Samsung,Galaxy S24 Ultra,512,1556,Cash
+S-8255-JC,2026-09-29,Langenthal,Google,Pixel 9 Pro,256,1092,Cash
+S-2903-YK,2026-08-07,Ostermundigen,Apple,iPhone 16,512,1119,TWINT
+S-8094-AR,2026-06-20,Bassersdorf,Samsung,Galaxy S24,512,947,Card
+S-1838-XP,2026-07-24,Vernier,Google,Pixel 9,256,858,TWINT
+S-4140-BB,2025-10-25,Lenzburg,Samsung,Galaxy A55,256,511,Card
+S-2929-TR,2026-10-16,Gland,Samsung,Galaxy A55,512,749,Card
+S-5630-NB,2025-12-02,Gossau,Google,Pixel 9 Pro,512,1266,TWINT
+S-1951-GR,2025-10-29,Liestal,Samsung,Galaxy S24 Ultra,512,1550,Cash
+S-8339-HI,2026-07-23,Freienbach,Apple,iPhone 16 Pro,256,1217,TWINT
+S-3508-XM,2026-10-16,Renens,Google,Pixel 9 Pro,512,1250,Cash
+S-4579-SF,2026-06-11,Aarau,Samsung,Galaxy S24,256,852,TWINT
+S-1942-WS,2026-07-17,Le Grand-Saconnex,Samsung,Galaxy A55,256,508,Cash
+S-9277-MH,2026-07-11,Stäfa,Google,Pixel 9 Pro,256,1072,Cash
+S-1085-NS,2026-10-14,Thun,Apple,iPhone 16,512,1154,Card
+S-0194-RE,2026-04-24,Münchenstein,Google,Pixel 8a,256,588,Cash
+S-2085-AS,2025-12-05,Bernex,Apple,iPhone 15,128,749,TWINT
+S-9216-CR,2026-06-27,Luzern,Samsung,Galaxy S24 Ultra,512,1476,TWINT
+S-4730-SA,2026-10-12,Glarus,Google,Pixel 9 Pro,256,1039,TWINT
+S-4768-GD,2025-12-14,Davos,Apple,iPhone 16 Pro,128,1149,Card
+S-4010-VQ,2026-09-25,Pully,Google,Pixel 9 Pro,256,1133,TWINT
+S-9019-UH,2026-08-13,Locarno,Google,Pixel 8a,512,765,TWINT
+S-2068-ZZ,2026-01-17,Münchenstein,Google,Pixel 9,512,1017,Cash
+S-7176-HB,2025-11-01,Lausanne,Google,Pixel 9 Pro,128,1099,Card
+S-7207-DV,2026-08-07,Männedorf,Google,Pixel 8a,512,728,Card
+S-7378-TH,2026-03-22,Ecublens,Google,Pixel 9 Pro,512,1262,Cash
+S-7178-RC,2026-01-27,Bassersdorf,Samsung,Galaxy S24,128,826,TWINT
+S-4284-TL,2026-09-05,Carouge,Google,Pixel 9,128,787,Cash
+S-1996-XM,2026-05-02,Val-de-Ruz,Apple,iPhone 16,256,979,Cash
+S-4620-BJ,2025-11-28,Thalwil,Samsung,Galaxy A55,256,507,Cash
+S-0296-GH,2026-06-14,Winterthur,Samsung,Galaxy S24,512,1020,TWINT
+S-0604-OO,2026-10-02,Männedorf,Google,Pixel 8a,512,787,Card
+S-4954-YV,2026-04-24,Grenchen,Samsung,Galaxy S24,256,949,Card
+S-4377-DW,2026-09-06,Glarus,Samsung,Galaxy A55,512,705,TWINT
+S-7373-LH,2026-10-11,Köniz,Google,Pixel 9,512,1027,Cash
+S-7017-FB,2026-10-14,Wohlen,Apple,iPhone 16,256,916,Card
+S-4515-TS,2026-06-25,Wädenswil,Apple,iPhone 15,128,729,Cash
+S-4334-JO,2026-08-11,Ebikon,Samsung,Galaxy S24 Ultra,512,1465,TWINT
+S-4530-GZ,2026-10-03,Ostermundigen,Samsung,Galaxy A55,256,495,Card
+S-2453-IV,2025-12-31,Lyss,Apple,iPhone 16,256,999,TWINT
+S-9483-RU,2026-10-10,Vevey,Google,Pixel 8a,128,478,TWINT
+S-0114-OM,2025-11-17,Chur,Apple,iPhone 15,512,966,Cash
+S-2832-CY,2026-07-29,Uzwil,Apple,iPhone 15,512,960,Cash
+S-3932-KT,2026-01-26,Vernier,Apple,iPhone 15,512,1015,Cash
+S-7414-ED,2025-12-04,Siders,Samsung,Galaxy A55,512,749,Card
+S-1307-OG,2026-04-07,Steinhausen,Apple,iPhone 15,256,830,Cash
+S-4001-LV,2026-10-16,Sursee,Google,Pixel 8a,256,599,Cash
+S-2777-NW,2026-06-27,St. Gallen,Google,Pixel 9 Pro,512,1353,TWINT
+S-2627-JJ,2026-03-01,Sursee,Google,Pixel 9 Pro,128,995,Card
+S-6883-JZ,2025-12-16,Köniz,Samsung,Galaxy A55,128,436,TWINT
+S-2855-AB,2026-03-10,Flawil,Apple,iPhone 16,512,1131,TWINT
+S-7521-RI,2026-05-08,Adliswil,Samsung,Galaxy A55,512,745,Card
+S-0830-IF,2026-01-24,Prilly,Google,Pixel 9 Pro,256,1091,Cash
+S-2924-AB,2026-03-22,Zofingen,Google,Pixel 9,256,874,TWINT
+S-3051-CS,2025-12-12,Sitten,Google,Pixel 8a,256,592,Cash
+S-1700-FS,2026-01-24,Biel/Bienne,Samsung,Galaxy S24 Ultra,256,1220,Cash
+S-4778-PD,2026-01-16,Schlieren,Samsung,Galaxy A55,256,512,Cash
+S-0583-PQ,2026-06-01,Gossau,Samsung,Galaxy S24,512,1057,TWINT
+S-5979-OC,2026-05-24,Meyrin,Samsung,Galaxy S24,256,949,TWINT
+S-3568-BE,2026-03-27,Belp,Apple,iPhone 16,128,800,Card
+S-8182-DZ,2026-07-19,Val-de-Ruz,Google,Pixel 9,256,790,Card
+S-3507-SL,2025-12-14,La Chaux-de-Fonds,Google,Pixel 8a,128,475,TWINT
+S-5328-MN,2026-08-20,Birsfelden,Apple,iPhone 16,512,1150,Card
+S-0834-DZ,2026-09-05,Renens,Samsung,Galaxy S24,256,921,Card
+S-6732-WG,2026-03-01,Steffisburg,Samsung,Galaxy S24,512,1039,TWINT
+S-0145-ST,2026-09-19,Muttenz,Google,Pixel 8a,256,599,Card
+S-5218-LB,2025-10-19,Siders,Google,Pixel 9 Pro,512,1307,Cash
+S-1671-FV,2025-11-10,Ostermundigen,Google,Pixel 9 Pro,128,953,TWINT
+S-1937-QV,2026-09-29,Uster,Google,Pixel 8a,128,470,Card
+S-7023-NQ,2026-02-20,Pratteln,Google,Pixel 9,128,694,TWINT
+S-6231-YC,2026-04-15,Ittigen,Samsung,Galaxy S24 Ultra,256,1324,TWINT
+S-8270-CT,2026-08-09,Münchenbuchsee,Apple,iPhone 16,256,958,TWINT
+S-6540-PW,2026-07-05,Wettingen,Apple,iPhone 16,128,819,Card
+S-4065-DY,2026-10-03,Prilly,Google,Pixel 9,128,759,Card
+S-7983-XM,2026-01-04,Delsberg,Google,Pixel 9 Pro,128,1037,Card
+S-4232-LJ,2026-04-30,Spiez,Samsung,Galaxy S24,512,1107,TWINT
+S-3296-QA,2026-08-07,Bernex,Samsung,Galaxy A55,128,447,Cash
+S-2047-JW,2025-12-29,Neuenburg,Samsung,Galaxy S24,256,911,Card
+S-2826-VX,2026-10-17,Brugg,Apple,iPhone 15,512,964,Card
+S-3129-SM,2025-12-11,Wettingen,Google,Pixel 9 Pro,128,994,Cash
+S-6496-AJ,2025-11-18,Sitten,Apple,iPhone 16 Pro,256,1234,TWINT
+S-8056-ST,2026-02-22,Chêne-Bougeries,Apple,iPhone 16 Pro,128,1121,Card
+S-5472-XI,2026-07-01,Carouge,Google,Pixel 9,128,787,Card
+S-5074-OQ,2026-03-20,Lenzburg,Apple,iPhone 16,128,858,Cash
+S-4116-TS,2025-12-25,Burgdorf,Samsung,Galaxy A55,256,523,Cash
+S-1454-DG,2025-12-04,Monthey,Google,Pixel 9,128,761,Cash
+S-1125-TN,2025-12-13,Wallisellen,Google,Pixel 9,128,755,TWINT
+S-7759-SL,2025-11-22,Reinach,Google,Pixel 9 Pro,512,1305,TWINT
+S-0881-GA,2026-04-12,Neuenburg,Google,Pixel 8a,256,538,Cash
+S-8152-FO,2026-09-05,Maur,Apple,iPhone 16 Pro,256,1190,Card
+S-1315-RN,2025-11-23,Glarus,Apple,iPhone 16,128,833,TWINT
+S-4382-EF,2025-11-11,La Tour-de-Peilz,Apple,iPhone 16 Pro,512,1493,Card
+S-5128-AZ,2026-02-21,Val-de-Travers,Google,Pixel 9,128,782,TWINT
+S-0962-XA,2025-12-05,Thalwil,Apple,iPhone 15,256,803,Card
+S-4827-YT,2026-07-02,Yverdon-les-Bains,Samsung,Galaxy S24,512,1084,Card
+S-9690-KI,2026-07-20,Brig-Glis,Samsung,Galaxy S24,128,779,Cash
+S-6113-OL,2026-08-04,Nyon,Apple,iPhone 16 Pro,512,1499,TWINT
+S-9473-LV,2026-05-13,Richterswil,Samsung,Galaxy S24 Ultra,512,1503,TWINT
+S-9818-PL,2025-12-20,Birsfelden,Samsung,Galaxy S24,256,894,Card
+S-6111-DP,2025-11-15,Veyrier,Google,Pixel 9,128,767,Cash
+S-8404-YQ,2026-07-24,Wettingen,Google,Pixel 9,128,782,TWINT
+S-0313-FZ,2026-02-06,Suhr,Samsung,Galaxy S24,128,796,TWINT
+S-6775-UB,2026-09-30,Wettingen,Google,Pixel 9,256,857,TWINT
+S-3453-JO,2026-02-28,Siders,Google,Pixel 9 Pro,256,1113,TWINT
+S-1772-OS,2025-12-02,Locarno,Apple,iPhone 16 Pro,128,1199,Card
+S-3534-UN,2025-12-03,Locarno,Google,Pixel 8a,512,785,TWINT
+S-4158-ZM,2026-08-03,Altstätten,Samsung,Galaxy S24 Ultra,128,1151,TWINT
+S-8622-LM,2026-05-05,St. Gallen,Samsung,Galaxy S24 Ultra,512,1500,Cash
+S-7316-AV,2026-03-03,Bernex,Samsung,Galaxy S24,512,1123,TWINT
+S-7478-DM,2026-04-27,Birsfelden,Samsung,Galaxy S24,128,815,Card
+S-9264-IJ,2025-11-20,Horgen,Apple,iPhone 16,256,997,Cash
+S-7276-RS,2026-01-19,Steffisburg,Google,Pixel 9 Pro,256,1067,Cash
+S-4651-UI,2026-08-22,Wädenswil,Apple,iPhone 15,512,933,TWINT
+S-4796-SA,2026-04-17,Risch,Samsung,Galaxy S24,512,1047,TWINT
+S-9474-PH,2026-03-24,Allschwil,Apple,iPhone 16 Pro,512,1347,Card
+S-5258-TV,2026-01-15,Adliswil,Google,Pixel 9,256,834,TWINT
+S-7900-SN,2026-06-12,Regensdorf,Apple,iPhone 15,512,938,TWINT
+S-3708-ET,2026-05-12,Spreitenbach,Google,Pixel 9,512,1012,TWINT
+S-3702-KF,2026-08-09,Wetzikon,Samsung,Galaxy S24,128,756,Cash
+S-5556-GD,2026-04-18,Chêne-Bougeries,Google,Pixel 9,512,1041,TWINT
+S-7327-DS,2025-11-02,Zürich,Samsung,Galaxy S24 Ultra,256,1329,Card
+S-9445-WO,2026-03-17,St. Gallen,Samsung,Galaxy S24 Ultra,512,1549,TWINT
+S-1271-ZL,2025-12-31,Delsberg,Apple,iPhone 16 Pro,128,1157,Card
+S-2566-ID,2026-02-15,Morges,Apple,iPhone 16,256,999,Cash
+S-5739-GY,2026-09-22,Binningen,Samsung,Galaxy S24,128,758,Card
+S-9601-QH,2025-12-12,Aarau,Samsung,Galaxy S24 Ultra,256,1246,Cash
+S-3476-VT,2026-07-15,Neuhausen,Samsung,Galaxy A55,128,412,Card
+S-1628-WA,2025-12-03,Naters,Samsung,Galaxy A55,512,679,TWINT
+S-2728-OY,2025-12-20,Bülach,Apple,iPhone 15,128,702,Cash
+S-5559-KF,2026-08-26,Yverdon-les-Bains,Apple,iPhone 15,512,972,Card
+S-3632-RT,2026-01-23,Pully,Apple,iPhone 16,256,998,TWINT
+S-4586-IP,2025-12-19,Rapperswil-Jona,Google,Pixel 8a,256,568,TWINT
+S-1537-HC,2026-01-25,Kloten,Samsung,Galaxy S24 Ultra,512,1599,Card
+S-2295-IG,2026-09-05,Genf,Apple,iPhone 16,512,1167,Card
+S-4992-WO,2026-04-12,Neuhausen,Samsung,Galaxy S24 Ultra,512,1531,Card
+S-6942-BD,2026-05-25,Freienbach,Google,Pixel 8a,512,766,Card
+S-9080-HV,2026-07-24,Zollikon,Google,Pixel 9 Pro,512,1382,Cash
+S-4034-BW,2025-12-05,Olten,Google,Pixel 9 Pro,128,984,Card
+S-9581-RJ,2026-05-10,Ittigen,Samsung,Galaxy A55,512,679,Cash
+S-1418-KY,2026-06-09,Winterthur,Samsung,Galaxy A55,128,434,Cash
+S-5037-TA,2026-09-26,Biel/Bienne,Google,Pixel 8a,512,795,TWINT
+S-9580-XT,2026-05-27,Uster,Google,Pixel 9,128,771,Cash
+S-5412-PX,2026-02-05,Reinach,Samsung,Galaxy S24,128,772,TWINT
+S-0450-OE,2025-10-28,Brugg,Apple,iPhone 16 Pro,128,1199,Cash
+S-0274-NO,2025-12-13,Veyrier,Samsung,Galaxy A55,512,685,Cash
+S-0971-VE,2025-12-02,Richterswil,Apple,iPhone 15,256,808,Cash
+S-6994-NO,2026-09-10,Münsingen,Google,Pixel 9 Pro,256,1153,Cash
+S-2217-RJ,2026-01-26,Uzwil,Apple,iPhone 15,128,678,Cash
+S-5666-NV,2026-02-27,Aigle,Google,Pixel 9 Pro,128,1039,Cash
+S-5637-OQ,2026-03-25,Arth,Samsung,Galaxy S24,128,815,TWINT
+S-7011-WR,2026-02-23,Schwyz,Apple,iPhone 16,256,896,Cash
+S-1065-SG,2026-01-08,Delsberg,Apple,iPhone 16,128,899,Cash
+S-1971-ZS,2026-09-08,Bulle,Samsung,Galaxy S24 Ultra,128,1146,Cash
+S-3788-RZ,2026-09-28,Aesch,Samsung,Galaxy S24 Ultra,128,1273,Card
+S-6370-BF,2026-03-04,Dübendorf,Apple,iPhone 15,512,1027,Cash
+S-2179-RU,2026-08-25,Ittigen,Google,Pixel 9,128,706,TWINT
+S-9929-RB,2026-02-22,Mendrisio,Apple,iPhone 16 Pro,256,1058,Card
+S-5521-HU,2026-10-04,Zollikofen,Samsung,Galaxy A55,256,493,Card
+S-2775-LW,2026-01-02,Horw,Samsung,Galaxy A55,256,538,Card
+S-6994-QC,2026-05-14,Freienbach,Samsung,Galaxy A55,128,449,TWINT
+S-9304-NX,2026-07-15,Meyrin,Google,Pixel 8a,128,467,TWINT
+S-9957-CU,2025-11-10,Thônex,Google,Pixel 9 Pro,512,1323,Cash
+S-1435-RQ,2026-07-22,Basel,Samsung,Galaxy S24,256,920,TWINT
+S-9323-VH,2026-10-15,Münsingen,Samsung,Galaxy A55,256,522,Card
+S-7000-ZA,2026-04-10,Meyrin,Google,Pixel 8a,128,485,TWINT
+S-5171-CV,2025-11-22,Buchs,Google,Pixel 8a,128,455,Card
+S-8648-VY,2026-08-03,Arth,Samsung,Galaxy S24,256,901,Cash
+S-0791-ZN,2026-01-13,Siders,Samsung,Galaxy S24 Ultra,128,1240,TWINT
+S-1699-UR,2025-12-24,Cham,Apple,iPhone 16 Pro,128,1199,Cash
+S-5193-AI,2026-05-14,Langenthal,Google,Pixel 9 Pro,128,1029,Cash
+S-3794-MF,2026-09-13,Dübendorf,Google,Pixel 9,512,1099,Card
+S-9355-KH,2026-08-05,Adliswil,Google,Pixel 9 Pro,128,1008,Card
+S-7385-YO,2026-10-10,Bern,Apple,iPhone 16 Pro,128,1136,TWINT
+S-0659-CO,2025-11-17,Ebikon,Samsung,Galaxy S24,512,1149,TWINT
+S-0937-BZ,2026-03-14,Arbon,Google,Pixel 9 Pro,256,1151,Cash
+S-2364-VD,2026-08-13,Martigny,Google,Pixel 8a,512,794,Cash
+S-7276-HZ,2026-04-09,La Chaux-de-Fonds,Samsung,Galaxy A55,512,692,TWINT
+S-3863-PR,2025-11-02,Bern,Google,Pixel 9 Pro,256,1114,Card
+S-0541-SC,2026-04-18,Flawil,Apple,iPhone 15,256,768,TWINT
+S-3943-LE,2026-07-10,Baden,Google,Pixel 9 Pro,128,1074,TWINT
+S-5811-NK,2026-09-04,Dietikon,Apple,iPhone 15,512,972,Cash
+S-6754-EL,2026-06-04,Chêne-Bougeries,Samsung,Galaxy A55,512,749,Cash
+S-2906-UU,2026-06-09,Uzwil,Apple,iPhone 16 Pro,256,1213,Card
+S-8430-AD,2026-09-28,Emmen,Google,Pixel 8a,512,764,TWINT
+S-6832-JL,2026-06-03,Monthey,Google,Pixel 9 Pro,128,1030,Card
+S-1227-LM,2026-04-02,Yverdon-les-Bains,Google,Pixel 9 Pro,128,1041,Cash
+S-9978-LM,2025-10-23,Emmen,Google,Pixel 9,128,724,TWINT
+S-2748-TQ,2026-10-08,Naters,Samsung,Galaxy A55,256,527,TWINT
+S-7615-GP,2025-12-21,Muttenz,Apple,iPhone 16,128,858,Cash
+S-8973-BX,2026-07-16,Dietikon,Samsung,Galaxy S24,512,1024,Card
+S-6244-GN,2026-03-26,Dübendorf,Google,Pixel 9 Pro,256,1139,Cash
+S-8225-YX,2026-08-31,Köniz,Google,Pixel 9 Pro,256,1161,Cash
+S-5952-DA,2026-08-21,Binningen,Samsung,Galaxy S24,256,933,Card
+S-7170-PX,2025-11-17,Davos,Apple,iPhone 16 Pro,128,1135,Cash
+S-0086-RA,2026-04-08,Naters,Samsung,Galaxy S24 Ultra,256,1327,Card
+S-3507-IN,2026-02-18,Belp,Google,Pixel 9,512,1013,TWINT
+S-3552-TZ,2025-11-28,Davos,Apple,iPhone 15,512,1000,TWINT
+S-9326-BN,2025-11-19,Wetzikon,Apple,iPhone 16,128,827,Cash
+S-1984-RS,2026-04-08,Glarus,Samsung,Galaxy S24 Ultra,256,1340,TWINT
+S-6177-IW,2026-05-06,Richterswil,Samsung,Galaxy A55,128,397,Card
+S-4213-NA,2026-08-20,Horgen,Google,Pixel 8a,128,474,TWINT
+S-8189-PK,2025-11-18,Le Grand-Saconnex,Apple,iPhone 16 Pro,256,1195,TWINT
+S-7865-KM,2026-03-28,Dietikon,Apple,iPhone 16,256,931,Card
+S-0213-BE,2026-05-10,Brugg,Samsung,Galaxy S24,512,1148,TWINT
+S-8984-MK,2025-10-21,Lugano,Google,Pixel 9 Pro,256,1086,TWINT
+S-1873-YT,2026-07-20,Davos,Apple,iPhone 16 Pro,256,1252,Cash
+S-1346-BC,2025-11-05,Kreuzlingen,Google,Pixel 8a,128,454,Cash
+S-0047-HC,2026-06-01,Gossau,Apple,iPhone 15,128,749,Cash
+S-6876-RC,2026-03-22,Thun,Apple,iPhone 16 Pro,512,1499,TWINT
+S-1377-ZY,2026-05-31,Winterthur,Samsung,Galaxy S24 Ultra,256,1399,TWINT
+S-5969-IZ,2026-04-11,Langenthal,Samsung,Galaxy A55,512,749,Card
+S-7010-LL,2026-05-05,Thalwil,Samsung,Galaxy A55,128,432,Cash
+S-6058-JM,2026-09-02,Bellinzona,Samsung,Galaxy S24 Ultra,512,1517,TWINT
+S-9917-JA,2026-06-09,Rüti,Google,Pixel 9 Pro,512,1380,TWINT
+S-2249-GI,2026-09-26,Arth,Samsung,Galaxy S24 Ultra,512,1537,Card
+S-2532-VK,2026-02-20,Maur,Samsung,Galaxy A55,256,535,Card
+S-4647-SH,2026-10-16,Carouge,Google,Pixel 8a,128,458,Cash
+S-7537-DS,2026-09-01,Zug,Google,Pixel 9,512,1011,Cash
+S-0767-DI,2026-01-14,Arbon,Samsung,Galaxy S24,128,795,Cash
+S-9549-TK,2026-10-18,Affoltern,Samsung,Galaxy A55,256,506,TWINT
+S-2476-CK,2026-03-14,Sitten,Samsung,Galaxy S24 Ultra,128,1143,Cash
+S-6121-SW,2026-06-25,Reinach,Samsung,Galaxy S24 Ultra,128,1198,Cash
+S-7965-SJ,2026-05-28,Münchenstein,Apple,iPhone 16,128,899,Cash
+S-2052-HL,2026-07-21,Wallisellen,Google,Pixel 9 Pro,256,1147,TWINT
+S-6458-UY,2026-01-07,Payerne,Samsung,Galaxy A55,512,719,Cash
+S-3786-DD,2026-09-17,Spiez,Apple,iPhone 16,256,915,Card
+S-3308-YS,2026-04-19,Villars-sur-Glâne,Google,Pixel 9 Pro,128,1021,Cash
+S-8146-OL,2026-06-19,Gland,Apple,iPhone 15,256,776,Card
+S-9125-OV,2026-07-02,Männedorf,Apple,iPhone 16,512,1199,Card
+S-2623-GL,2026-08-14,Lutry,Google,Pixel 9,256,803,Cash
