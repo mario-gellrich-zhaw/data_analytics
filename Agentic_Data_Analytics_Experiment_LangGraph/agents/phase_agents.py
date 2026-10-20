@@ -29,7 +29,7 @@ class DataCollectorAgent(Agent):
     role = "data_collector"
     prompt = "data_collector"
     tools = ["web_search", "fetch_url", "download_file", "list_remote_zip", "download_zip_member", "list_local_datasets", "import_local_dataset",
-             "geocode_addresses", "osm_poi_counts", "list_files", "preview_table", "read_file"]
+             "simulate_dataset", "geocode_addresses", "osm_poi_counts", "list_files", "preview_table", "read_file"]
     output_model = CollectionReport
 
 

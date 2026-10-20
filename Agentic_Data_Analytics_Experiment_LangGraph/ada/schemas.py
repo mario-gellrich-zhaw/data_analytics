@@ -33,6 +33,8 @@ class ObjectiveSpec(BaseModel):
     success_threshold: float = Field(description="value of primary_metric that counts as success (mape as a fraction, e.g. 0.15)")
     baseline: str = Field(description="naive baseline the model must beat, e.g. 'median rent of the training set'")
     region: Optional[str] = None
+    data_origin: Literal["collected", "simulated"] = Field(
+        "collected", description="'simulated' only when the user explicitly asks for simulated/synthetic data")
     constraints: list[str] = Field(default_factory=list)
     assumptions: list[str] = Field(default_factory=list)
     ambiguities: list[str] = Field(default_factory=list)

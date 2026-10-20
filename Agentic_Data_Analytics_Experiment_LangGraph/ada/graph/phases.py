@@ -117,7 +117,13 @@ def define_data(ctx: RunContext, state: dict[str, Any], node: str) -> PhaseOutco
 
 def collect_data(ctx: RunContext, state: dict[str, Any], node: str) -> PhaseOutcome:
     req = (state.get("phase_outputs") or {}).get("define_data") or {}
+    simulated = (state.get("objective_spec") or {}).get("data_origin") == "simulated"
     contract = (
+        "The objective asks for SIMULATED data (data_origin='simulated'): generate it with simulate_dataset (a seeded "
+        "script, provenance is recorded automatically) instead of searching or downloading. Target at least "
+        f"{req.get('min_rows', 'the required number of')} rows of '{req.get('entity', 'the entity')}' matching the "
+        "requirements' features and group design. Inspect the result with preview_table before submitting."
+    ) if simulated else (
         "Collect the data into raw/ using download_file / import_local_dataset (these record provenance in "
         "raw/sources.json). Prefer openly licensed sources; respect robots.txt and terms of service; never bypass "
         "logins, paywalls or bot protection. Target at least "
@@ -137,7 +143,8 @@ def collect_data(ctx: RunContext, state: dict[str, Any], node: str) -> PhaseOutc
                         evidence=evidence, updates={"artifacts": {"sources": "raw/sources.json"}})
 
 
-SOURCE_TOOLS = {"download_file", "download_zip_member", "list_remote_zip", "fetch_url", "import_local_dataset"}
+SOURCE_TOOLS = {"download_file", "download_zip_member", "list_remote_zip", "fetch_url", "import_local_dataset",
+                "simulate_dataset"}
 
 
 def _source_attempts(ctx: RunContext) -> int:
