@@ -143,6 +143,15 @@ def check_collect_data(output: dict | None, *, store: RunStore, attempts: int = 
 
 
 # ---------------------------------------------------------------------------
+def _hashable(series: pd.Series) -> pd.Series:
+    """Parquet keeps nested JSON fields as lists/arrays/dicts; those cells are unhashable and break
+    duplicated()/nunique(). Compare them by their text form instead."""
+    if not pd.api.types.is_object_dtype(series):
+        return series
+    return series.map(lambda v: repr(v.tolist() if isinstance(v, np.ndarray) else v)
+                      if isinstance(v, (list, dict, set, tuple, np.ndarray)) else v)
+
+
 def leakage_suspects(df: pd.DataFrame, target: str, threshold: float) -> dict[str, str]:
     """Columns that could leak the target: near-perfect correlation, target-derived names,
     identifier columns, post-hoc information."""
@@ -170,32 +179,60 @@ def leakage_suspects(df: pd.DataFrame, target: str, threshold: float) -> dict[st
                     suspects[col] = f"|corr| with target = {abs(corr):.3f}"
         is_idlike_type = pd.api.types.is_integer_dtype(series) or pd.api.types.is_object_dtype(series) \
             or pd.api.types.is_string_dtype(series)
-        if n > 20 and is_idlike_type and series.nunique(dropna=True) >= 0.95 * n:
+        if n > 20 and is_idlike_type and _hashable(series).nunique(dropna=True) >= 0.95 * n:
             if any(w == tok for tok in re.split(r"[_\W]+", lc) for w in ID_WORDS) or pd.api.types.is_object_dtype(series):
                 suspects.setdefault(col, "identifier-like (unique per row)")
     return suspects
 
 
+def _json_rows(data: Any) -> int:
+    """Records in a JSON document: a top-level list, or the longest list of records inside an
+    API envelope such as {"count": ..., "next": ..., "results": [...]}."""
+    if isinstance(data, list):
+        return len(data)
+    if isinstance(data, dict):
+        lists = [v for v in data.values() if isinstance(v, list) and (not v or isinstance(v[0], dict))]
+        if lists:
+            return max(len(v) for v in lists)
+        return max((_json_rows(v) for v in data.values() if isinstance(v, dict)), default=0)
+    return 0
+
+
+def _file_rows(path) -> int | None:
+    if path.suffix == ".parquet":
+        return len(pd.read_parquet(path))
+    if path.suffix in (".csv", ".tsv", ".txt"):
+        # parse properly: quoted fields may contain line breaks
+        sep = "\t" if path.suffix == ".tsv" else ","
+        return int(sum(len(chunk) for chunk in pd.read_csv(path, sep=sep, usecols=[0], chunksize=200_000,
+                                                           on_bad_lines="skip", low_memory=False)))
+    if path.suffix in (".xlsx", ".xls"):
+        return len(pd.read_excel(path))
+    if path.suffix == ".json":
+        # fall back to pandas for column-oriented JSON ({"col": {"0": …, "1": …}})
+        return _json_rows(json.loads(path.read_text(encoding="utf-8"))) or len(pd.read_json(path))
+    return None
+
+
 def _raw_rows(store: RunStore, state: dict) -> int | None:
+    """Rows in the primary raw file — summed over all its pages when the collector saved a
+    paginated download as numbered siblings (listings_page0.json, listings_page1.json, …)."""
     primary = ((state.get("phase_outputs") or {}).get("collect_data") or {}).get("primary_file")
     if not primary or not store.exists(primary):
         return None
     path = store.resolve(primary)
+    paths = [path]
+    m = re.fullmatch(r"(.*?)\d+", path.stem)
+    if m and m.group(1):
+        pattern = re.compile(re.escape(m.group(1)) + r"\d+")
+        paths = sorted(p for p in path.parent.iterdir() if p.suffix == path.suffix and pattern.fullmatch(p.stem))
     try:
-        if path.suffix == ".parquet":
-            return len(pd.read_parquet(path))
-        if path.suffix in (".csv", ".tsv", ".txt"):
-            # parse properly: quoted fields may contain line breaks
-            sep = "\t" if path.suffix == ".tsv" else ","
-            return int(sum(len(chunk) for chunk in pd.read_csv(path, sep=sep, usecols=[0], chunksize=200_000,
-                                                               on_bad_lines="skip", low_memory=False)))
-        if path.suffix in (".xlsx", ".xls"):
-            return len(pd.read_excel(path))
-        if path.suffix == ".json":
-            return len(pd.read_json(path))
+        counts = [_file_rows(p) for p in paths]
     except Exception:
         return None
-    return None
+    if any(c is None for c in counts):
+        return None
+    return int(sum(counts))
 
 
 def check_prepare_store(output: dict | None, *, store: RunStore, cfg: Config, state: dict,
@@ -249,9 +286,13 @@ def check_prepare_store(output: dict | None, *, store: RunStore, cfg: Config, st
         res.append(ok("min_rows", f"{n_total} >= {min_rows}"))
     else:
         if raw_rows is not None and raw_rows >= min_rows:
-            # the raw data was big enough: cleaning lost the rows — fix preparation, not collection
+            # the raw data was big enough: either cleaning lost rows by mistake, or the raw data holds
+            # records outside the objective's scope — the engineer has to tell which
             res.append(fail("min_rows", f"cleaning kept only {n_total} of {raw_rows} raw rows (requirement {min_rows}); "
-                                        "check filters, dedupe keys and that _row_id differs per row"))
+                                        "check dedupe keys, parsing and that _row_id differs per row. If the dropped rows "
+                                        "are genuinely out of scope for the objective, do not loosen filters to reach the "
+                                        "requirement: set needs_more_data and explain how many in-scope rows the raw data "
+                                        "contains"))
         else:
             res.append(fail("min_rows", f"only {n_total} rows (raw: {raw_rows}), requirement is {min_rows}",
                             route_hint="collect_data"))
@@ -278,7 +319,7 @@ def check_prepare_store(output: dict | None, *, store: RunStore, cfg: Config, st
     null_rate = float(df[features].isna().mean().mean()) if features else 1.0
     res.append(ok("null_rate", f"{null_rate:.1%}") if null_rate <= cfg.get("gates.max_null_rate", 0.35) else
                fail("null_rate", f"{null_rate:.1%} of feature cells missing"))
-    dup_rate = float(df.drop(columns=["_row_id"], errors="ignore").duplicated().mean())
+    dup_rate = float(df.drop(columns=["_row_id"], errors="ignore").apply(_hashable).duplicated().mean())
     res.append(ok("duplicate_rate", f"{dup_rate:.1%}") if dup_rate <= cfg.get("gates.max_duplicate_rate", 0.05) else
                fail("duplicate_rate", f"{dup_rate:.1%} duplicate rows (ignoring _row_id)"))
     res.append(ok("feature_count", str(len(features))) if len(features) >= 2 else

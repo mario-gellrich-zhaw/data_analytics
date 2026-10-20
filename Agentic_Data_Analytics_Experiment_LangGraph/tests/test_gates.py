@@ -116,3 +116,31 @@ def test_raw_row_count_handles_multiline_csv(tmp_path):
     store = RunStore("z", root=tmp_path).init()
     store.write_text("raw/t.csv", 'id,text\n1,"line one\nline two\nline three"\n2,"ok"\n')
     assert _raw_rows(store, {"phase_outputs": {"collect_data": {"primary_file": "raw/t.csv"}}}) == 2
+
+
+def test_raw_row_count_sums_paginated_api_json(tmp_path):
+    import json
+    from ada.gates.checks import _raw_rows
+    from ada.store import RunStore
+    store = RunStore("p", root=tmp_path).init()
+    for i, n in enumerate([200, 100, 100]):
+        store.write_text(f"raw/listings_page{i}.json",
+                         json.dumps({"count": 400, "next": None, "results": [{"pk": j} for j in range(n)]}))
+    store.write_text("raw/other_page0.json", json.dumps([{"x": 1}]))      # different series: not counted
+    assert _raw_rows(store, {"phase_outputs": {"collect_data": {"primary_file": "raw/listings_page0.json"}}}) == 400
+
+
+def test_prepare_checks_tolerate_list_cells(tmp_path):
+    from ada.gates.checks import check_prepare_store
+    from ada.store import RunStore
+    store = RunStore("l", root=tmp_path).init()
+    n = 300
+    rng = np.random.default_rng(1)
+    pd.DataFrame({"_row_id": [f"r{i}" for i in range(n)], "rent": rng.normal(2000, 300, n),
+                  "area": rng.normal(70, 10, n), "tags": [[] if i % 2 else ["a", str(i)] for i in range(n)]}
+                 ).to_parquet(store.resolve("clean/clean.parquet"))          # parquet returns numpy arrays
+    store.write_text("data_card.md", "card")
+    prep = {"target_column": "rent", "feature_columns": ["area", "tags"], "row_count": n, "cleaning_steps": ["x"]}
+    st = {"objective_spec": {"task_type": "regression"}, "phase_outputs": {"define_data": {"min_rows": 200}}}
+    checks = {c.name: c for c in check_prepare_store(prep, store=store, cfg=CFG, state=st)}
+    assert checks["duplicate_rate"].passed
