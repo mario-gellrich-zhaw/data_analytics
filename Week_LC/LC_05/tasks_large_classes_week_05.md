@@ -34,3 +34,20 @@ Boulder) that follows the exact shape of the building, with photographs of the f
 - **d)** In `doc.kml`, change `heading` and `Scale`, zip the files again as `.kmz` (with `doc.kml` at the top level)
   and open it again. What changes?
 - **e)** Optional: replace one of the texture images with your own photo and look at the result.
+
+### Task 5 — Oriented photo (PhotoOverlay)
+Open `opernhaus_photooverlay.kmz` in Google Earth Pro. It places a photo of the front of the Opernhaus Zürich at
+the photographer's position and turns it in the direction the photo was taken (`PhotoOverlay`).
+
+- **a)** Look at the photo frame from the side: where was the photographer standing, and in which direction did
+  they look?
+- **b)** Double-click the PhotoOverlay to fly into the photographer's view. How well does the photo line up with
+  the 3D buildings of Google Earth?
+- **c)** Unzip the `.kmz` and look at `doc.kml`: which elements define the position (`Camera`: longitude,
+  latitude, altitude), the orientation (`heading`, `tilt`, `roll`) and the size of the photo (`ViewVolume`)?
+- **d)** Open the properties of the PhotoOverlay in Google Earth Pro and adjust the camera position, heading and
+  field of view until the photo fits better.
+- **e)** Take a photo of a building yourself, note your position and viewing direction, and create your own
+  PhotoOverlay in Google Earth Pro (*Add → Photo*).
+
+Photo credit: Roland zh, [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Opernhaus_Z%C3%BCrich_-_Sechsel%C3%A4utenplatz_2013-08-31_18-30-40.JPG), CC BY-SA 3.0.
