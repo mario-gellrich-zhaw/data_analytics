@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Survey results{% endblock %}
+{% block content %}
+<header class="hero">
+  <p class="eyebrow">Live results</p>
+  <h1>How do you get to ZHAW?</h1>
+  <p class="lead">{{ summary.n }} response{{ '' if summary.n == 1 else 's' }} so far.</p>
+  <p class="nav-links">
+    <a href="{{ url_for('data') }}">Explore the raw data with SQL →</a>
+    <a href="{{ url_for('export_sqlite') }}">Download SQLite (.sqlite)</a>
+    <a href="{{ url_for('export_csv') }}">Download CSV</a>
+  </p>
+</header>
+
+{% if summary.n %}
+{% for section in sections %}
+<section class="card">
+  <h2>{{ section.title }}</h2>
+
+  {% set number_items = section.questions|selectattr("type", "equalto", "number")|list %}
+  {% if number_items %}
+  <div class="stat-grid">
+    {% for q in number_items %}
+    {% set s = summary.number[q.key] %}
+    <div class="stat">
+      <p class="stat-value">{{ '%g'|format(s.median) }} <small>{{ q.unit }}</small></p>
+      <p class="stat-label">{{ q.text }}<br>
+        <span class="muted">median · mean {{ '%.1f'|format(s.mean) }} · range {{ s.min }}–{{ s.max }}</span></p>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% set likert_items = section.questions|selectattr("type", "equalto", "likert")|list %}
+  {% if likert_items %}
+  <ul class="legend" aria-label="Legend">
+    {% for label in likert_labels %}<li><span class="swatch s{{ loop.index }}"></span>{{ label }}</li>{% endfor %}
+  </ul>
+  {% for q in likert_items %}
+  {% set pct = summary.likert[q.key] %}
+  {# The track spans -100 % (left) to +100 % (right); neutral is split around the centre line #}
+  {% set offset = 50 - (pct[0] + pct[1] + pct[2] / 2) / 2 %}
+  <div class="diverging-row">
+    <p class="item-text">{{ q.text }}</p>
+    <div class="diverging-track">
+      <span class="center-line"></span>
+      <div class="diverging-bar" style="margin-left: {{ offset }}%">
+        {% for value in pct %}
+        <span class="seg s{{ loop.index }}" style="width: {{ value / 2 }}%"
+              title="{{ likert_labels[loop.index0] }}: {{ '%.0f'|format(value) }} %"></span>
+        {% endfor %}
+      </div>
+    </div>
+    <p class="item-share">
+      <span>Disagree {{ '%.0f'|format(pct[0] + pct[1]) }} %</span>
+      <span>Agree {{ '%.0f'|format(pct[3] + pct[4]) }} %</span>
+    </p>
+  </div>
+  {% endfor %}
+  {% endif %}
+
+  {% for q in section.questions if q.type == "choice" %}
+  {% set counts = summary.choice[q.key] %}
+  {% set max_count = counts|map(attribute=1)|max %}
+  <div class="choice-block">
+    <p class="item-text">{{ q.text }}</p>
+    {% for opt, count in counts %}
+    <div class="choice-row">
+      <span class="choice-label">{{ opt }}</span>
+      <span class="choice-track"><span class="choice-fill" style="width: {{ (count / max_count * 100) if max_count else 0 }}%"></span></span>
+      <span class="choice-value">{{ count }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% endfor %}
+</section>
+{% endfor %}
+{% endif %}
+{% endblock %}

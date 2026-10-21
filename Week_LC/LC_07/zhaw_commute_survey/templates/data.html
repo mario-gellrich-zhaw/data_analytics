@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Explore the data{% endblock %}
+{% block content %}
+<header class="hero">
+  <p class="eyebrow">Raw data · read-only</p>
+  <h1>Explore the survey data</h1>
+  <p class="lead">All responses are in one table called <code>responses</code>: one row per participant, one
+    column per question. Write any SQL <code>SELECT</code> query, or download the data and work with it in
+    Python or a SQLite browser.</p>
+  <p class="nav-links">
+    <a href="{{ url_for('results') }}">← Charts</a>
+    <a href="{{ url_for('export_sqlite') }}">Download SQLite (.sqlite)</a>
+    <a href="{{ url_for('export_csv') }}">Download CSV</a>
+  </p>
+</header>
+
+<section class="card">
+  <h2>SQL query</h2>
+  <p class="chips">
+    {% for label, href in examples %}<a class="chip" href="{{ href }}">{{ label }}</a>{% endfor %}
+  </p>
+  <form method="get" class="sql-form">
+    <textarea name="q" rows="8" wrap="off" spellcheck="false" aria-label="SQL query">{{ sql }}</textarea>
+    <button type="submit" class="submit">Run query</button>
+  </form>
+
+  {% if error %}
+  <p class="notice notice-error" role="alert">{{ error }}</p>
+  {% else %}
+  <p class="intro">{{ rows|length }} row{{ '' if rows|length == 1 else 's' }}{% if truncated %} (only the first {{ max_rows }} are shown){% endif %}</p>
+  {% if columns %}
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead><tr>{% for col in columns %}<th>{{ col }}</th>{% endfor %}</tr></thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>{% for value in row %}<td>{{ '' if value is none else value }}</td>{% endfor %}</tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>Table <code>responses</code></h2>
+  <p class="intro">Likert items (<code>satisfied</code>, <code>stressful</code>, <code>productive</code>) are stored as 1 (strongly disagree) to 5 (strongly agree), numbers as whole numbers in the unit shown, all other questions as their answer text.</p>
+  <div class="table-wrap">
+    <table class="data-table schema-table">
+      <thead><tr><th>Column</th><th>Type</th><th>Question</th></tr></thead>
+      <tbody>
+        <tr><td><code>id</code></td><td>INTEGER</td><td>Running number of the response</td></tr>
+        <tr><td><code>created_at</code></td><td>TEXT</td><td>Time of submission (UTC, ISO 8601)</td></tr>
+        {% for q in schema %}
+        <tr>
+          <td><code>{{ q.key }}</code></td>
+          <td>{{ 'TEXT' if q.type == 'choice' else 'INTEGER' }}</td>
+          <td>{{ q.text }}{% if q.options %} <span class="muted">({{ q.options|join(' · ') }})</span>{% endif %}{% if q.unit %} <span class="muted">(in {{ q.unit }})</span>{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

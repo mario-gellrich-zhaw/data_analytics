@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block content %}
+<header class="hero">
+  <p class="eyebrow">Student survey · about 3 minutes</p>
+  <h1>How do you get to ZHAW?</h1>
+  <p class="lead">This short anonymous survey asks how you commute to ZHAW, how long it takes, what it costs
+    and how you feel about it. The answers of the whole class are analysed later in the course.</p>
+  {% if already %}
+  <p class="notice">You have already taken part on this device. Please submit only once.</p>
+  {% endif %}
+  {% if save_error %}
+  <p class="notice notice-error" role="alert">Your answers could not be saved: {{ save_error }} Please try again in a moment.</p>
+  {% endif %}
+  {% if errors %}
+  <p class="notice notice-error" role="alert">{{ errors|length }} question(s) still need an answer. They are marked below.</p>
+  {% endif %}
+</header>
+
+<form method="post" novalidate>
+  {% for section in sections %}
+  <section class="card">
+    <p class="step">Part {{ loop.index }} of {{ sections|length }}</p>
+    <h2>{{ section.title }}</h2>
+    <p class="intro">{{ section.intro }}</p>
+
+    {% for q in section.questions %}
+    {% set current = answers.get(q.key)|string if answers.get(q.key) is not none else "" %}
+    <fieldset class="question {{ 'has-error' if q.key in errors }}" id="q-{{ q.key }}">
+      <legend>{{ q.text }}</legend>
+
+      {% if q.type == "choice" %}
+      <div class="options">
+        {% for opt in q.options %}
+        <label class="option">
+          <input type="radio" name="{{ q.key }}" value="{{ opt }}" {{ 'checked' if current == opt }} required>
+          <span>{{ opt }}</span>
+        </label>
+        {% endfor %}
+      </div>
+
+      {% elif q.type == "likert" %}
+      <div class="scale scale-5">
+        {% for label in likert_labels %}
+        <label class="pill">
+          <input type="radio" name="{{ q.key }}" value="{{ loop.index }}" {{ 'checked' if current == loop.index|string }} required>
+          <span>{{ label }}</span>
+        </label>
+        {% endfor %}
+      </div>
+
+      {% else %}
+      {% if q.hint %}<p class="hint">{{ q.hint }}</p>{% endif %}
+      <label class="number-field">
+        <input type="number" name="{{ q.key }}" value="{{ current }}" min="{{ q.min }}" max="{{ q.max }}" step="1"
+               inputmode="numeric" required aria-label="{{ q.text }} ({{ q.unit }})">
+        <span>{{ q.unit }}</span>
+      </label>
+      {% endif %}
+
+      {% if q.key in errors %}<p class="error">{{ errors[q.key] }}</p>{% endif %}
+    </fieldset>
+    {% endfor %}
+  </section>
+  {% endfor %}
+
+  <button type="submit" class="submit">Submit</button>
+</form>
+{% endblock %}

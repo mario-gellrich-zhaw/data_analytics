@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Thank you{% endblock %}
+{% block content %}
+<header class="hero">
+  <p class="eyebrow">Thank you for taking part!</p>
+  <h1>Your commute in numbers</h1>
+  <p class="lead">Based on your answers ({{ minutes }} minutes one way, {{ days }} day{{ '' if days == 1 else 's' }} per week)
+    and {{ weeks }} teaching weeks per year.</p>
+</header>
+
+<section class="card">
+  <div class="stat-grid">
+    <div class="stat">
+      <p class="stat-value">{{ '%.0f'|format(hours) }} h</p>
+      <p class="stat-label">spent commuting per year</p>
+    </div>
+    <div class="stat">
+      <p class="stat-value">{{ '%.1f'|format(hours / 24) }} days</p>
+      <p class="stat-label">around the clock</p>
+    </div>
+    <div class="stat">
+      <p class="stat-value">CHF {{ '{:,.0f}'.format(chf).replace(',', "'") }}</p>
+      <p class="stat-label">spent per year</p>
+    </div>
+  </div>
+  <p class="intro">How does the class compare? The results will be analysed together in class.</p>
+</section>
+{% endblock %}
