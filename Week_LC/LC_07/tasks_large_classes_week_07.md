@@ -1,34 +1,38 @@
 # Chi-Squared Test & Correlation Analysis
 
-The purpose of this exercise is to develop and practice statistical analysis skills, specifically in the context
-of hypothesis testing using the Chi-squared test and correlation analysis using the Pearson correlation
-coefficient. The tasks are designed to familiarize you with essential concepts in categorical and numerical
-data analysis, as well as the use of Python for performing these analyses.
+The purpose of this exercise is to practise hypothesis testing with the Chi-squared test and correlation analysis
+with Spearman's rank correlation, using real data: a short survey on how you and your classmates commute to ZHAW.
+All answers are collected in one central data set, which we analyse together with Python.
 
 > [!IMPORTANT]
-> Report the actual test statistics you compute (chi-squared statistic, p-value,
-> Pearson r, p-value) — not example numbers. For Task 2, simulate your data with
-> a random seed derived from your own birthday so your correlation results are
-> unique to you.
+> Report the actual test statistics you compute from the class data (chi-squared statistic, p-value,
+> Spearman's rho, p-value), not example numbers.
 
 ---
 
 ## Tasks
 
-### Task 1 — Chi-squared test of independence
-The following contingency table shows the number of men and women buying different types of pets:
+### Task 1 — Take part in the survey
+- **a)** Start the survey app in your Codespace:
+  ```bash
+  cd Week_LC/LC_07/zhaw_commute_survey
+  python app.py
+  ```
+  and open port 5000 in the browser.
+- **b)** Fill in the questionnaire (once per person, about 3 minutes).
+- **c)** Look at the class results under `/results` and explore the raw data with SQL under `/data`.
 
-| | dog | cat | bird |
-|---|---|---|---|
-| **men** | 207 | 282 | 241 |
-| **women** | 234 | 242 | 232 |
+### Task 2 — Chi-squared test of independence
+Use the notebook `zhaw_commute_survey/analysis/class_survey_analysis.ipynb`. It reads the class data directly from the central data set.
 
-- **a)** Define a null- and alternative hypothesis for a Chi-squared test.
+- **a)** Define a null- and alternative hypothesis for the question: *Is the living situation associated with the means of transport?*
 - **b)** Define a significance-level alpha for the Chi-squared test.
-- **c)** Perform a Chi-squared test with Python to test whether the two categorical variables (gender & type of pets) are independent.
-- **d)** Interpret the test results, referencing the actual chi-squared statistic and p-value you computed.
+- **c)** Perform a Chi-squared test with Python and check whether all expected frequencies are at least 5.
+- **d)** If they are not, merge categories into a 2 × 2 table and repeat the test.
+- **e)** Interpret the test results, referencing the actual chi-squared statistic and p-value you computed.
 
-### Task 2 — Correlation analysis
-- **a)** Simulate numerical data (use a seed based on your birthday, e.g. `np.random.seed(day * month)`)
-- **b)** Calculate a Pearson correlation coefficient (r)
-- **c)** Provide a p-value for the Pearson correlation coefficient (r)
+### Task 3 — Correlation analysis (Spearman)
+- **a)** Create a scatter plot of the distance and the door-to-door travel time.
+- **b)** Calculate Spearman's rank correlation coefficient (rho) with its p-value for *travel time vs. satisfaction* and for one other pair of your choice.
+- **c)** Explain why Spearman is more suitable than Pearson for this data, and compare both coefficients for one pair.
+- **d)** Interpret the results, referencing the actual rho and p-values you computed.
