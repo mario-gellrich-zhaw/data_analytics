@@ -343,8 +343,8 @@ def check_eda(output: dict | None, *, store: RunStore, **_: Any) -> list[CheckRe
 
 def check_modeling(output: dict | None, *, store: RunStore, cfg: Config, state: dict,
                    validation: dict | None, holdout_ids: set[str], **_: Any) -> list[CheckResult]:
-    from ada.schemas import ModelingOutput
-    res = [_schema("modeling_schema", output, ModelingOutput)]
+    from ada.schemas import StatisticsModelingOutput
+    res = [_schema("modeling_schema", output, StatisticsModelingOutput)]
     if not store.exists("models/best_model.pkl"):
         res.append(fail("model_saved", "models/best_model.pkl missing (use ada_kit.save_model)"))
         return res

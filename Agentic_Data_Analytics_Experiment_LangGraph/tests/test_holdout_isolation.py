@@ -72,7 +72,7 @@ def test_store_rejects_paths_outside_workspace(locked):
 
 def test_agent_tools_cannot_read_holdout(locked):
     ctx, _, _ = locked
-    tc = ToolContext(ctx, "modeling", "ModelingAgent")
+    tc = ToolContext(ctx, "modeling", "StatisticsModelingAgent")
     target = str(ctx.vault.dir / "holdout.parquet")
     for name, args in [("read_file", {"path": target}), ("preview_table", {"path": target}),
                        ("list_files", {"subdir": str(ctx.vault.dir)})]:

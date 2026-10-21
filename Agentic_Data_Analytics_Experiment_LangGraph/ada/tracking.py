@@ -57,7 +57,7 @@ def log_new_experiments(ctx: Any, node: str) -> list[dict[str, Any]]:
     for rec in new:
         ctx.emit("metric", f"experiment {rec.get('name')}: " +
                  ", ".join(f"{k}={v:.4g}" for k, v in (rec.get("metrics") or {}).items() if isinstance(v, (int, float))),
-                 node=node, agent="ModelingAgent",
+                 node=node, agent="StatisticsModelingAgent",
                  payload={"kind": "experiment", "index": rec["index"], "name": rec.get("name"),
                           "model_type": rec.get("model_type"), "metrics": rec.get("metrics", {})})
     store.write_json(".cache/mlflow_logged.json", {"n": len(lines)})

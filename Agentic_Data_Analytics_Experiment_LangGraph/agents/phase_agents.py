@@ -2,8 +2,8 @@
 from __future__ import annotations
 
 from agents.base import Agent
-from ada.schemas import (CollectionReport, DataRequirements, EDAOutput, EvaluationOutput, ModelingOutput,
-                         ObjectiveSpec, PrepOutput, PresenterOutput)
+from ada.schemas import (CollectionReport, DataRequirements, EDAOutput, EvaluationOutput, ObjectiveSpec,
+                         PrepOutput, PresenterOutput, StatisticsModelingOutput)
 
 READ_TOOLS = ["list_files", "read_file", "preview_table"]
 
@@ -49,12 +49,12 @@ class EDAAgent(Agent):
     output_model = EDAOutput
 
 
-class ModelingAgent(Agent):
-    name = "ModelingAgent"
+class StatisticsModelingAgent(Agent):
+    name = "StatisticsModelingAgent"
     role = "modeling"
-    prompt = "modeling"
+    prompt = "statistics_modeling"
     tools = READ_TOOLS + ["run_python"]
-    output_model = ModelingOutput
+    output_model = StatisticsModelingOutput
 
 
 class EvaluationAgent(Agent):
@@ -79,7 +79,7 @@ PHASE_AGENTS: dict[str, type[Agent]] = {
     "collect_data": DataCollectorAgent,
     "prepare_store": DataEngineerAgent,
     "eda": EDAAgent,
-    "modeling": ModelingAgent,
+    "modeling": StatisticsModelingAgent,
     "evaluation": EvaluationAgent,
     "present_results": PresenterAgent,
 }

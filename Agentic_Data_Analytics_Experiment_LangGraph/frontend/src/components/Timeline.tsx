@@ -3,13 +3,14 @@ import type { RunEvent } from "../api";
 
 const LABEL: Record<string, string> = {
   business_objectives: "Business objectives", define_data: "Define data", collect_data: "Collect data",
-  prepare_store: "Prepare & store", eda: "EDA", modeling: "Modeling", evaluation: "Evaluation",
+  prepare_store: "Prepare & store", eda: "EDA", modeling: "Statistics & modeling", evaluation: "Evaluation",
   present_results: "Present results",
 };
 
 const AGENT_COLOR: Record<string, string> = {
   ObjectiveAgent: "bg-sky-600", DataRequirementsAgent: "bg-cyan-600", DataCollectorAgent: "bg-teal-600",
-  DataEngineerAgent: "bg-emerald-600", EDAAgent: "bg-lime-600", ModelingAgent: "bg-violet-600",
+  DataEngineerAgent: "bg-emerald-600", EDAAgent: "bg-lime-600", StatisticsModelingAgent: "bg-violet-600",
+  ModelingAgent: "bg-violet-600", // former name, still in the event logs of older runs
   EvaluationAgent: "bg-fuchsia-600", PresenterAgent: "bg-pink-600", CriticAgent: "bg-amber-600",
   Supervisor: "bg-stone-600", Gate: "bg-stone-800", orchestrator: "bg-stone-500",
 };

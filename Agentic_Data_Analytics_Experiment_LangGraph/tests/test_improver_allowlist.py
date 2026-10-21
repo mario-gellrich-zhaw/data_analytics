@@ -10,7 +10,7 @@ from improve.allowlist import ChangeRejected, apply_change, check_change, is_edi
 CONFIG = CONFIG_PATH.read_text()
 
 
-@pytest.mark.parametrize("path", ["prompts/modeling.md", "agents/tools/web.py", "config.yaml"])
+@pytest.mark.parametrize("path", ["prompts/statistics_modeling.md", "agents/tools/web.py", "config.yaml"])
 def test_editable_surface(path):
     assert is_editable(path)
 

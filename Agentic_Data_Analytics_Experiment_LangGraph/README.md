@@ -11,7 +11,7 @@ lets an ImproverAgent change prompts/tools/config, and keeps only changes that i
 flowchart LR
   BO[Business objectives] --> DD[Define data] --> CD[Collect data] --> PS[Prepare & store]
   PS --> EDA[EDA] --> EV[Evaluation]
-  PS --> MO[Modeling] --> EV
+  PS --> MO[Statistics & modeling] --> EV
   EV --> PR[Present results]
   DD -. feedback .-> BO
   CD -. feedback .-> DD
@@ -49,7 +49,7 @@ config.yaml              models, budgets, gates, sandbox … (only models/roles/
 ```
 
 **Agents:** ObjectiveAgent, DataRequirementsAgent, DataCollectorAgent (the only one with network tools),
-DataEngineerAgent, EDAAgent, ModelingAgent, EvaluationAgent, PresenterAgent, plus CriticAgent, Supervisor
+DataEngineerAgent, EDAAgent, StatisticsModelingAgent, EvaluationAgent, PresenterAgent, plus CriticAgent, Supervisor
 and ImproverAgent. Each has a versioned prompt in `prompts/`, a fixed tool whitelist (`agents/phase_agents.py`)
 and a Pydantic output schema (`ada/schemas.py`). Agents only get compact briefs plus artifact paths, never raw data.
 

@@ -107,8 +107,8 @@ class EDAOutput(BaseModel):
     requested_changes: list[str] = Field(default_factory=list)
 
 
-# --- modeling ----------------------------------------------------------------------
-class ModelingOutput(BaseModel):
+# --- statistics & modeling (node key: modeling) ------------------------------------
+class StatisticsModelingOutput(BaseModel):
     best_model_name: str
     features_used: list[str]
     experiments_run: int

@@ -76,7 +76,7 @@ def remove_worktree(path: Path) -> None:
 
 # ---------------------------------------------------------------------------- improver agent
 class ReadArgs(BaseModel):
-    path: str = Field(description="project-relative path, e.g. prompts/modeling.md or agents/tools/web.py")
+    path: str = Field(description="project-relative path, e.g. prompts/statistics_modeling.md or agents/tools/web.py")
     max_chars: int = Field(12000, ge=500, le=40000)
 
 

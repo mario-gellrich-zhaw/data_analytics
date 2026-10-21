@@ -14,7 +14,7 @@ LABELS = {
     "collect_data": "Collect data",
     "prepare_store": "Prepare & store",
     "eda": "Exploratory data analysis",
-    "modeling": "Modeling",
+    "modeling": "Statistics & modeling",
     "evaluation": "Evaluation",
     "present_results": "Present results",
 }
@@ -25,7 +25,7 @@ AGENTS = {
     "collect_data": "DataCollectorAgent",
     "prepare_store": "DataEngineerAgent",
     "eda": "EDAAgent",
-    "modeling": "ModelingAgent",
+    "modeling": "StatisticsModelingAgent",
     "evaluation": "EvaluationAgent",
     "present_results": "PresenterAgent",
 }

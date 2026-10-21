@@ -77,7 +77,7 @@ export default function Metrics({ view }: { view: RunView }) {
       </div>
       {view.validations.length > 0 && (
         <div>
-          <div className="mb-1 text-xs font-medium text-stone-600 dark:text-stone-300">Best model per modeling round (orchestrator-scored)</div>
+          <div className="mb-1 text-xs font-medium text-stone-600 dark:text-stone-300">Best model per statistics &amp; modeling round (orchestrator-scored)</div>
           <div className="h-36">
             <ResponsiveContainer>
               <LineChart data={view.validations} margin={{ top: 8, right: 12, bottom: 4, left: 0 }}>
