@@ -1,4 +1,4 @@
-"""Pydantic input/output schemas for every agent."""
+"""Pydantic output schemas for every agent."""
 from __future__ import annotations
 
 from typing import Literal, Optional
@@ -7,19 +7,6 @@ from pydantic import BaseModel, Field
 
 PHASES = ["business_objectives", "define_data", "collect_data", "prepare_store",
           "eda", "modeling", "evaluation", "present_results"]
-
-
-class AgentInput(BaseModel):
-    """What every agent receives: a compact brief, never raw data."""
-    run_id: str
-    node: str
-    objective: str
-    region: Optional[str] = None
-    objective_spec: Optional[dict] = None
-    context: dict = Field(default_factory=dict, description="compact summaries of earlier phases")
-    guidance: list[str] = Field(default_factory=list, description="critic / supervisor feedback for this visit")
-    workspace_files: list[str] = Field(default_factory=list)
-    offline: bool = False
 
 
 # --- business_objectives -----------------------------------------------------

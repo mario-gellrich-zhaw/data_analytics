@@ -171,7 +171,7 @@ def propose(ctx: RunContext, base_dir: Path, baseline: dict[str, Any], history: 
     agent = ImproverAgent(ctx, "improve")
     read = lambda p: (base_dir / p).read_text() if (base_dir / p).is_file() else None  # noqa: E731
     feedback = ""
-    for attempt in range(3):
+    for _ in range(3):
         proposal = agent.run(task + feedback).model_dump()
         try:
             changes = [apply_change(c, read) for c in proposal["changes"][:3]]

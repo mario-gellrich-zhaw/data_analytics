@@ -93,7 +93,3 @@ def score_holdout(store: RunStore, sandbox: Sandbox, holdout: pd.DataFrame, *, t
         "metrics": M.compute(task_type, merged[target], merged["pred"], merged.get("score")),
         "baseline": M.naive_baseline(task_type, clean[target], merged[target]),
     }
-
-
-def json_safe(obj: Any) -> Any:
-    return json.loads(json.dumps(obj, default=float))

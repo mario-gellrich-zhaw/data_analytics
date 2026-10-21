@@ -54,7 +54,7 @@ def _brief(ctx: RunContext, state: dict[str, Any], node: str) -> str:
     if compact:
         parts.append("# Earlier phases (latest outputs)\n" + json.dumps(compact, indent=1, default=str)[:7000])
     if outs.get(node):
-        parts.append(f"# Your previous output for this phase\n" + json.dumps(outs[node], indent=1, default=str)[:3000])
+        parts.append("# Your previous output for this phase\n" + json.dumps(outs[node], indent=1, default=str)[:3000])
     guidance = (state.get("guidance") or {}).get(node) or []
     if guidance:
         parts.append("# Feedback you must address this time\n" + "\n".join(f"- {g}" for g in guidance[-6:]))

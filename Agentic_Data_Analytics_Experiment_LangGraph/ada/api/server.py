@@ -7,7 +7,6 @@ from __future__ import annotations
 import asyncio
 import json
 import mimetypes
-from pathlib import Path
 from typing import Any, Optional
 
 from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect

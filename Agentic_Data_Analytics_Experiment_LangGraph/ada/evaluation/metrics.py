@@ -9,7 +9,6 @@ import numpy as np
 import pandas as pd
 
 MINIMIZE = {"mae", "rmse", "mape"}
-MAXIMIZE = {"r2", "accuracy", "f1_macro", "roc_auc"}
 REGRESSION_METRICS = ["mae", "rmse", "mape", "r2"]
 CLASSIFICATION_METRICS = ["accuracy", "f1_macro", "roc_auc"]
 
