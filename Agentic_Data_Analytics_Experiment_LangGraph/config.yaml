@@ -1,7 +1,7 @@
 # Autonomous data analytics system — configuration.
 #
 # Improver-editable (see improve/allowlist.py): models, roles, agents, web.request_delay_seconds.
-# Everything else (budgets, gates, holdout, sandbox, improve, pricing, paths) is protected.
+# Everything else (budgets, gates, holdout, sandbox, improve, pricing) is protected.
 
 models:
   strong: gpt-5.1          # supervisor, objective, critic, evaluation, improver
@@ -108,12 +108,9 @@ domains:
 
 human_approval: false            # env HUMAN_APPROVAL=true overrides
 
-paths:
-  var_dir: var                   # env ADA_VAR_DIR overrides
-  vault_dir: ~/.ada_vault        # env ADA_VAULT_DIR overrides; must NOT be readable by the sandbox
-
-tracking:
-  mlflow_uri: sqlite:///var/mlflow.db   # relative to the project dir; env MLFLOW_TRACKING_URI overrides
+# Paths and tracking are set by environment variables, not here (see ada/paths.py, ada/tracking.py):
+#   ADA_VAR_DIR (default ./var), ADA_VAULT_DIR (default ~/.ada_vault, must NOT be readable by the sandbox),
+#   MLFLOW_TRACKING_URI (default sqlite:///var/mlflow.db)
 
 improve:
   tasks: [diabetes_regression, synthetic_rentals]

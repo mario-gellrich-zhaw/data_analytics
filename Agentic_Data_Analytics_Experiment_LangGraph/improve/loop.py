@@ -161,12 +161,13 @@ def _ctx(cycle_id: str) -> RunContext:
 
 def propose(ctx: RunContext, base_dir: Path, baseline: dict[str, Any], history: list[dict[str, Any]]) -> tuple[dict, list]:
     _IMPROVE_BASE["dir"] = base_dir
+    max_changes = int(ctx.cfg.get("improve.max_changes", 3))
     task = (
         "Benchmark results of the current system version (scores in [0,1]; components metric/gates/cost/time):\n"
         f"mean {baseline['mean']} ± {baseline['stdev']}; per task {json.dumps(baseline['per_task'])}\n\n"
         f"Run traces:\n{json.dumps(summarise_traces(baseline), indent=1, default=str)[:14000]}\n\n"
         f"Earlier improvement attempts (most recent first):\n{json.dumps(history[:5], default=str)[:3000]}\n\n"
-        "Propose at most 3 targeted changes."
+        f"Propose at most {max_changes} targeted changes."
     )
     agent = ImproverAgent(ctx, "improve")
     read = lambda p: (base_dir / p).read_text() if (base_dir / p).is_file() else None  # noqa: E731
@@ -174,7 +175,7 @@ def propose(ctx: RunContext, base_dir: Path, baseline: dict[str, Any], history: 
     for _ in range(3):
         proposal = agent.run(task + feedback).model_dump()
         try:
-            changes = [apply_change(c, read) for c in proposal["changes"][:3]]
+            changes = [apply_change(c, read) for c in proposal["changes"][:max_changes]]
             if not changes:
                 raise ChangeRejected("no changes proposed")
             return proposal, changes

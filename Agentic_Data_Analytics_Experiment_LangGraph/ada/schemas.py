@@ -5,9 +5,6 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
-PHASES = ["business_objectives", "define_data", "collect_data", "prepare_store",
-          "eda", "modeling", "evaluation", "present_results"]
-
 
 # --- business_objectives -----------------------------------------------------
 class ObjectiveSpec(BaseModel):
