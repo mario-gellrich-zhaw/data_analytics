@@ -221,5 +221,14 @@ def create_app(store=None):
     return app
 
 
+def public_url(port):
+    """Browser address of the app: the forwarded Codespaces URL, or localhost outside Codespaces."""
+    codespace = os.environ.get("CODESPACE_NAME")
+    domain = os.environ.get("GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN", "app.github.dev")
+    return f"https://{codespace}-{port}.{domain}/" if codespace else f"http://127.0.0.1:{port}/"
+
+
 if __name__ == "__main__":
+    if not os.environ.get("WERKZEUG_RUN_MAIN"):  # print once, not again in the debug reloader
+        print(f"\n  Open the survey in your browser: {public_url(5000)}\n")
     create_app().run(host="0.0.0.0", port=5000, debug=True)

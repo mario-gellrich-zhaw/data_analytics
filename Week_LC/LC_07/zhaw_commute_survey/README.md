@@ -57,7 +57,7 @@ python app.py
 
 The app only needs Flask, which is already installed in the course Codespace.
 
-Codespaces offers to open port 5000 in the browser. Then:
+The app prints its address, in Codespaces `https://<your-codespace-name>-5000.app.github.dev/` (also listed in the **Ports** tab), elsewhere `http://127.0.0.1:5000/`. Then:
 
 | Page | |
 |---|---|

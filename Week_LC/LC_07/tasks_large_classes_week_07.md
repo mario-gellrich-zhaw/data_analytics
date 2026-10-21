@@ -18,7 +18,9 @@ All answers are collected in one central data set, which we analyse together wit
   cd Week_LC/LC_07/zhaw_commute_survey
   python app.py
   ```
-  and open port 5000 in the browser.
+  The app prints its address. Open it in the browser:
+  `https://<your-codespace-name>-5000.app.github.dev/`
+  (also listed in the **Ports** tab of VS Code; outside Codespaces: `http://127.0.0.1:5000/`).
 - **b)** Fill in the questionnaire (once per person, about 3 minutes).
 - **c)** Look at the class results under `/results` and explore the raw data with SQL under `/data`.
 
@@ -31,8 +33,9 @@ Use the notebook `zhaw_commute_survey/analysis/class_survey_analysis.ipynb`. It 
 - **d)** If they are not, merge categories into a 2 × 2 table and repeat the test.
 - **e)** Interpret the test results, referencing the actual chi-squared statistic and p-value you computed.
 
-### Task 3 — Correlation analysis (Spearman)
+### Task 3 — Correlation analysis (Pearson & Spearman)
 - **a)** Create a scatter plot of the distance and the door-to-door travel time.
-- **b)** Calculate Spearman's rank correlation coefficient (rho) with its p-value for *travel time vs. satisfaction* and for one other pair of your choice.
-- **c)** Explain why Spearman is more suitable than Pearson for this data, and compare both coefficients for one pair.
-- **d)** Interpret the results, referencing the actual rho and p-values you computed.
+- **b)** Pearson: calculate Pearson's correlation coefficient (r) with its p-value for *distance vs. travel time* (two numerical variables).
+- **c)** Spearman: calculate Spearman's rank correlation coefficient (rho) with its p-value for the two Likert items (1-5) *satisfied vs. stressful*. First state the direction you expect.
+- **d)** Also calculate Spearman's rho for *distance vs. travel time* and compare it with Pearson's r from b). Why is Pearson not suitable for the Likert items in c)?
+- **e)** Interpret the results, referencing the actual r, rho and p-values you computed.
