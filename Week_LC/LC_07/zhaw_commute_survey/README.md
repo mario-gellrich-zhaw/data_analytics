@@ -70,13 +70,7 @@ The SQL console runs each query on an in-memory SQLite copy of the responses. On
 
 ## Analysis (`analysis/`)
 
-| Notebook | |
-|---|---|
-| `simulate_responses.ipynb` | Simulates 200 responses in the same format (`zhaw_commute_responses.csv`) to practise before the real data exists |
-| `zhaw_commute_analysis.ipynb` | Exercise: chi-squared test (living situation vs. transport, collapsed Likert item vs. transport, expected frequencies, Cramér's V) and Spearman correlation (distance, travel time, costs, satisfaction; Spearman vs. Pearson) |
-| `solution_zhaw_commute_analysis.ipynb` | Solution |
-
-The notebooks read the class data directly from the sheet link; set `use_class_data = False` to use the simulated data instead.
+`class_survey_analysis.ipynb` reads the class data directly from the sheet link and covers the tasks in `../tasks_large_classes_week_07.md`: chi-squared test (living situation and gender vs. means of transport, check of the expected frequencies, 2 × 2 table with Fisher's exact test), Pearson correlation (distance vs. travel time) and Spearman correlation (Likert items, travel time, costs; comparison with Pearson).
 
 ## Tests
 

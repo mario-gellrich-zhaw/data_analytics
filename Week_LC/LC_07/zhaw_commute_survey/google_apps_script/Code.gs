@@ -1,3 +1,6 @@
+// Restricts the script's access to this one spreadsheet
+/** @OnlyCurrentDoc */
+
 /**
  * ZHAW commute survey: central storage of all responses in this Google Sheet.
  *
