@@ -118,10 +118,10 @@ Week_13/object_detection_tensorflow.ipynb
 # Week_LC/LC_06/solution_smartphone_prices.ipynb
 # Week_LC/LC_07/solution_chi-squared_test_correlation_analysis.ipynb
 # Week_LC/LC_08/solution_regression_analysis.ipynb
-Week_LC/LC_09/solution_classification_models.ipynb
-Week_LC/LC_10/solution_image_segementation_k_means_clustering.ipynb
-Week_LC/LC_11/solution_word_embeddings_CBOW.ipynb
-Week_LC/LC_12/solution_object_detection.ipynb
+# Week_LC/LC_09/solution_classification_models.ipynb
+# Week_LC/LC_10/solution_image_segementation_k_means_clustering.ipynb
+# Week_LC/LC_11/solution_word_embeddings_CBOW.ipynb
+# Week_LC/LC_12/solution_object_detection.ipynb
 
 # Ignore runtime-downloaded model/image files (LC_12 downloads these fresh each run)
 Week_LC/LC_12/deploy.prototxt
